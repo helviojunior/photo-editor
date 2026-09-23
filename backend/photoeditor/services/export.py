@@ -52,7 +52,8 @@ def status() -> dict:
 
 
 def export_hash(photo, state) -> str:
-    key = (f'{EXPORT_VERSION}:{develop.settings_hash(state["values"], state["preset"])}'
+    edit = develop.settings_hash(state['values'], state['preset'], state['crop'])
+    key = (f'{EXPORT_VERSION}:{edit}'
            f':{photo.mtime_ns}:{photo.size_bytes}')
     return hashlib.sha1(key.encode()).hexdigest()[:16]
 
@@ -84,7 +85,9 @@ def _export_one(photo):
         if photo.exported_hash == digest and out.is_file():
             _bump(skipped=1)
             return
-        rgb, exif = publish.load(raw_path(photo))
+        # Recorta na resolucao cheia, depois reduz para a caixa, depois revela.
+        rgb, exif = publish.load(raw_path(photo), state['crop']['scale'])
+        rgb = publish.fit(develop.apply_crop(rgb, state['crop']))
         rendered = develop.render(rgb, state['values'], state['preset'])
         write_atomic(out, publish.encode(rendered, exif))
         Photo.objects.filter(pk=photo.pk).update(exported_hash=digest)

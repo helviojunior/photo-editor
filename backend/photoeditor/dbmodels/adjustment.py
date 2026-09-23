@@ -25,5 +25,12 @@ class Adjustment(Base):
     saturation = models.FloatField(default=0)
     preset = models.CharField(max_length=32, blank=True, default='')
 
+    # Crop na proporcao da foto (ver develop.normalize_crop): escala do
+    # quadro, centro em fracao da largura/altura e giro em graus.
+    crop_scale = models.FloatField(default=1)
+    crop_cx = models.FloatField(default=0.5)
+    crop_cy = models.FloatField(default=0.5)
+    crop_angle = models.FloatField(default=0)
+
     def __str__(self):
         return f'Adjustment {self.photo_id}'

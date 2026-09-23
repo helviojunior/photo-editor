@@ -20,6 +20,7 @@ class HistoryEntry(Base):
         AUTO = 'auto', 'Auto'
         PRESET = 'preset', 'Preset'
         RESET = 'reset', 'Reset'
+        CROP = 'crop', 'Crop'
 
     photo = models.ForeignKey('photoeditor.Photo', on_delete=models.CASCADE,
                               related_name='history')

@@ -7,6 +7,7 @@ import { useDialog } from "contexts/DialogContext";
 import { Button } from "components/ui/button";
 import { FormError } from "components/ui/form-error";
 import ImagePane from "components/editor/ImagePane";
+import CropEditor from "components/editor/CropEditor";
 import Filmstrip from "components/editor/Filmstrip";
 import PhotoHistory from "components/editor/PhotoHistory";
 import EditPanel from "components/editor/EditPanel";
@@ -14,6 +15,7 @@ import ExportDialog from "components/editor/ExportDialog";
 import useShortcuts from "components/editor/useShortcuts";
 import useLoadedImage from "components/editor/useLoadedImage";
 import renderUrl, { sameState } from "components/editor/renderUrl";
+import { normalizeCrop } from "components/editor/crop";
 import { SORT_OPTIONS, readSort, sortPhotos, writeSort } from "components/editor/sortPhotos";
 
 /**
@@ -139,6 +141,48 @@ export default function Editor() {
     setDraft(next);
   }, []);
 
+  // Modo crop: o quadro vai sobre a ORIGINAL (esquerda) e a editada (direita)
+  // mostra o recorte ao vivo. Sai ao trocar de foto e com ESC.
+  const [cropMode, setCropMode] = useState(false);
+  useEffect(() => { setCropMode(false); }, [currentId]);
+  useEffect(() => {
+    if (!cropMode) return undefined;
+    const onKey = (e) => {
+      if (e.key === "Escape" && !document.querySelector('[role="dialog"]')) setCropMode(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [cropMode]);
+  // Girar encolhe o quadro para ele caber na foto; sem memória, girar e
+  // voltar a 0° deixaria o quadro pequeno. `baseScale` é o tamanho que a
+  // pessoa escolheu (ao entrar no modo ou redimensionando), e todo giro parte
+  // dele — o quadro só encolhe o quanto o ângulo exige.
+  const baseScaleRef = useRef(1);
+  useEffect(() => {
+    if (cropMode && draftRef.current) baseScaleRef.current = draftRef.current.crop.scale;
+  }, [cropMode]);
+  const aspect = current?.width ? current.height / current.width : 1;
+
+  const updateCrop = useCallback((crop, mode) => {
+    let next = crop;
+    if (mode === "rotate") {
+      next = normalizeCrop({ ...crop, scale: baseScaleRef.current }, aspect);
+    } else {
+      baseScaleRef.current = crop.scale;
+    }
+    updateDraft({ ...draftRef.current, crop: next });
+  }, [updateDraft, aspect]);
+
+  // ← / → no modo crop: gira o quadro para o próximo múltiplo de 15°.
+  const CROP_STEP = 15;
+  const rotateCrop = useCallback((dir) => {
+    const crop = draftRef.current?.crop;
+    if (!crop) return;
+    const k = crop.angle / CROP_STEP;
+    const target = (dir > 0 ? Math.floor(k + 1e-6) + 1 : Math.ceil(k - 1e-6) - 1) * CROP_STEP;
+    updateCrop({ ...crop, angle: target }, "rotate");
+  }, [updateCrop]);
+
   // O render acompanha o rascunho com um respiro curto: arrastar o slider
   // pede uma imagem a cada pausa, nao uma por evento.
   useEffect(() => {
@@ -254,11 +298,14 @@ export default function Editor() {
     if (photo && list?.some((p) => p.id === photo.id)) goTo(photo.id);
   }), [runAction, t, tf, loadPhotos, goTo]);
 
+  // No modo crop as setas giram o quadro (e cada toque grava); fora dele,
+  // trocam de foto. C entra e sai do modo crop.
   useShortcuts({
-    onNext: () => step(1),
-    onPrev: () => step(-1),
+    onNext: () => (cropMode ? (rotateCrop(1), commitDraft()) : step(1)),
+    onPrev: () => (cropMode ? (rotateCrop(-1), commitDraft()) : step(-1)),
     onDelete: deleteCurrent,
     onUndo: undo,
+    onCrop: () => { if (current) setCropMode((m) => !m); },
   });
 
   const rescan = async () => {
@@ -300,8 +347,14 @@ export default function Editor() {
       {/* Parte superior: 70% da altura no desktop */}
       <section className="flex flex-col border-b border-border lg:h-[70%] lg:flex-row">
         <div className="grid h-[42vh] min-h-0 grid-cols-2 gap-px bg-border lg:h-auto lg:flex-1">
-          <ImagePane label={t("editor.original")} src={current?.preview_url}
-            alt={current?.file_name} />
+          {cropMode && current && draft ? (
+            <CropEditor label={t("editor.original")} src={current.preview_url}
+              photo={current} crop={draft.crop} onChange={updateCrop}
+              onCommit={() => commitDraft()} />
+          ) : (
+            <ImagePane label={t("editor.original")} src={current?.preview_url}
+              alt={current?.file_name} />
+          )}
           <ImagePane label={t("editor.edited")} src={edited.src}
             alt={current?.file_name} busy={edited.loading} />
         </div>
@@ -322,7 +375,10 @@ export default function Editor() {
           )}
           <EditPanel config={develop} draft={draft} onDraft={updateDraft}
             onCommit={commitDraft} onAuto={() => autoOrReset("auto")}
-            onReset={() => autoOrReset("reset")} busy={busy} disabled={!current} />
+            onReset={() => autoOrReset("reset")} busy={busy} disabled={!current}
+            cropMode={cropMode} onToggleCrop={() => setCropMode((m) => !m)}
+            onCropChange={updateCrop}
+            aspect={aspect} />
           <div className="border-t border-border">
             <PhotoHistory photoId={current?.id} version={historyVersion} />
           </div>

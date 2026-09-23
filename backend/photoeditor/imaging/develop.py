@@ -101,9 +101,93 @@ def is_neutral(values, preset='') -> bool:
     return all(v == 0 for v in effective(values, preset).values())
 
 
-def settings_hash(values, preset='') -> str:
+# --------------------------------------------------------------------------- #
+# Crop
+#
+# Sempre na PROPORCAO da foto: o recorte e a propria foto reduzida por `scale`
+# (0,1..1), centrada em (cx, cy) — fracoes da largura e da altura — e girada
+# `angle` graus (positivo = horario, como o `rotate()` do CSS). A foto fica
+# parada; quem gira e o quadro, e a saida e o que esta sob ele, endireitado.
+#
+# O quadro girado tem de caber inteiro na foto. Ele cabe se, e so se, a caixa
+# que o envolve cabe (os extremos da caixa sao os cantos do quadro), entao a
+# restricao e fechada: `crop_max_scale` limita o tamanho pelo angulo e o
+# centro fica a meia caixa das bordas. Girar mais encolhe o quadro sozinho.
+# --------------------------------------------------------------------------- #
+
+CROP_IDENTITY = {'scale': 1.0, 'cx': 0.5, 'cy': 0.5, 'angle': 0.0}
+CROP_MIN_SCALE = 0.1
+CROP_MAX_ANGLE = 45.0
+
+
+def crop_max_scale(angle, aspect) -> float:
+    """Maior escala em que o quadro girado ainda cabe (aspect = altura/largura)."""
+    c, s = abs(math.cos(math.radians(angle))), abs(math.sin(math.radians(angle)))
+    return min(1.0, 1.0 / (c + aspect * s), 1.0 / (s / aspect + c))
+
+
+def _crop_extents(crop, aspect):
+    """Meia caixa envolvente do quadro, em fracao da largura e da altura."""
+    c = abs(math.cos(math.radians(crop['angle'])))
+    s = abs(math.sin(math.radians(crop['angle'])))
+    return (crop['scale'] / 2 * (c + aspect * s),
+            crop['scale'] / 2 * (s / aspect + c))
+
+
+def normalize_crop(crop, aspect) -> dict:
+    """Crop valido para uma foto de proporcao ``aspect`` (altura/largura)."""
+    crop = crop or {}
+
+    def num(key):
+        try:
+            value = float(crop.get(key, CROP_IDENTITY[key]))
+        except (TypeError, ValueError):
+            return CROP_IDENTITY[key]
+        return value if math.isfinite(value) else CROP_IDENTITY[key]
+
+    aspect = aspect if aspect and aspect > 0 else 1.0
+    angle = round(min(max(num('angle'), -CROP_MAX_ANGLE), CROP_MAX_ANGLE), 1)
+    scale = min(max(num('scale'), CROP_MIN_SCALE), crop_max_scale(angle, aspect))
+    out = {'scale': scale, 'angle': angle}
+    ex, ey = _crop_extents(out, aspect)
+    out['cx'] = min(max(num('cx'), ex), 1.0 - ex)
+    out['cy'] = min(max(num('cy'), ey), 1.0 - ey)
+    out = {k: round(out[k], 4) if k != 'angle' else out[k] for k in CROP_IDENTITY}
+    return dict(CROP_IDENTITY) if is_crop_identity(out) else out
+
+
+def is_crop_identity(crop) -> bool:
+    crop = crop or CROP_IDENTITY
+    return (crop['angle'] == 0 and crop['scale'] >= 0.9999
+            and abs(crop['cx'] - 0.5) < 1e-4 and abs(crop['cy'] - 0.5) < 1e-4)
+
+
+def apply_crop(img: np.ndarray, crop) -> np.ndarray:
+    """Recorta (e endireita) o quadro. ``crop`` ja normalizado."""
+    if not crop or is_crop_identity(crop):
+        return img
+    h, w = img.shape[:2]
+    ow, oh = max(int(round(crop['scale'] * w)), 1), max(int(round(crop['scale'] * h)), 1)
+    t = math.radians(crop['angle'])
+    cos, sin = math.cos(t), math.sin(t)
+    cx, cy, ocx, ocy = crop['cx'] * w, crop['cy'] * h, ow / 2.0, oh / 2.0
+    # Saida -> origem: centro do quadro + rotacao do deslocamento. Com
+    # WARP_INVERSE_MAP o OpenCV usa a matriz nesse sentido, sem inverter.
+    m = np.array([[cos, -sin, cx - cos * ocx + sin * ocy],
+                  [sin, cos, cy - sin * ocx - cos * ocy]], np.float32)
+    return cv2.warpAffine(img, m, (ow, oh),
+                          flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP,
+                          borderMode=cv2.BORDER_REPLICATE)
+
+
+def settings_hash(values, preset='', crop=None) -> str:
     """Identidade do resultado: mesmos ajustes + mesma versao = mesma imagem."""
-    payload = json.dumps([ENGINE_VERSION, effective(values, preset)], sort_keys=True)
+    parts = [ENGINE_VERSION, effective(values, preset)]
+    # Sem crop, o hash e o mesmo de antes de o crop existir: nada ja
+    # renderizado ou exportado fica "sujo" so por causa desta versao.
+    if crop and not is_crop_identity(crop):
+        parts.append(crop)
+    payload = json.dumps(parts, sort_keys=True)
     return hashlib.sha1(payload.encode()).hexdigest()[:16]
 
 
@@ -292,4 +376,5 @@ def describe() -> dict:
         'sliders': [{'name': n, 'min': lo, 'max': hi, 'step': st, 'group': g}
                     for n, (lo, hi, st, g) in SLIDERS.items()],
         'presets': [{'id': k, 'values': v} for k, v in PRESETS.items()],
+        'crop': {'min_scale': CROP_MIN_SCALE, 'max_angle': CROP_MAX_ANGLE},
     }

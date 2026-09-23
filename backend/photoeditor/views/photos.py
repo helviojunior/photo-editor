@@ -24,6 +24,8 @@ def render_url(photo, state):
     params.update({k: v for k, v in state['values'].items() if v})
     if state['preset']:
         params['preset'] = state['preset']
+    if not develop.is_crop_identity(state['crop']):
+        params.update({f'crop_{k}': v for k, v in state['crop'].items()})
     return f'/api/photos/{photo.pk}/render/?{urlencode(params)}'
 
 
@@ -121,13 +123,18 @@ class PhotoPreviewView(APIView):
 
 class PhotoRenderView(APIView):
     """Preview editado para os ajustes da QUERY (nao os gravados): e o que o
-    slider mostra antes de soltar. Sem ajustes, e o proprio preview."""
+    slider mostra antes de soltar — e o recorte, enquanto o quadro do crop e
+    arrastado sobre a original. Sem ajustes, e o proprio preview."""
 
     def get(self, request, pk):
-        values = {k: request.query_params[k] for k in develop.SLIDERS
-                  if k in request.query_params}
-        preset = request.query_params.get('preset', '')
-        return image_response(derivatives.render_path(active_photo(pk), values, preset))
+        photo = active_photo(pk)
+        q = request.query_params
+        values = {k: q[k] for k in develop.SLIDERS if k in q}
+        preset = q.get('preset', '')
+        crop = develop.normalize_crop(
+            {k: q[f'crop_{k}'] for k in develop.CROP_IDENTITY if f'crop_{k}' in q},
+            editing.aspect(photo))
+        return image_response(derivatives.render_path(photo, values, preset, crop))
 
 
 class DevelopConfigView(APIView):
@@ -141,7 +148,8 @@ class PhotoAdjustmentsView(APIView):
     def put(self, request, pk):
         photo = active_photo(pk)
         editing.set_adjustments(photo, request.data.get('values') or {},
-                                request.data.get('preset') or '')
+                                request.data.get('preset') or '',
+                                request.data.get('crop'))
         return Response(photo_json(photo))
 
 

@@ -68,19 +68,21 @@ def thumbnail_path(photo) -> Path:
     return path
 
 
-def render_path(photo, values, preset='') -> Path:
-    """Preview EDITADO: o preview do original passado pelo motor de revelacao.
+def render_path(photo, values, preset='', crop=None) -> Path:
+    """Preview EDITADO: o preview do original recortado (``crop`` ja
+    normalizado) e passado pelo motor de revelacao.
 
     O nome carrega o hash dos ajustes efetivos (e a versao do motor), entao
     arrastar um slider de volta a um valor ja visto reaproveita o arquivo.
     """
-    if develop.is_neutral(values, preset):
+    no_crop = not crop or develop.is_crop_identity(crop)
+    if no_crop and develop.is_neutral(values, preset):
         return preview_path(photo)
-    key = develop.settings_hash(values, preset)
+    key = develop.settings_hash(values, preset, crop)
     path = cache_dir('render') / f'{photo.pk}-{photo.mtime_ns}-{key}.jpg'
     if not path.is_file():
         with Image.open(preview_path(photo)) as img:
-            rgb = np.asarray(img.convert('RGB'))
+            rgb = develop.apply_crop(np.asarray(img.convert('RGB')), crop)
         out = Image.fromarray(develop.render(rgb, values, preset))
         write_atomic(path, _encode(out, RENDER_QUALITY))
     return path

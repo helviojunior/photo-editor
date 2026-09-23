@@ -1,8 +1,9 @@
 import React, { useEffect, useRef } from "react";
-import { RotateCcw, Wand2 } from "lucide-react";
+import { Check, Crop as CropIcon, RotateCcw, Wand2 } from "lucide-react";
 import { useI18n } from "i18n";
 import { cn } from "lib/utils";
 import { Button } from "components/ui/button";
+import { CROP_IDENTITY, isCropIdentity, normalizeCrop } from "./crop";
 
 const GROUPS = ["light", "color"];
 
@@ -12,7 +13,7 @@ function formatValue(slider, value) {
 }
 
 /**
- * Painel de edição: Auto, Reset, presets e os sliders do motor.
+ * Painel de edição: Auto, Reset, crop, presets e os sliders do motor.
  *
  * Os sliders vêm do backend (`/api/develop/`): limites, passo e grupo são do
  * motor, e o painel só os desenha. Arrastar muda o rascunho (`onDraft`, o
@@ -23,6 +24,7 @@ function formatValue(slider, value) {
  */
 export default function EditPanel({
   config, draft, onDraft, onCommit, onAuto, onReset, busy, disabled,
+  cropMode, onToggleCrop, onCropChange, aspect,
 }) {
   const { t } = useI18n();
   // Seta segurada no slider = um ajuste, nao um por passo: grava quando o
@@ -63,6 +65,52 @@ export default function EditPanel({
           {busy !== "reset" && <RotateCcw className="h-4 w-4" />} {t("edit.reset", "Reset")}
         </Button>
       </div>
+
+      <section>
+        <Button variant={cropMode ? "default" : "outline"} size="sm" className="w-full"
+          onClick={onToggleCrop} aria-pressed={!!cropMode}
+          title={t("edit.cropShortcut", "Crop mode (C)")}>
+          {cropMode ? <Check className="h-4 w-4" /> : <CropIcon className="h-4 w-4" />}
+          {cropMode ? t("edit.cropDone", "Done") : t("edit.crop", "Crop")}
+        </Button>
+        {cropMode && (
+          <div className="mt-2 space-y-2">
+            <p className="text-[11px] text-muted-foreground">
+              {t("edit.cropHint", "Drag the frame to move it, the corners to resize, outside it to rotate.")}
+            </p>
+            <div>
+              <div className="flex items-baseline justify-between text-xs">
+                <label htmlFor="slider-crop-angle">{t("edit.angle", "Angle")}</label>
+                <span className="tabular-nums">{draft.crop.angle.toFixed(1)}°</span>
+              </div>
+              <input
+                id="slider-crop-angle"
+                type="range"
+                min={-config.crop.max_angle}
+                max={config.crop.max_angle}
+                step={0.1}
+                value={draft.crop.angle}
+                onChange={(e) => onCropChange(
+                  normalizeCrop({ ...draft.crop, angle: Number(e.target.value) }, aspect), "rotate")}
+                onPointerUp={commit}
+                onKeyUp={() => {
+                  clearTimeout(keyTimer.current);
+                  keyTimer.current = setTimeout(() => onCommit(), 600);
+                }}
+                className="touch-target w-full cursor-pointer accent-brand-500"
+              />
+            </div>
+            <Button variant="ghost" size="sm" className="w-full"
+              disabled={isCropIdentity(draft.crop)}
+              onClick={() => {
+                onCropChange({ ...CROP_IDENTITY }, "reset");
+                onCommit();
+              }}>
+              <RotateCcw className="h-4 w-4" /> {t("edit.cropReset", "Reset crop")}
+            </Button>
+          </div>
+        )}
+      </section>
 
       <section>
         <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">

@@ -136,6 +136,14 @@ original + ajustes.
       Vintage — deslocamentos somados aos ajustes da foto
       (`imaging/develop.py:PRESETS`), então convivem com o Auto.
 - [x] **6.6** Botão para resetar a foto (volta ao neutro, desfazível).
+- [x] **6.7** **Crop** mantendo a proporção da foto: o quadro fica sobre a
+      original (esquerda) e a editada (direita) mostra o recorte ao vivo.
+      Arrastar move, os cantos redimensionam com o canto oposto fixo e
+      arrastar fora do quadro gira **só o quadro** (a foto fica parada), até
+      ±45°. Atalho `C` entra/sai do modo (e `Esc` sai); no modo, `←`/`→` giram
+      o quadro de 15 em 15°. Gravado no banco, desfazível, e aplicado igual no
+      preview e na exportação (que recorta na resolução cheia antes de
+      reduzir para 1920×1080).
 
 ## 7. Exportação
 

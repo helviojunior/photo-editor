@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import io
 import logging
+import math
 from pathlib import Path
 
 import numpy as np
@@ -40,19 +41,31 @@ def target_box(width, height) -> tuple[int, int]:
     return TARGET_LONG_SIDE, TARGET_SHORT_SIDE
 
 
-def load(path: Path) -> tuple[np.ndarray, bytes]:
-    """(pixels RGB ja girados e na caixa de publicacao, EXIF original)."""
+def load(path: Path, crop_scale: float = 1.0) -> tuple[np.ndarray, bytes]:
+    """(pixels RGB ja girados, EXIF original).
+
+    A resolucao e a menor que ainda enche a caixa de publicacao DEPOIS do crop:
+    um recorte de 50 % precisa de 3840 px no lado maior para sair em 1920.
+    """
+    need = int(math.ceil(TARGET_LONG_SIDE / max(crop_scale, 0.01)))
     with Image.open(path) as raw:
         exif = raw.info.get('exif', b'')
         # A DCT reduz por 1/2, 1/4, 1/8 mantendo os dois lados >= o pedido.
-        raw.draft('RGB', (TARGET_LONG_SIDE, TARGET_LONG_SIDE))
+        raw.draft('RGB', (need, need))
         img = ImageOps.exif_transpose(raw)
         if img.mode != 'RGB':
             img = img.convert('RGB')
-        box = target_box(img.width, img.height)
-        if img.width > box[0] or img.height > box[1]:     # nunca amplia
-            img = ImageOps.contain(img, box, Image.Resampling.LANCZOS)
         return np.asarray(img), exif
+
+
+def fit(rgb: np.ndarray) -> np.ndarray:
+    """Reduz para a caixa de publicacao; nunca amplia."""
+    h, w = rgb.shape[:2]
+    box = target_box(w, h)
+    if w <= box[0] and h <= box[1]:
+        return rgb
+    img = ImageOps.contain(Image.fromarray(rgb), box, Image.Resampling.LANCZOS)
+    return np.asarray(img)
 
 
 def _exif_for_publication(exif_bytes: bytes) -> bytes | None:
