@@ -69,14 +69,18 @@ Layout esperado dentro de `/project`:
 
 ## 3. Layout do editor (referência: `temp/IMG_5156.WEBP`)
 
-- [ ] **3.1** Parte superior com **70% da altura** da tela:
+- [x] **3.1** Parte superior com **70% da altura** da tela:
     - à esquerda, a foto **original** (sem edição);
     - ao centro/direita, a foto **editada**;
     - na extrema direita, o **painel de controles de edição** (seção Edição).
-- [ ] **3.2** A tela do editor tem rota própria por foto (ex.: `/photos/:id`),
+- [x] **3.2** A tela do editor tem rota própria por foto (ex.: `/photos/:id`),
       de modo que a navegação atualize a URL (regra 3 do CLAUDE.md).
-- [ ] **3.3** Comportamento no celular/tablet (regra 2.4): definir como
-      antes/depois e painel se reorganizam em tela estreita.
+- [x] **3.3** Comportamento no celular/tablet (regra 2.4): definir como
+      antes/depois e painel se reorganizam em tela estreita. Abaixo de `lg:`
+      as duas fotos ficam lado a lado numa faixa, o painel desce para baixo
+      delas e a página rola.
+- [x] **3.4** Remover a barra lateral para ganhar espaço de tela: o
+      `AppLayout` fica só com cabeçalho + conteúdo.
 
 ## 4. Filmstrip de thumbnails (referência: `temp/Xnip2026-09-23_15-33-04.png`)
 

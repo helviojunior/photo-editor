@@ -28,15 +28,18 @@ export const LOCALES = {
     "common.close": "Close",
 
     // Navegação / layout
-    "nav.dashboard": "Dashboard",
-    "nav.openMenu": "Open menu",
-    "nav.closeMenu": "Close menu",
     "nav.theme": "Theme",
 
-    // Dashboard
-    "dashboard.title": "Dashboard",
-    "dashboard.welcome": "Welcome to {brand}",
-    "dashboard.subtitle": "Pick an option on the side menu to start.",
+    // Editor
+    "editor.original": "Original",
+    "editor.edited": "Edited",
+    "editor.counter": "Photo {position} of {total}",
+    "editor.empty": "No photos in the catalog",
+    "editor.emptyHint": "Put the original JPEGs in the raw/ folder of the project and rescan.",
+    "editor.rescan": "Rescan",
+    "editor.rescanDone": "Catalog updated: {total} photos.",
+    "editor.rescanError": "Could not rescan the raw/ folder.",
+    "editor.loadError": "Could not load the photo catalog.",
 
     // Erros
     "error.generic": "Something went wrong. Please try again.",
@@ -67,14 +70,17 @@ export const LOCALES = {
     "common.done": "Concluir",
     "common.close": "Fechar",
 
-    "nav.dashboard": "Dashboard",
-    "nav.openMenu": "Abrir menu",
-    "nav.closeMenu": "Fechar menu",
     "nav.theme": "Tema",
 
-    "dashboard.title": "Dashboard",
-    "dashboard.welcome": "Bem-vindo ao {brand}",
-    "dashboard.subtitle": "Selecione uma opção no menu lateral para começar.",
+    "editor.original": "Original",
+    "editor.edited": "Editada",
+    "editor.counter": "Foto {position} de {total}",
+    "editor.empty": "Nenhuma foto no catálogo",
+    "editor.emptyHint": "Coloque os JPEGs originais na pasta raw/ do projeto e reescaneie.",
+    "editor.rescan": "Reescanear",
+    "editor.rescanDone": "Catálogo atualizado: {total} fotos.",
+    "editor.rescanError": "Não foi possível reescanear a pasta raw/.",
+    "editor.loadError": "Não foi possível carregar o catálogo de fotos.",
 
     "error.generic": "Algo deu errado. Tente novamente.",
   },

@@ -11,6 +11,8 @@ temp
 __pycache__/
 *.pyc
 backend/staticfiles/
+# collectstatic com DEBUG=True grava aqui (settings.STATIC_ROOT)
+backend/photoeditor/static/
 backend/media/
 
 # Frontend

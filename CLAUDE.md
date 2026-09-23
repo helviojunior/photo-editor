@@ -108,7 +108,9 @@ Toda tela nasce funcionando no celular.
   `matchMedia`, não `resize`) e `SidebarShell`, que devolve o `<aside>` no
   desktop e uma **gaveta sobreposta** abaixo de `lg:`. A gaveta vai para um
   portal no `body`: dentro da árvore, um ancestral com `overflow-hidden` a
-  recortaria.
+  recortaria. O editor **não** usa barra lateral (TODO 3.4: o espaço é das
+  fotos) — o `AppLayout` é só cabeçalho + conteúdo; o `SidebarShell` fica para
+  quando houver mais de uma tela a navegar.
 - **Altura:** `h-dvh`, nunca `h-screen`. `100vh` no iOS Safari conta a barra de
   URL retrátil e esconde o rodapé do conteúdo.
 - **Alvo de toque:** a classe `.touch-target` (`index.css`) dá 44px de altura
