@@ -53,18 +53,18 @@ Layout esperado dentro de `/project`:
 
 ## 2. Catálogo das fotos originais
 
-- [ ] **2.1** Modelo `Photo`: nome do arquivo, caminho relativo, tamanho,
+- [x] **2.1** Modelo `Photo`: nome do arquivo, caminho relativo, tamanho,
       dimensões, orientação EXIF, data/hora de captura
       (`DateTimeOriginal` + `SubsecTimeOriginal`, para ordenar como o evento
       aconteceu) e status (`active` / `deleted`).
-- [ ] **2.2** Varredura de `/project/raw` (somente JPEG: `.jpg`/`.jpeg`, sem
+- [x] **2.2** Varredura de `/project/raw` (somente JPEG: `.jpg`/`.jpeg`, sem
       diferenciar maiúsculas): cataloga fotos novas, marca as que
       sumiram, não duplica as já conhecidas (idempotente). Roda no boot e por um
       endpoint "reescanear".
-- [ ] **2.3** Derivados em cache em `project_data/` (thumbnail para a
+- [x] **2.3** Derivados em cache em `project_data/` (thumbnail para a
       filmstrip e preview para o editor), gerados sob demanda, **sem nunca
       alterar o original**.
-- [ ] **2.4** API: listar fotos (ordenadas pela captura), obter uma foto,
+- [x] **2.4** API: listar fotos (ordenadas pela captura), obter uma foto,
       servir thumbnail / preview / original.
 
 ## 3. Layout do editor (referência: `temp/IMG_5156.WEBP`)

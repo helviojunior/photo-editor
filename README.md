@@ -107,10 +107,9 @@ docker compose -f docker-compose.dev.yml up
 
 ## Banco e migrations
 
-- Hoje o app `photoeditor` não tem modelos próprios; o único usuário é o
-  `admin` no `auth.User` do Django.
-- Novos modelos herdam de `photoeditor.dbmodels.base.Base`; as migrations
-  seguem a regra 13 do `CLAUDE.md` (baseline congelada em `0001_initial.py`).
+- Modelos em `photoeditor/dbmodels/` (herdam de `dbmodels.base.Base`); o único
+  usuário é o `admin` no `auth.User` do Django.
+- Migrations incrementais e versionadas (regra 13 do `CLAUDE.md`).
 
 ## Principais endpoints (API)
 

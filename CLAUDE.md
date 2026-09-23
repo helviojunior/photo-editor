@@ -300,21 +300,18 @@ não existe.
 - **Sem buffer:** o `backend/Dockerfile` define `PYTHONUNBUFFERED=1`; sob uwsgi
   o stdout fica em buffer de bloco e o log atrasa ou se perde no crash.
 
-### 13. Migration baseline congelada
-O baseline versiona **uma única migration congelada** por app
-(`backend/photoeditor/migrations/0001_initial.py`, gerada quando o app tiver o
-primeiro modelo — hoje não há nenhum) que captura todo o modelo de dados atual. `makemigrations --check` deve reportar "No changes detected" — se
-não reportar, o modelo divergiu da migration.
+### 13. Migrations incrementais
+O banco de cada projeto de fotos (`project_data/db.sqlite3`) é dado real e
+persiste entre versões. Por isso as migrations são **incrementais**
+(`0001_initial.py`, `0002_...`, …) e versionadas junto com a mudança de modelo.
 
-- **Como aplicar:** ao evoluir o modelo, ou (a) regenerar a baseline do zero
-  (`rm 0001_initial.py && makemigrations photoeditor`) enquanto o projeto ainda
-  é baseline, ou (b) em projetos derivados, adicionar migrations incrementais
-  normalmente (`0002_...`). O entrypoint roda `makemigrations` + `migrate` no
-  boot; com a baseline congelada, o `makemigrations` não gera nada.
-- **Ao forkar para um novo projeto:** remover esta regra. O congelamento só faz
-  sentido enquanto isto é o baseline; no projeto derivado as migrations devem ser
-  criadas e persistidas normalmente (`0002_...`, `0003_...`, as usual),
-  acompanhando a evolução do modelo.
+- **Proibido:** apagar ou regenerar uma migration já commitada — um banco que
+  já a aplicou nunca receberia as mudanças.
+- **Como aplicar:** ao mudar um modelo, rode `makemigrations photoeditor` (via
+  Docker, regra 15.1) e commite a migration nova no mesmo commit. O entrypoint
+  roda `makemigrations` + `migrate` no boot, mas a migration gerada ali vive só
+  no container — a versionada é a que vale. `makemigrations --check` deve
+  reportar "No changes detected".
 
 ## Convenções de código e versionamento
 

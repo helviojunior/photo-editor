@@ -90,6 +90,9 @@ def on_startup():
         # Garante o usuario ``admin`` padrao (sem senha) do Django admin publico.
         ensure_admin_user()
 
+        # Cataloga as fotos de raw/ (idempotente).
+        scan_catalog()
+
         log.info("Startup ok.")
     except Exception:
         log.exception("Fail running startup tasks.")
@@ -115,6 +118,16 @@ def ensure_project_dirs():
             "and check the /project mount (PROJECT_DIR in the root .env).",
             settings.RAW_DIR,
         )
+
+
+def scan_catalog():
+    """Sincroniza o catalogo com raw/. Best-effort: falha so vai para o log."""
+    from photoeditor.services import catalog
+
+    try:
+        catalog.scan()
+    except Exception:
+        log.exception("Catalog scan failed.")
 
 
 def ensure_admin_user():
