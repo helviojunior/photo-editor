@@ -215,11 +215,17 @@ preheader, rodapé, logo.
 - Cor, site e logo saem das settings `BRAND_*`; o idioma é o informado por
   quem envia (regra 6).
 
-### 11. Favicon e logo remotos: copiados de `../sec_face`
-Favicon e logo são servidos remotamente de `media.sec4us.com.br`:
+### 11. Favicon remoto, logo no build
+O favicon é servido remotamente de `media.sec4us.com.br` (padrão do
+`../sec_face`); o logo do PhotoE foi baixado de lá e vai no próprio build:
 
 - `public/index.html` referencia
   `https://media.sec4us.com.br/icon/favicon.ico|.png?ts=%REACT_APP_BUILD_TS%`.
+- Logo: `public/assets/logo/photoe-light.png` (tema claro) e
+  `photoe-dark.png` (tema escuro — texto branco), originais em
+  `https://media.sec4us.com.br/logo/photoe-{light,dark}.png`. Para trocar,
+  substitua os arquivos (mesmo nome) ou defina `REACT_APP_BRAND_LOGO` /
+  `REACT_APP_BRAND_LOGO_DARK` no `.env`; vazias, valem os arquivos locais.
 - `src/lib/brand.js` resolve nome, logo, logo escuro, favicon e e-mail de
   contato a partir de `REACT_APP_BRAND_*` / `REACT_APP_MEDIA_BASE`.
 - O logo do rodapé dos e-mails vem da mesma origem (setting `BRAND_EMAIL_LOGO`).
