@@ -10,12 +10,17 @@ from pathlib import Path
 
 from django.conf import settings
 
+import numpy as np
+from PIL import Image
+
+from photoeditor.imaging import develop
 from photoeditor.imaging.io import load_rgb, raw_path
 
 # Lado maior do preview que o editor mostra (original e editada lado a lado).
 PREVIEW_SIDE = 1600
 THUMBNAIL_SIDE = 240
 PREVIEW_QUALITY = 92
+RENDER_QUALITY = 90
 THUMBNAIL_QUALITY = 82
 
 
@@ -60,4 +65,22 @@ def thumbnail_path(photo) -> Path:
     if not path.is_file():
         img = load_rgb(preview_path(photo), max_side=THUMBNAIL_SIDE)
         write_atomic(path, _encode(img, THUMBNAIL_QUALITY))
+    return path
+
+
+def render_path(photo, values, preset='') -> Path:
+    """Preview EDITADO: o preview do original passado pelo motor de revelacao.
+
+    O nome carrega o hash dos ajustes efetivos (e a versao do motor), entao
+    arrastar um slider de volta a um valor ja visto reaproveita o arquivo.
+    """
+    if develop.is_neutral(values, preset):
+        return preview_path(photo)
+    key = develop.settings_hash(values, preset)
+    path = cache_dir('render') / f'{photo.pk}-{photo.mtime_ns}-{key}.jpg'
+    if not path.is_file():
+        with Image.open(preview_path(photo)) as img:
+            rgb = np.asarray(img.convert('RGB'))
+        out = Image.fromarray(develop.render(rgb, values, preset))
+        write_atomic(path, _encode(out, RENDER_QUALITY))
     return path

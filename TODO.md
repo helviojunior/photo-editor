@@ -96,9 +96,8 @@ Layout esperado dentro de `/project`:
 - [x] **5.2** `←` — foto anterior.
 - [x] **5.3** `DEL` (ou `⌫` no Mac) — marca a foto como excluída: **move** o arquivo de
       `raw/` para `deleted/` (nunca apaga) e avança para a próxima.
-- [~] **5.4** `CTRL+Z` / `CMD+Z` — desfaz a última ação (exclusão, ajuste,
+- [x] **5.4** `CTRL+Z` / `CMD+Z` — desfaz a última ação (exclusão, ajuste,
       preset, auto…). Desfazer uma exclusão devolve o arquivo para `raw/`.
-      *(Exclusão pronta; os ajustes entram com a seção 6.)*
 - [x] **5.5** Modelo de histórico de ações (tipo, foto, estado anterior) que
       sustenta o desfazer, persistido no banco.
 - [x] **5.6** Atalhos não disparam enquanto o foco está em um campo de texto
@@ -114,24 +113,26 @@ As definições **não são gravadas na foto**: ficam no banco, numa relação d
 foto com cada ajuste. A foto editada exibida é renderizada a partir do
 original + ajustes.
 
-- [ ] **6.1** Modelo de ajustes por foto (`Photo` → ajustes), com valores
+- [x] **6.1** Modelo de ajustes por foto (`Photo` → ajustes), com valores
       neutros por padrão e o preset aplicado, se houver.
-- [ ] **6.2** Renderização do preview editado no backend a partir do
+- [x] **6.2** Renderização do preview editado no backend a partir do
       original + ajustes (mesmo motor usado na exportação, para o que se vê
       ser o que se exporta).
-- [ ] **6.3** **Auto** — portar o corretor `photofix_v2` do
+- [x] **6.3** **Auto** — portar o corretor `photofix_v2` do
       `../correct-photos` (`src/photofix/enhance.py` / `pipeline.py`):
       curva de tom que preserva o ponto branco e exposição medida no sujeito
       (`subject.py`). O resultado vira valores de ajuste editáveis, não um
       "carimbo" irreversível.
-- [ ] **6.4** Ajustes manuais:
-    - [ ] Saturação
-    - [ ] Levels (Shadows, Highlights, Blacks, Whites, Exposure, Contrast…)
-    - [ ] Outros controles a especificar
-- [ ] **6.5** **Presets** — conjunto inspirado nos perfis mais comuns dos
+- [x] **6.4** Ajustes manuais:
+    - [x] Saturação
+    - [x] Levels (Shadows, Highlights, Blacks, Whites, Exposure, Contrast…)
+    - [x] Outros controles: Temperatura, Matiz (tint) e Vibratilidade
+- [x] **6.5** **Presets** — conjunto inspirado nos perfis mais comuns dos
       editores populares (Lightroom/VSCO: vívido, suave, P&B, quente, frio,
-      vintage/matte…). Lista final a definir antes de implementar.
-- [ ] **6.6** Botão para resetar a foto (volta ao neutro, desfazível).
+      vintage/matte…). Lista final: Vívido, Suave, Quente, Frio, P&B, Matte e
+      Vintage — deslocamentos somados aos ajustes da foto
+      (`imaging/develop.py:PRESETS`), então convivem com o Auto.
+- [x] **6.6** Botão para resetar a foto (volta ao neutro, desfazível).
 
 ## 7. Exportação
 

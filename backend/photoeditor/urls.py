@@ -5,7 +5,8 @@ from photoeditor.views.config import AppConfigView
 from photoeditor.views.photos import (
     PhotoListView, PhotoDetailView, PhotoRescanView,
     PhotoThumbnailView, PhotoPreviewView, PhotoOriginalView,
-    PhotoHistoryView, UndoView,
+    PhotoHistoryView, UndoView, PhotoRenderView, DevelopConfigView,
+    PhotoAdjustmentsView, PhotoAutoView, PhotoResetView,
 )
 
 
@@ -29,6 +30,13 @@ urlpatterns = [
     path('api/photos/<uuid:pk>/thumbnail/', PhotoThumbnailView.as_view(), name='photo-thumbnail'),
     path('api/photos/<uuid:pk>/preview/', PhotoPreviewView.as_view(), name='photo-preview'),
     path('api/photos/<uuid:pk>/original/', PhotoOriginalView.as_view(), name='photo-original'),
+    path('api/photos/<uuid:pk>/render/', PhotoRenderView.as_view(), name='photo-render'),
+
+    # Edicao: ajustes gravados, Auto e reset (todos desfaziveis)
+    path('api/develop/', DevelopConfigView.as_view(), name='develop-config'),
+    path('api/photos/<uuid:pk>/adjustments/', PhotoAdjustmentsView.as_view(), name='photo-adjustments'),
+    path('api/photos/<uuid:pk>/auto/', PhotoAutoView.as_view(), name='photo-auto'),
+    path('api/photos/<uuid:pk>/reset/', PhotoResetView.as_view(), name='photo-reset'),
     path('api/photos/<uuid:pk>/history/', PhotoHistoryView.as_view(), name='photo-history'),
 
     # Desfazer (CTRL/CMD+Z) — a ultima acao de qualquer foto

@@ -9,7 +9,10 @@ import { FormError } from "components/ui/form-error";
 import ImagePane from "components/editor/ImagePane";
 import Filmstrip from "components/editor/Filmstrip";
 import PhotoHistory from "components/editor/PhotoHistory";
+import EditPanel from "components/editor/EditPanel";
 import useShortcuts from "components/editor/useShortcuts";
+import useLoadedImage from "components/editor/useLoadedImage";
+import renderUrl, { sameState } from "components/editor/renderUrl";
 
 /**
  * Tela do editor (estilo Develop do Lightroom), uma rota por foto.
@@ -34,6 +37,15 @@ export default function Editor() {
   const [historyVersion, setHistoryVersion] = useState(0);
   // Uma acao por vez: DEL segurado nao pode disparar varias exclusoes.
   const busyRef = useRef(false);
+  const [busy, setBusy] = useState("");
+
+  // Edicao: config do motor, rascunho dos ajustes (o que o slider mostra) e a
+  // chave que manda o rascunho voltar ao que esta gravado.
+  const [develop, setDevelop] = useState(null);
+  const [draft, setDraft] = useState(null);
+  const draftRef = useRef(null);
+  const [syncKey, setSyncKey] = useState(0);
+  const [previewUrl, setPreviewUrl] = useState(null);
 
   const loadPhotos = useCallback(async () => {
     try {
@@ -48,6 +60,9 @@ export default function Editor() {
   }, []);
 
   useEffect(() => { loadPhotos(); }, [loadPhotos]);
+  useEffect(() => {
+    api.get("/api/develop/").then((res) => setDevelop(res.data)).catch(() => {});
+  }, []);
 
   const index = useMemo(
     () => (photos ? photos.findIndex((p) => p.id === id) : -1),
@@ -72,9 +87,37 @@ export default function Editor() {
     }
   }, [photos, index, goTo]);
 
-  const runAction = useCallback(async (fn) => {
+  // Troca de foto (ou Auto/Reset/desfazer): o rascunho vira o estado gravado.
+  const currentId = current?.id;
+  useEffect(() => {
+    const saved = current?.adjustments || null;
+    draftRef.current = saved;
+    setDraft(saved);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentId, syncKey]);
+
+  const updateDraft = useCallback((next) => {
+    draftRef.current = next;
+    setDraft(next);
+  }, []);
+
+  // O render acompanha o rascunho com um respiro curto: arrastar o slider
+  // pede uma imagem a cada pausa, nao uma por evento.
+  useEffect(() => {
+    const url = renderUrl(current, draft);
+    const timer = setTimeout(() => setPreviewUrl(url), 120);
+    return () => clearTimeout(timer);
+  }, [current, draft]);
+  const edited = useLoadedImage(previewUrl);
+
+  const replacePhoto = useCallback((photo) => {
+    setPhotos((list) => list.map((p) => (p.id === photo.id ? photo : p)));
+  }, []);
+
+  const runAction = useCallback(async (fn, name = "action") => {
     if (busyRef.current) return;
     busyRef.current = true;
+    setBusy(name);
     try {
       await fn();
     } catch (err) {
@@ -85,9 +128,64 @@ export default function Editor() {
       });
     } finally {
       busyRef.current = false;
+      setBusy("");
       setHistoryVersion((v) => v + 1);
     }
   }, [alert, t]);
+
+  // Ultimo estado GRAVADO da foto atual. Atualizado na resposta de cada PUT,
+  // sem esperar o render: o proximo da fila ja compara com ele.
+  const savedRef = useRef({ id: null, state: null });
+  useEffect(() => {
+    savedRef.current = { id: current?.id, state: current?.adjustments };
+  }, [current]);
+
+  // Gravacoes em FILA, uma por vez: em paralelo elas chegavam fora de ordem e
+  // o banco ficava com um valor intermediario do slider.
+  const saveQueue = useRef(Promise.resolve());
+
+  // Soltou o slider / escolheu preset: grava se mudou algo.
+  const commitDraft = useCallback((next) => {
+    const state = next || draftRef.current;
+    const photoId = current?.id;
+    if (!photoId || !state) return;
+    saveQueue.current = saveQueue.current.then(async () => {
+      const saved = savedRef.current;
+      if (saved.id === photoId && sameState(state, saved.state)) return;
+      try {
+        const res = await api.put(`/api/photos/${photoId}/adjustments/`, state);
+        if (savedRef.current.id === photoId) {
+          savedRef.current = { id: photoId, state: res.data.adjustments };
+        }
+        replacePhoto(res.data);
+      } catch (err) {
+        await alert({
+          title: t("edit.saveError", "Could not save the adjustment"),
+          description: err?.response?.data?.error || t("error.generic"),
+          variant: "danger",
+        });
+      } finally {
+        setHistoryVersion((v) => v + 1);
+      }
+    });
+  }, [current, replacePhoto, alert, t]);
+
+  // Soltar o slider FORA dele nao dispara o pointerup do slider: a janela
+  // pega esse caso. Gravar e idempotente (sem mudanca, nao grava).
+  const commitRef = useRef(commitDraft);
+  commitRef.current = commitDraft;
+  useEffect(() => {
+    const onUp = () => setTimeout(() => commitRef.current(), 0);
+    window.addEventListener("pointerup", onUp);
+    return () => window.removeEventListener("pointerup", onUp);
+  }, []);
+
+  const autoOrReset = useCallback((kind) => runAction(async () => {
+    if (!current) return;
+    const res = await api.post(`/api/photos/${current.id}/${kind}/`);
+    replacePhoto(res.data);
+    setSyncKey((k) => k + 1);
+  }, kind), [runAction, current, replacePhoto]);
 
   const step = useCallback((delta) => {
     if (!photos || index < 0) return;
@@ -114,6 +212,7 @@ export default function Editor() {
     }
     setStatus(tf("editor.undone", { action: t(`action.${undone.kind}`, undone.kind) }));
     const list = await loadPhotos();
+    setSyncKey((k) => k + 1);
     if (photo && list?.some((p) => p.id === photo.id)) goTo(photo.id);
   }), [runAction, t, tf, loadPhotos, goTo]);
 
@@ -165,8 +264,8 @@ export default function Editor() {
         <div className="grid h-[42vh] min-h-0 grid-cols-2 gap-px bg-border lg:h-auto lg:flex-1">
           <ImagePane label={t("editor.original")} src={current?.preview_url}
             alt={current?.file_name} />
-          <ImagePane label={t("editor.edited")} src={current?.preview_url}
-            alt={current?.file_name} />
+          <ImagePane label={t("editor.edited")} src={edited.src}
+            alt={current?.file_name} busy={edited.loading} />
         </div>
 
         <aside className="w-full border-t border-border bg-card lg:w-72 lg:shrink-0 lg:overflow-y-auto lg:border-l lg:border-t-0 scrollbar-thin">
@@ -183,7 +282,12 @@ export default function Editor() {
               </div>
             </div>
           )}
-          <PhotoHistory photoId={current?.id} version={historyVersion} />
+          <EditPanel config={develop} draft={draft} onDraft={updateDraft}
+            onCommit={commitDraft} onAuto={() => autoOrReset("auto")}
+            onReset={() => autoOrReset("reset")} busy={busy} disabled={!current} />
+          <div className="border-t border-border">
+            <PhotoHistory photoId={current?.id} version={historyVersion} />
+          </div>
         </aside>
       </section>
 

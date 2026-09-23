@@ -1,19 +1,34 @@
+from urllib.parse import urlencode
+
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from photoeditor.i18n import tr
+from photoeditor.imaging import develop
 from photoeditor.imaging.io import raw_path
 from photoeditor.models import Photo
-from photoeditor.services import catalog, derivatives, history, trash
+from photoeditor.services import catalog, derivatives, editing, history, trash
 
 # URLs de imagem carregam a versao (mtime / hash dos ajustes): o conteudo de
 # uma URL nunca muda, entao o navegador pode guardar para sempre.
 IMMUTABLE = 'public, max-age=31536000, immutable'
 
 
+def render_url(photo, state):
+    """URL do preview editado: TODOS os insumos do render vao na query (versao
+    do arquivo, do motor e cada ajuste), entao ela nunca muda de conteudo.
+    O frontend monta a mesma URL enquanto o slider e arrastado."""
+    params = {'v': photo.mtime_ns, 'e': develop.ENGINE_VERSION}
+    params.update({k: v for k, v in state['values'].items() if v})
+    if state['preset']:
+        params['preset'] = state['preset']
+    return f'/api/photos/{photo.pk}/render/?{urlencode(params)}'
+
+
 def photo_json(photo):
+    state = editing.get_state(photo)
     return {
         'id': str(photo.pk),
         'file_name': photo.file_name,
@@ -22,6 +37,8 @@ def photo_json(photo):
         'captured_at': photo.captured_at.isoformat() if photo.captured_at else None,
         'thumbnail_url': f'/api/photos/{photo.pk}/thumbnail/?v={photo.mtime_ns}',
         'preview_url': f'/api/photos/{photo.pk}/preview/?v={photo.mtime_ns}',
+        'edited_url': render_url(photo, state),
+        'adjustments': state,
     }
 
 
@@ -40,7 +57,7 @@ class PhotoListView(APIView):
     """Fotos ativas na ordem de captura — a sequencia da filmstrip."""
 
     def get(self, request):
-        photos = Photo.objects.filter(status=Photo.Status.ACTIVE)
+        photos = Photo.objects.filter(status=Photo.Status.ACTIVE).select_related('adjustment')
         return Response({'results': [photo_json(p) for p in photos]})
 
 
@@ -100,6 +117,46 @@ class PhotoThumbnailView(APIView):
 class PhotoPreviewView(APIView):
     def get(self, request, pk):
         return image_response(derivatives.preview_path(active_photo(pk)))
+
+
+class PhotoRenderView(APIView):
+    """Preview editado para os ajustes da QUERY (nao os gravados): e o que o
+    slider mostra antes de soltar. Sem ajustes, e o proprio preview."""
+
+    def get(self, request, pk):
+        values = {k: request.query_params[k] for k in develop.SLIDERS
+                  if k in request.query_params}
+        preset = request.query_params.get('preset', '')
+        return image_response(derivatives.render_path(active_photo(pk), values, preset))
+
+
+class DevelopConfigView(APIView):
+    """Sliders (limites/passo), presets e versao do motor."""
+
+    def get(self, request):
+        return Response(develop.describe())
+
+
+class PhotoAdjustmentsView(APIView):
+    def put(self, request, pk):
+        photo = active_photo(pk)
+        editing.set_adjustments(photo, request.data.get('values') or {},
+                                request.data.get('preset') or '')
+        return Response(photo_json(photo))
+
+
+class PhotoAutoView(APIView):
+    def post(self, request, pk):
+        photo = active_photo(pk)
+        editing.run_auto(photo)
+        return Response(photo_json(photo))
+
+
+class PhotoResetView(APIView):
+    def post(self, request, pk):
+        photo = active_photo(pk)
+        editing.reset(photo)
+        return Response(photo_json(photo))
 
 
 class PhotoOriginalView(APIView):
