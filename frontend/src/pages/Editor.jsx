@@ -14,6 +14,7 @@ import ExportDialog from "components/editor/ExportDialog";
 import useShortcuts from "components/editor/useShortcuts";
 import useLoadedImage from "components/editor/useLoadedImage";
 import renderUrl, { sameState } from "components/editor/renderUrl";
+import { SORT_OPTIONS, readSort, sortPhotos, writeSort } from "components/editor/sortPhotos";
 
 /**
  * Tela do editor (estilo Develop do Lightroom), uma rota por foto.
@@ -30,7 +31,11 @@ export default function Editor() {
   const { t, tf } = useI18n();
   const { alert } = useDialog();
 
-  const [photos, setPhotos] = useState(null);
+  // Catálogo como veio da API; `photos` é ele na ordem escolhida na barra.
+  const [catalog, setPhotos] = useState(null);
+  const [sort, setSort] = useState(readSort);
+  const photos = useMemo(() => sortPhotos(catalog, sort), [catalog, sort]);
+  const changeSort = (value) => { setSort(value); writeSort(value); };
   const [loadError, setLoadError] = useState(false);
   const [rescanning, setRescanning] = useState(false);
   const [status, setStatus] = useState("");
@@ -333,6 +338,18 @@ export default function Editor() {
               : t("common.loading")}
           </span>
           {status && <span className="text-muted-foreground" role="status">{status}</span>}
+          <select
+            value={sort}
+            onChange={(e) => changeSort(e.target.value)}
+            aria-label={t("editor.sort", "Sort photos")}
+            className="touch-target h-8 rounded-md border border-border bg-transparent px-2 text-xs text-muted-foreground hover:text-foreground focus:outline-none cursor-pointer"
+          >
+            {SORT_OPTIONS.map((o) => (
+              <option key={o} value={o} className="bg-card text-foreground">
+                {t(`editor.sort.${o}`, o)}
+              </option>
+            ))}
+          </select>
           <div className="ml-auto flex items-center gap-1">
             {/* Os mesmos comandos dos atalhos, para quem nao tem teclado. */}
             <IconButton icon={ChevronLeft} label={t("editor.prev", "Previous photo (←)")}

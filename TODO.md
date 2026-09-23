@@ -89,6 +89,9 @@ Layout esperado dentro de `/project`:
       esquerda as anteriores, à direita as seguintes.
 - [x] **4.3** Clique em um thumbnail abre aquela foto no editor.
 - [x] **4.4** Contador no estilo "N fotos / posição atual".
+- [x] **4.5** Ordenar a filmstrip pela barra inferior: data/hora (↑/↓) ou
+      nome (A–Z/Z–A, em ordem natural). Navegação, contador e a vizinha
+      aberta após excluir seguem a ordem escolhida, lembrada no navegador.
 
 ## 5. Atalhos de teclado
 

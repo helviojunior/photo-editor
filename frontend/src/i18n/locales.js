@@ -48,6 +48,11 @@ export const LOCALES = {
     "editor.undone": "Undone: {action}.",
     "editor.nothingToUndo": "Nothing to undo.",
     "editor.actionError": "Could not complete the action",
+    "editor.sort": "Sort photos",
+    "editor.sort.date_asc": "Date/time ↑ (oldest first)",
+    "editor.sort.date_desc": "Date/time ↓ (newest first)",
+    "editor.sort.name_asc": "Name A–Z",
+    "editor.sort.name_desc": "Name Z–A",
 
     // Histórico de ações
     "history.title": "History",
@@ -145,6 +150,11 @@ export const LOCALES = {
     "editor.undone": "Desfeito: {action}.",
     "editor.nothingToUndo": "Nada para desfazer.",
     "editor.actionError": "Não foi possível concluir a ação",
+    "editor.sort": "Ordenar fotos",
+    "editor.sort.date_asc": "Data/hora ↑ (mais antigas antes)",
+    "editor.sort.date_desc": "Data/hora ↓ (mais recentes antes)",
+    "editor.sort.name_asc": "Nome A–Z",
+    "editor.sort.name_desc": "Nome Z–A",
 
     "history.title": "Histórico",
     "history.empty": "Nenhuma ação ainda.",
