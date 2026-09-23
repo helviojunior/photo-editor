@@ -6,7 +6,7 @@ from photoeditor.views.photos import (
     PhotoListView, PhotoDetailView, PhotoRescanView,
     PhotoThumbnailView, PhotoPreviewView, PhotoOriginalView,
     PhotoHistoryView, UndoView, PhotoRenderView, DevelopConfigView,
-    PhotoAdjustmentsView, PhotoAutoView, PhotoResetView,
+    PhotoAdjustmentsView, PhotoAutoView, PhotoResetView, ExportView,
 )
 
 
@@ -38,6 +38,9 @@ urlpatterns = [
     path('api/photos/<uuid:pk>/auto/', PhotoAutoView.as_view(), name='photo-auto'),
     path('api/photos/<uuid:pk>/reset/', PhotoResetView.as_view(), name='photo-reset'),
     path('api/photos/<uuid:pk>/history/', PhotoHistoryView.as_view(), name='photo-history'),
+
+    # Exportar para publicar/
+    path('api/export/', ExportView.as_view(), name='export'),
 
     # Desfazer (CTRL/CMD+Z) — a ultima acao de qualquer foto
     path('api/history/undo/', UndoView.as_view(), name='history-undo'),

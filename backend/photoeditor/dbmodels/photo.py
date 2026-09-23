@@ -37,6 +37,10 @@ class Photo(Base):
     # fotos na sequencia em que o evento aconteceu.
     captured_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
+    # Hash do que foi escrito em publicar/ na ultima exportacao (arquivo +
+    # ajustes + versoes). Reexportar pula a foto quando ele nao mudou.
+    exported_hash = models.CharField(max_length=32, blank=True, default='')
+
     class Meta:
         ordering = [models.F('captured_at').asc(nulls_last=True), 'file_name']
 

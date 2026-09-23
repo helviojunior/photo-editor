@@ -17,8 +17,13 @@ services:
     environment:
       TZ: "America/Sao_Paulo"
       DEBUG: "False"
+    # Um processo com threads (ver backend/Dockerfile): a exportacao roda numa
+    # thread e o progresso dela vive na memoria do processo.
     command:
       - uwsgi
+      - --enable-threads
+      - --threads
+      - "4"
       - --http
       - 0.0.0.0:8001
       - --http-buffer-size=32768

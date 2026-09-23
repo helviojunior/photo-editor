@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ChevronLeft, ChevronRight, ImageOff, RefreshCw, Trash2, Undo2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, ImageOff, RefreshCw, Trash2, Undo2, Upload } from "lucide-react";
 import api from "lib/api";
 import { useI18n } from "i18n";
 import { useDialog } from "contexts/DialogContext";
@@ -10,6 +10,7 @@ import ImagePane from "components/editor/ImagePane";
 import Filmstrip from "components/editor/Filmstrip";
 import PhotoHistory from "components/editor/PhotoHistory";
 import EditPanel from "components/editor/EditPanel";
+import ExportDialog from "components/editor/ExportDialog";
 import useShortcuts from "components/editor/useShortcuts";
 import useLoadedImage from "components/editor/useLoadedImage";
 import renderUrl, { sameState } from "components/editor/renderUrl";
@@ -47,6 +48,10 @@ export default function Editor() {
   const [syncKey, setSyncKey] = useState(0);
   const [previewUrl, setPreviewUrl] = useState(null);
 
+  // Exportacao: estado vindo do backend e se o modal esta aberto.
+  const [exportStatus, setExportStatus] = useState(null);
+  const [exportOpen, setExportOpen] = useState(false);
+
   const loadPhotos = useCallback(async () => {
     try {
       const res = await api.get("/api/photos/");
@@ -62,7 +67,35 @@ export default function Editor() {
   useEffect(() => { loadPhotos(); }, [loadPhotos]);
   useEffect(() => {
     api.get("/api/develop/").then((res) => setDevelop(res.data)).catch(() => {});
+    // Uma exportacao pode estar rodando desde antes de a pagina abrir.
+    api.get("/api/export/").then((res) => setExportStatus(res.data)).catch(() => {});
   }, []);
+
+  // Enquanto exporta, acompanha o progresso.
+  const exporting = !!exportStatus?.running;
+  useEffect(() => {
+    if (!exporting) return undefined;
+    const timer = setInterval(() => {
+      api.get("/api/export/").then((res) => setExportStatus(res.data)).catch(() => {});
+    }, 800);
+    return () => clearInterval(timer);
+  }, [exporting]);
+
+  const startExport = async () => {
+    try {
+      if (!exporting) {
+        const res = await api.post("/api/export/");
+        setExportStatus(res.data);
+      }
+      setExportOpen(true);
+    } catch (err) {
+      await alert({
+        title: t("export.startError", "Could not start the export"),
+        description: err?.response?.data?.error || t("error.generic"),
+        variant: "danger",
+      });
+    }
+  };
 
   const index = useMemo(
     () => (photos ? photos.findIndex((p) => p.id === id) : -1),
@@ -314,6 +347,12 @@ export default function Editor() {
               {!rescanning && <RefreshCw className="h-4 w-4" />}
               <span className="hidden sm:inline">{t("editor.rescan")}</span>
             </Button>
+            <Button size="sm" onClick={startExport} loading={exporting}>
+              {!exporting && <Upload className="h-4 w-4" />}
+              {exporting
+                ? tf("export.progress", { done: exportStatus.done, total: exportStatus.total })
+                : t("export.button", "Export")}
+            </Button>
           </div>
         </div>
         <div className="min-h-0 flex-1 px-2">
@@ -322,6 +361,9 @@ export default function Editor() {
           )}
         </div>
       </section>
+
+      <ExportDialog open={exportOpen} status={exportStatus}
+        onClose={() => setExportOpen(false)} />
     </div>
   );
 }

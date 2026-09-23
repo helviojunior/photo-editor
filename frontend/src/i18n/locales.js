@@ -84,6 +84,19 @@ export const LOCALES = {
     "preset.matte": "Matte",
     "preset.vintage": "Vintage",
 
+    // Exportação
+    "export.button": "Export",
+    "export.running": "Exporting…",
+    "export.done": "Export finished",
+    "export.destination": "Active photos, with their adjustments, go to {dir}",
+    "export.progress": "{done} of {total}",
+    "export.background": "Keep running in background",
+    "export.written": "exported",
+    "export.skipped": "unchanged",
+    "export.removed": "removed",
+    "export.errors": "Some photos could not be exported:",
+    "export.startError": "Could not start the export",
+
     // Erros
     "error.generic": "Something went wrong. Please try again.",
   },
@@ -165,6 +178,18 @@ export const LOCALES = {
     "preset.bw": "P&B",
     "preset.matte": "Matte",
     "preset.vintage": "Vintage",
+
+    "export.button": "Exportar",
+    "export.running": "Exportando…",
+    "export.done": "Exportação concluída",
+    "export.destination": "As fotos ativas, com os ajustes, vão para {dir}",
+    "export.progress": "{done} de {total}",
+    "export.background": "Continuar em segundo plano",
+    "export.written": "exportadas",
+    "export.skipped": "sem mudança",
+    "export.removed": "removidas",
+    "export.errors": "Algumas fotos não puderam ser exportadas:",
+    "export.startError": "Não foi possível iniciar a exportação",
 
     "error.generic": "Algo deu errado. Tente novamente.",
   },

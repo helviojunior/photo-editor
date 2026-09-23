@@ -136,14 +136,16 @@ original + ajustes.
 
 ## 7. Exportação
 
-- [ ] **7.1** Botão **Exportar** que gera todas as fotos ativas (não
+- [x] **7.1** Botão **Exportar** que gera todas as fotos ativas (não
       excluídas) com seus ajustes em `/project/publicar/`.
-- [ ] **7.2** Mesmo padrão de saída do `../correct-photos`
+- [x] **7.2** Mesmo padrão de saída do `../correct-photos`
       (`src/photofix/publish.py`): JPEG numa caixa 1920×1080, 72 dpi,
       qualidade 88, `optimize` e `progressive`; **EXIF preservado**
       (`DateTimeOriginal`/`SubsecTimeOriginal`/`OffsetTimeOriginal`); pixels
       girados de vez com `Orientation = 1`; miniatura embutida removida.
-- [ ] **7.3** Progresso visível durante a exportação (pode levar minutos) e
+- [x] **7.3** Progresso visível durante a exportação (pode levar minutos) e
       resumo ao final, usando os modais do sistema (regra 1).
-- [ ] **7.4** Reexportar sobrescreve apenas as fotos alteradas desde a última
-      exportação (a definir).
+- [x] **7.4** Reexportar sobrescreve apenas as fotos alteradas desde a última
+      exportação: cada foto guarda o hash do que foi escrito (arquivo +
+      ajustes + versões do motor e do formato) e é pulada se nada mudou; a
+      cópia exportada de uma foto excluída depois sai de `publicar/`.

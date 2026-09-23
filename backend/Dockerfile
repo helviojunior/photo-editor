@@ -30,4 +30,7 @@ EXPOSE 8001
 
 ENTRYPOINT ["./entrypoint.sh"]
 
-CMD ["uwsgi", "--buffer-size=32768", "--http", "0.0.0.0:8001", "--http-buffer-size=32768", "--module", "core.wsgi", "--env", "DJANGO_SETTINGS_MODULE=core.settings", "--reload-mercy=1", "--worker-reload-mercy=1", "--req-logger", "file:/dev/null", "--touch-reload", "./core/settings.py"]
+# --enable-threads: sem ele o uwsgi nao deixa rodar a thread da exportacao.
+# Um processo so, com threads: o progresso da exportacao vive na memoria do
+# processo (services/export.py) e todas as requisicoes precisam enxerga-lo.
+CMD ["uwsgi", "--enable-threads", "--threads", "4", "--buffer-size=32768", "--http", "0.0.0.0:8001", "--http-buffer-size=32768", "--module", "core.wsgi", "--env", "DJANGO_SETTINGS_MODULE=core.settings", "--reload-mercy=1", "--worker-reload-mercy=1", "--req-logger", "file:/dev/null", "--touch-reload", "./core/settings.py"]

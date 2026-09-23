@@ -9,7 +9,7 @@ from photoeditor.i18n import tr
 from photoeditor.imaging import develop
 from photoeditor.imaging.io import raw_path
 from photoeditor.models import Photo
-from photoeditor.services import catalog, derivatives, editing, history, trash
+from photoeditor.services import catalog, derivatives, editing, export, history, trash
 
 # URLs de imagem carregam a versao (mtime / hash dos ajustes): o conteudo de
 # uma URL nunca muda, entao o navegador pode guardar para sempre.
@@ -165,3 +165,13 @@ class PhotoOriginalView(APIView):
         if not path.is_file():
             raise Http404
         return image_response(path, cache='no-cache')
+
+
+class ExportView(APIView):
+    """GET: progresso da exportacao. POST: dispara (ou devolve a que ja roda)."""
+
+    def get(self, request):
+        return Response(export.status())
+
+    def post(self, request):
+        return Response(export.start(), status=202)
