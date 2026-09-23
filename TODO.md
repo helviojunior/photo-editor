@@ -84,11 +84,11 @@ Layout esperado dentro de `/project`:
 
 ## 4. Filmstrip de thumbnails (referência: `temp/Xnip2026-09-23_15-33-04.png`)
 
-- [ ] **4.1** Parte inferior (os 30% restantes) com a faixa de thumbnails.
-- [ ] **4.2** A foto em edição fica **sempre ao centro** e destacada; à
+- [x] **4.1** Parte inferior (os 30% restantes) com a faixa de thumbnails.
+- [x] **4.2** A foto em edição fica **sempre ao centro** e destacada; à
       esquerda as anteriores, à direita as seguintes.
-- [ ] **4.3** Clique em um thumbnail abre aquela foto no editor.
-- [ ] **4.4** Contador no estilo "N fotos / posição atual".
+- [x] **4.3** Clique em um thumbnail abre aquela foto no editor.
+- [x] **4.4** Contador no estilo "N fotos / posição atual".
 
 ## 5. Atalhos de teclado
 
