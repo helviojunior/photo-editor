@@ -109,6 +109,7 @@ Layout esperado dentro de `/project`:
       do projeto (`project_data/db.sqlite3`), sobrevivendo ao fechamento e à
       reabertura do projeto: nada é podado, e desfazer marca a ação como
       desfeita (com data) em vez de apagar o registro.
+- [x] **5.8** `A` — aplica o **Auto** na foto atual (desfazível como o botão).
 
 ## 6. Edição
 

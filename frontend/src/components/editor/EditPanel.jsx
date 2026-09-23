@@ -58,7 +58,8 @@ export default function EditPanel({
   return (
     <div className={cn("space-y-4 p-4", disabled && "pointer-events-none opacity-60")}>
       <div className="grid grid-cols-2 gap-2">
-        <Button variant="outline" size="sm" onClick={onAuto} loading={busy === "auto"}>
+        <Button variant="outline" size="sm" onClick={onAuto} loading={busy === "auto"}
+          title={t("edit.autoShortcut", "Auto (A)")}>
           {busy !== "auto" && <Wand2 className="h-4 w-4" />} {t("edit.auto", "Auto")}
         </Button>
         <Button variant="outline" size="sm" onClick={onReset} loading={busy === "reset"}>

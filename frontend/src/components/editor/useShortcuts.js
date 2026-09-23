@@ -10,16 +10,16 @@ function isFieldTarget(el) {
 
 /**
  * Atalhos do editor: → proxima, ← anterior, DEL excluir, CTRL/CMD+Z desfazer,
- * C entra/sai do modo crop (no modo crop, quem decide o que as setas fazem e
- * o Editor: elas giram o quadro).
+ * A aplica o Auto, C entra/sai do modo crop (no modo crop, quem decide o que
+ * as setas fazem e o Editor: elas giram o quadro).
  *
  * O DEL aceita tambem o Backspace: no teclado do Mac a tecla "delete" manda
  * Backspace, e o Delete de verdade so existe com fn.
  */
-export default function useShortcuts({ onNext, onPrev, onDelete, onUndo, onCrop }) {
+export default function useShortcuts({ onNext, onPrev, onDelete, onUndo, onCrop, onAuto }) {
   // Os handlers mudam a cada render; o listener fica um so.
   const handlers = useRef({});
-  handlers.current = { onNext, onPrev, onDelete, onUndo, onCrop };
+  handlers.current = { onNext, onPrev, onDelete, onUndo, onCrop, onAuto };
 
   useEffect(() => {
     const onKeyDown = (e) => {
@@ -36,6 +36,7 @@ export default function useShortcuts({ onNext, onPrev, onDelete, onUndo, onCrop 
       else if (e.key === "ArrowLeft") handler = h.onPrev;
       else if (e.key === "Delete" || e.key === "Backspace") handler = h.onDelete;
       else if (e.key.toLowerCase() === "c" && !e.shiftKey) handler = h.onCrop;
+      else if (e.key.toLowerCase() === "a" && !e.shiftKey) handler = h.onAuto;
 
       if (!handler) return;
       e.preventDefault();

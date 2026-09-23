@@ -299,13 +299,14 @@ export default function Editor() {
   }), [runAction, t, tf, loadPhotos, goTo]);
 
   // No modo crop as setas giram o quadro (e cada toque grava); fora dele,
-  // trocam de foto. C entra e sai do modo crop.
+  // trocam de foto. C entra e sai do modo crop; A aplica o Auto.
   useShortcuts({
     onNext: () => (cropMode ? (rotateCrop(1), commitDraft()) : step(1)),
     onPrev: () => (cropMode ? (rotateCrop(-1), commitDraft()) : step(-1)),
     onDelete: deleteCurrent,
     onUndo: undo,
     onCrop: () => { if (current) setCropMode((m) => !m); },
+    onAuto: () => autoOrReset("auto"),
   });
 
   const rescan = async () => {
