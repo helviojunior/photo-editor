@@ -117,7 +117,9 @@ def is_neutral(values, preset='') -> bool:
 
 CROP_IDENTITY = {'scale': 1.0, 'cx': 0.5, 'cy': 0.5, 'angle': 0.0}
 CROP_MIN_SCALE = 0.1
-CROP_MAX_ANGLE = 45.0
+# ±90°: a 90° o quadro fica "deitado" sobre a foto (retrato vira paisagem na
+# origem), e a saida continua na proporcao da foto.
+CROP_MAX_ANGLE = 90.0
 
 
 def crop_max_scale(angle, aspect) -> float:

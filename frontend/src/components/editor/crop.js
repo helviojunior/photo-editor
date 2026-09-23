@@ -8,7 +8,7 @@
  */
 export const CROP_IDENTITY = { scale: 1, cx: 0.5, cy: 0.5, angle: 0 };
 export const CROP_MIN_SCALE = 0.1;
-export const CROP_MAX_ANGLE = 45;
+export const CROP_MAX_ANGLE = 90;
 
 const rad = (deg) => (deg * Math.PI) / 180;
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
