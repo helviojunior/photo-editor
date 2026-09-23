@@ -140,7 +140,9 @@ original + ajustes.
       original (esquerda) e a editada (direita) mostra o recorte ao vivo.
       Arrastar move, os cantos redimensionam com o canto oposto fixo e
       arrastar fora do quadro gira **só o quadro** (a foto fica parada), até
-      ±90°. Atalho `C` entra/sai do modo (e `Esc` sai); no modo, `←`/`→` giram
+      ±90°. A imagem nunca gira: múltiplos de 90° só trocam o recorte entre
+      retrato e paisagem, e o resto (até 45°) endireita, como o Straighten do
+      Lightroom. Atalho `C` entra/sai do modo (e `Esc` sai); no modo, `←`/`→` giram
       o quadro de 15 em 15°. Gravado no banco, desfazível, e aplicado igual no
       preview e na exportação (que recorta na resolução cheia antes de
       reduzir para 1920×1080).

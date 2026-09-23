@@ -107,7 +107,8 @@ def is_neutral(values, preset='') -> bool:
 # Sempre na PROPORCAO da foto: o recorte e a propria foto reduzida por `scale`
 # (0,1..1), centrada em (cx, cy) — fracoes da largura e da altura — e girada
 # `angle` graus (positivo = horario, como o `rotate()` do CSS). A foto fica
-# parada; quem gira e o quadro, e a saida e o que esta sob ele, endireitado.
+# parada; quem gira e o quadro. A saida e o que esta sob ele, com o conteudo
+# em pe: 90 graus so troca retrato/paisagem (ver `apply_crop`).
 #
 # O quadro girado tem de caber inteiro na foto. Ele cabe se, e so se, a caixa
 # que o envolve cabe (os extremos da caixa sao os cantos do quadro), entao a
@@ -117,8 +118,8 @@ def is_neutral(values, preset='') -> bool:
 
 CROP_IDENTITY = {'scale': 1.0, 'cx': 0.5, 'cy': 0.5, 'angle': 0.0}
 CROP_MIN_SCALE = 0.1
-# ±90°: a 90° o quadro fica "deitado" sobre a foto (retrato vira paisagem na
-# origem), e a saida continua na proporcao da foto.
+# ±90°: a 90° o quadro fica "deitado" sobre a foto e o recorte sai na
+# orientacao trocada (retrato numa foto paisagem), com o conteudo em pe.
 CROP_MAX_ANGLE = 90.0
 
 
@@ -164,13 +165,29 @@ def is_crop_identity(crop) -> bool:
             and abs(crop['cx'] - 0.5) < 1e-4 and abs(crop['cy'] - 0.5) < 1e-4)
 
 
+def split_angle(angle) -> tuple[int, float]:
+    """(quartos de volta, resto em [-45, 45)) de um angulo do quadro."""
+    quarters = int(math.floor((angle + 45.0) / 90.0))
+    return quarters, angle - 90.0 * quarters
+
+
 def apply_crop(img: np.ndarray, crop) -> np.ndarray:
-    """Recorta (e endireita) o quadro. ``crop`` ja normalizado."""
+    """Recorta o que esta sob o quadro. ``crop`` ja normalizado.
+
+    O giro do quadro NAO gira a foto: os quartos de volta (90 graus) so trocam
+    a orientacao do recorte — um quadro a 90 graus numa foto paisagem sai em
+    retrato, com o conteudo em pe. So o resto (ate 45 graus) endireita o
+    conteudo, como o Straighten do Lightroom.
+    """
     if not crop or is_crop_identity(crop):
         return img
     h, w = img.shape[:2]
-    ow, oh = max(int(round(crop['scale'] * w)), 1), max(int(round(crop['scale'] * h)), 1)
-    t = math.radians(crop['angle'])
+    quarters, rest = split_angle(crop['angle'])
+    fw, fh = crop['scale'] * w, crop['scale'] * h        # quadro, nos eixos dele
+    if quarters % 2:                                     # deitado: troca os lados
+        fw, fh = fh, fw
+    ow, oh = max(int(round(fw)), 1), max(int(round(fh)), 1)
+    t = math.radians(rest)
     cos, sin = math.cos(t), math.sin(t)
     cx, cy, ocx, ocy = crop['cx'] * w, crop['cy'] * h, ow / 2.0, oh / 2.0
     # Saida -> origem: centro do quadro + rotacao do deslocamento. Com
