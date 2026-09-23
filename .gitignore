@@ -5,6 +5,7 @@
 
 # Dados dos containers (postgres, TLS, segredos gerados no boot)
 photoeditor_data/
+temp
 
 # Python
 __pycache__/
