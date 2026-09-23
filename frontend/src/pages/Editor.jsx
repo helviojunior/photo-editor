@@ -1,12 +1,15 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ImageOff, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight, ImageOff, RefreshCw, Trash2, Undo2 } from "lucide-react";
 import api from "lib/api";
 import { useI18n } from "i18n";
+import { useDialog } from "contexts/DialogContext";
 import { Button } from "components/ui/button";
 import { FormError } from "components/ui/form-error";
 import ImagePane from "components/editor/ImagePane";
 import Filmstrip from "components/editor/Filmstrip";
+import PhotoHistory from "components/editor/PhotoHistory";
+import useShortcuts from "components/editor/useShortcuts";
 
 /**
  * Tela do editor (estilo Develop do Lightroom), uma rota por foto.
@@ -21,11 +24,16 @@ export default function Editor() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { t, tf } = useI18n();
+  const { alert } = useDialog();
 
   const [photos, setPhotos] = useState(null);
   const [loadError, setLoadError] = useState(false);
   const [rescanning, setRescanning] = useState(false);
   const [status, setStatus] = useState("");
+  // Sobe a cada acao: o historico da foto recarrega.
+  const [historyVersion, setHistoryVersion] = useState(0);
+  // Uma acao por vez: DEL segurado nao pode disparar varias exclusoes.
+  const busyRef = useRef(false);
 
   const loadPhotos = useCallback(async () => {
     try {
@@ -52,10 +60,69 @@ export default function Editor() {
     [navigate]
   );
 
-  // Sem foto na URL (ou com uma que saiu do catálogo): abre a primeira.
+  // Posição da última foto aberta: se ela sai da lista (excluída), a vizinha
+  // que ocupou o lugar dela é a próxima — e, se era a última, a anterior.
+  const lastIndexRef = useRef(0);
+  useEffect(() => { if (index >= 0) lastIndexRef.current = index; }, [index]);
+
+  // Sem foto na URL, ou com uma que saiu do catálogo: abre a da mesma posição.
   useEffect(() => {
-    if (photos && photos.length && index < 0) goTo(photos[0].id, true);
+    if (photos && photos.length && index < 0) {
+      goTo(photos[Math.min(lastIndexRef.current, photos.length - 1)].id, true);
+    }
   }, [photos, index, goTo]);
+
+  const runAction = useCallback(async (fn) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    try {
+      await fn();
+    } catch (err) {
+      await alert({
+        title: t("editor.actionError", "Could not complete the action"),
+        description: err?.response?.data?.error || t("error.generic"),
+        variant: "danger",
+      });
+    } finally {
+      busyRef.current = false;
+      setHistoryVersion((v) => v + 1);
+    }
+  }, [alert, t]);
+
+  const step = useCallback((delta) => {
+    if (!photos || index < 0) return;
+    const target = photos[index + delta];
+    if (target) goTo(target.id);
+  }, [photos, index, goTo]);
+
+  // DEL: move para deleted/. Tirar a foto da lista basta para seguir para a
+  // próxima: o efeito acima abre a que ficou na mesma posição.
+  const deleteCurrent = useCallback(() => runAction(async () => {
+    if (!current) return;
+    await api.delete(`/api/photos/${current.id}/`);
+    setPhotos((list) => list.filter((p) => p.id !== current.id));
+    setStatus(tf("editor.deleted", { name: current.file_name }));
+  }), [runAction, current, tf]);
+
+  // CTRL/CMD+Z: desfaz a ultima acao de QUALQUER foto e abre a foto afetada.
+  const undo = useCallback(() => runAction(async () => {
+    const res = await api.post("/api/history/undo/");
+    const { undone, photo } = res.data;
+    if (!undone) {
+      setStatus(t("editor.nothingToUndo", "Nothing to undo."));
+      return;
+    }
+    setStatus(tf("editor.undone", { action: t(`action.${undone.kind}`, undone.kind) }));
+    const list = await loadPhotos();
+    if (photo && list?.some((p) => p.id === photo.id)) goTo(photo.id);
+  }), [runAction, t, tf, loadPhotos, goTo]);
+
+  useShortcuts({
+    onNext: () => step(1),
+    onPrev: () => step(-1),
+    onDelete: deleteCurrent,
+    onUndo: undo,
+  });
 
   const rescan = async () => {
     setRescanning(true);
@@ -116,6 +183,7 @@ export default function Editor() {
               </div>
             </div>
           )}
+          <PhotoHistory photoId={current?.id} version={historyVersion} />
         </aside>
       </section>
 
@@ -128,7 +196,16 @@ export default function Editor() {
               : t("common.loading")}
           </span>
           {status && <span className="text-muted-foreground" role="status">{status}</span>}
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-1">
+            {/* Os mesmos comandos dos atalhos, para quem nao tem teclado. */}
+            <IconButton icon={ChevronLeft} label={t("editor.prev", "Previous photo (←)")}
+              onClick={() => step(-1)} disabled={index <= 0} />
+            <IconButton icon={ChevronRight} label={t("editor.next", "Next photo (→)")}
+              onClick={() => step(1)} disabled={!photos || index >= photos.length - 1} />
+            <IconButton icon={Trash2} label={t("editor.delete", "Delete photo (Del)")}
+              onClick={deleteCurrent} disabled={!current} />
+            <IconButton icon={Undo2} label={t("editor.undo", "Undo (Ctrl/Cmd+Z)")}
+              onClick={undo} />
             <Button variant="ghost" size="sm" onClick={rescan} loading={rescanning}>
               {!rescanning && <RefreshCw className="h-4 w-4" />}
               <span className="hidden sm:inline">{t("editor.rescan")}</span>
@@ -142,5 +219,13 @@ export default function Editor() {
         </div>
       </section>
     </div>
+  );
+}
+
+function IconButton({ icon: Icon, label, ...props }) {
+  return (
+    <Button variant="ghost" size="sm" aria-label={label} title={label} {...props}>
+      <Icon className="h-4 w-4" />
+    </Button>
   );
 }

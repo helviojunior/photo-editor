@@ -92,16 +92,21 @@ Layout esperado dentro de `/project`:
 
 ## 5. Atalhos de teclado
 
-- [ ] **5.1** `→` — próxima foto.
-- [ ] **5.2** `←` — foto anterior.
-- [ ] **5.3** `DEL` — marca a foto como excluída: **move** o arquivo de
+- [x] **5.1** `→` — próxima foto.
+- [x] **5.2** `←` — foto anterior.
+- [x] **5.3** `DEL` (ou `⌫` no Mac) — marca a foto como excluída: **move** o arquivo de
       `raw/` para `deleted/` (nunca apaga) e avança para a próxima.
-- [ ] **5.4** `CTRL+Z` / `CMD+Z` — desfaz a última ação (exclusão, ajuste,
+- [~] **5.4** `CTRL+Z` / `CMD+Z` — desfaz a última ação (exclusão, ajuste,
       preset, auto…). Desfazer uma exclusão devolve o arquivo para `raw/`.
-- [ ] **5.5** Modelo de histórico de ações (tipo, foto, estado anterior) que
+      *(Exclusão pronta; os ajustes entram com a seção 6.)*
+- [x] **5.5** Modelo de histórico de ações (tipo, foto, estado anterior) que
       sustenta o desfazer, persistido no banco.
-- [ ] **5.6** Atalhos não disparam enquanto o foco está em um campo de texto
+- [x] **5.6** Atalhos não disparam enquanto o foco está em um campo de texto
       ou slider.
+- [x] **5.7** Histórico **completo** das ações de cada foto guardado no banco
+      do projeto (`project_data/db.sqlite3`), sobrevivendo ao fechamento e à
+      reabertura do projeto: nada é podado, e desfazer marca a ação como
+      desfeita (com data) em vez de apagar o registro.
 
 ## 6. Edição
 

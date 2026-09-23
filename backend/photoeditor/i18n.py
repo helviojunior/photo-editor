@@ -18,6 +18,9 @@ SUPPORTED_LANGUAGES = ('en', 'pt-br')
 CATALOGS = {
     'en': {
         'error.notFound': 'Not found.',
+        'error.photoFileMissing': 'The file {name} is no longer where the catalog expected it.',
+        'error.restoreConflict': 'Cannot restore {name}: there is already a file with that name in raw/.',
+        'error.exportRunning': 'An export is already running.',
 
         # E-mails
         'email.greeting': 'Hello, {name},',
@@ -26,6 +29,9 @@ CATALOGS = {
     },
     'pt-br': {
         'error.notFound': 'Não encontrado.',
+        'error.photoFileMissing': 'O arquivo {name} não está mais onde o catálogo esperava.',
+        'error.restoreConflict': 'Não foi possível restaurar {name}: já existe um arquivo com esse nome em raw/.',
+        'error.exportRunning': 'Já há uma exportação em andamento.',
 
         'email.greeting': 'Olá, {name},',
         'email.footer.copyright': '© {year} {brand}. Todos os direitos reservados.',

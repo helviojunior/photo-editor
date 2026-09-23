@@ -5,6 +5,7 @@ from photoeditor.views.config import AppConfigView
 from photoeditor.views.photos import (
     PhotoListView, PhotoDetailView, PhotoRescanView,
     PhotoThumbnailView, PhotoPreviewView, PhotoOriginalView,
+    PhotoHistoryView, UndoView,
 )
 
 
@@ -28,5 +29,9 @@ urlpatterns = [
     path('api/photos/<uuid:pk>/thumbnail/', PhotoThumbnailView.as_view(), name='photo-thumbnail'),
     path('api/photos/<uuid:pk>/preview/', PhotoPreviewView.as_view(), name='photo-preview'),
     path('api/photos/<uuid:pk>/original/', PhotoOriginalView.as_view(), name='photo-original'),
+    path('api/photos/<uuid:pk>/history/', PhotoHistoryView.as_view(), name='photo-history'),
+
+    # Desfazer (CTRL/CMD+Z) — a ultima acao de qualquer foto
+    path('api/history/undo/', UndoView.as_view(), name='history-undo'),
 
 ]

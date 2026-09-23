@@ -3,9 +3,10 @@ from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from photoeditor.i18n import tr
 from photoeditor.imaging.io import raw_path
 from photoeditor.models import Photo
-from photoeditor.services import catalog, derivatives
+from photoeditor.services import catalog, derivatives, history, trash
 
 # URLs de imagem carregam a versao (mtime / hash dos ajustes): o conteudo de
 # uma URL nunca muda, entao o navegador pode guardar para sempre.
@@ -43,9 +44,47 @@ class PhotoListView(APIView):
         return Response({'results': [photo_json(p) for p in photos]})
 
 
+def action_error(request, exc, status=409):
+    return Response({'error': tr(request, exc.key, **exc.params)}, status=status)
+
+
 class PhotoDetailView(APIView):
     def get(self, request, pk):
         return Response(photo_json(active_photo(pk)))
+
+    def delete(self, request, pk):
+        """Exclui = move o arquivo para deleted/ (desfazivel)."""
+        try:
+            trash.delete_photo(active_photo(pk))
+        except history.ActionError as exc:
+            return action_error(request, exc)
+        return Response(status=204)
+
+
+class PhotoHistoryView(APIView):
+    """Historico completo da foto, inclusive o ja desfeito (mais novo antes)."""
+
+    def get(self, request, pk):
+        photo = get_object_or_404(Photo, pk=pk)
+        return Response({'results': [history.entry_json(e)
+                                     for e in photo.history.all()]})
+
+
+class UndoView(APIView):
+    """CTRL/CMD+Z: desfaz a ultima acao, de qualquer foto."""
+
+    def post(self, request):
+        try:
+            entry = history.undo_last()
+        except history.ActionError as exc:
+            return action_error(request, exc)
+        if entry is None:
+            return Response({'undone': None})
+        photo = entry.photo
+        return Response({
+            'undone': history.entry_json(entry),
+            'photo': photo_json(photo) if photo.status == Photo.Status.ACTIVE else None,
+        })
 
 
 class PhotoRescanView(APIView):
