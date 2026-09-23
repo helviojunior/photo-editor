@@ -20,7 +20,6 @@ from pathlib import Path
 import os, json
 from dotenv import dotenv_values
 from cryptography.hazmat.primitives import serialization
-import dj_database_url
 
 
 def _smart_cast(value: str):
@@ -232,27 +231,36 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-# SEMPRE PostgreSQL — nao existe fallback para sqlite, nem em DEBUG.
-# Sem esse guard, um comando rodado sem POSTGRES_URL (tipicamente o
-# `createsuperuser` do primeiro setup) criaria silenciosamente um sqlite local
-# e gravaria o super admin no banco errado.
-POSTGRES_URL = os.environ.get('POSTGRES_URL', '').strip()
-if not POSTGRES_URL:
+# Pasta do projeto de fotos, montada no container (ex.: -v ~/Storage/teste:/project).
+# Tudo o que o editor le e grava vive nela — inclusive o banco, para que o
+# catalogo e os ajustes acompanhem as fotos de cada evento.
+PROJECT_ROOT = Path(os.environ.get('PROJECT_ROOT', '/project'))
+RAW_DIR = PROJECT_ROOT / 'raw'                    # originais (somente JPEG)
+PROJECT_DATA_DIR = PROJECT_ROOT / 'project_data'  # SQLite + caches gerados
+DELETED_DIR = PROJECT_ROOT / 'deleted'            # fotos excluidas (movidas)
+PUBLISH_DIR = PROJECT_ROOT / 'publicar'           # saida do Exportar
+
+# O banco e SEMPRE o SQLite do projeto montado. Sem /project nao ha onde
+# gravar: falha na hora, com mensagem clara, em vez de criar um banco em
+# outro lugar e "perder" o catalogo na proxima execucao.
+if not PROJECT_ROOT.is_dir():
     raise ImproperlyConfigured(
-        'POSTGRES_URL is not set. This project always uses PostgreSQL — there is '
-        'no sqlite fallback. Set POSTGRES_URL in the root .env (e.g. '
-        'postgresql://user:pass@host:5432/dbname) before running manage.py.'
+        f'PROJECT_ROOT ({PROJECT_ROOT}) does not exist. Mount the photo project '
+        f'folder into the container (e.g. -v ~/Storage/event:/project, via '
+        f'PROJECT_DIR in the root .env).'
     )
+# O SQLite cria o arquivo, mas nao a pasta — ela tem de existir antes do migrate.
+PROJECT_DATA_DIR.mkdir(exist_ok=True)
 
 DATABASES = {
-    'default': dj_database_url.parse(POSTGRES_URL, conn_max_age=600)
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': PROJECT_DATA_DIR / 'db.sqlite3',
+        # Espera o lock em vez de falhar com "database is locked" quando duas
+        # requisicoes gravam ao mesmo tempo.
+        'OPTIONS': {'timeout': 20},
+    }
 }
-
-if not DATABASES['default'].get('ENGINE', '').endswith('postgresql'):
-    raise ImproperlyConfigured(
-        f"POSTGRES_URL must point to a PostgreSQL database "
-        f"(got ENGINE={DATABASES['default'].get('ENGINE')!r})."
-    )
 
 
 # Password validation

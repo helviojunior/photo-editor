@@ -15,7 +15,7 @@ entra automaticamente como o usuário padrão `admin`, que não tem senha.
 |-----------|--------------------------------------------------------|
 | Backend   | Django 5.2 + Django REST Framework, uWSGI              |
 | Frontend  | React 19 (CRA/craco), TailwindCSS, react-router        |
-| Banco     | PostgreSQL 16 (**sempre** — sem fallback sqlite)       |
+| Banco     | SQLite na pasta do projeto (`/project/project_data`)   |
 | Proxy/TLS | nginx (nginx-extras) com certificado self-signed       |
 
 Estrutura:
@@ -24,8 +24,8 @@ Estrutura:
 backend/    core/ (settings, wsgi/asgi) + photoeditor/ (app: models, views, services)
 frontend/   src/ (pages, components/ui, contexts, i18n, lib)
 nginx/      Dockerfile + nginx.conf + entrypoint (TLS, FORCE_TLS, real_ip)
-docker-compose.yml       # produção (postgres + backend + nginx)
-docker-compose.dev.yml   # desenvolvimento (postgres + backend + frontend hot-reload)
+docker-compose.yml       # produção (backend + nginx)
+docker-compose.dev.yml   # desenvolvimento (backend + frontend hot-reload)
 .env.example             # template do .env ÚNICO (nunca versione o .env real)
 ```
 
@@ -68,14 +68,30 @@ docker-compose.dev.yml   # desenvolvimento (postgres + backend + frontend hot-re
 ### 6. Configuração
 - **Um único `.env` na raiz**, consumido pelos compose e pelo backend. Nunca
   versione o `.env` — só o `.env.example`.
-- `DEBUG=False` por padrão; `POSTGRES_URL` obrigatória.
+- `DEBUG=False` por padrão; `PROJECT_DIR` obrigatória (pasta do projeto de fotos).
+
+## Pasta do projeto
+
+Cada evento é uma pasta no host, apontada por `PROJECT_DIR` no `.env` e
+montada em `/project` no backend:
+
+```
+<PROJECT_DIR>/
+    raw/            fotos originais (somente JPEG, nunca alteradas)
+    project_data/   db.sqlite3 + caches gerados
+    deleted/        fotos excluídas (movidas, nunca apagadas)
+    publicar/       saída do botão Exportar
+```
+
+O backend cria `project_data/`, `deleted/` e `publicar/`; a `raw/` com as
+fotos é sua. A cada boot ele roda `makemigrations` + `migrate` no SQLite.
 
 ## Como rodar
 
 Pré-requisitos: Docker + Docker Compose.
 
 ```bash
-cp .env.example .env          # ajuste BRAND_*, portas, etc.
+cp .env.example .env          # ajuste PROJECT_DIR (pasta com raw/), portas, etc.
 docker compose build
 docker compose up -d
 ```

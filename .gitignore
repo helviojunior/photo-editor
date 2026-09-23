@@ -3,7 +3,7 @@
 .env.*
 !.env.example
 
-# Dados dos containers (postgres, TLS, segredos gerados no boot)
+# Dados dos containers (TLS, segredos gerados no boot)
 photoeditor_data/
 temp
 

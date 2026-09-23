@@ -84,12 +84,37 @@ def on_startup():
         from django.core.cache import cache
         cache.set("app:healthy", True, timeout=60)
 
+        # Subpastas de trabalho em /project (raw/ ausente so gera aviso).
+        ensure_project_dirs()
+
         # Garante o usuario ``admin`` padrao (sem senha) do Django admin publico.
         ensure_admin_user()
 
         log.info("Startup ok.")
     except Exception:
         log.exception("Fail running startup tasks.")
+
+
+def ensure_project_dirs():
+    """Cria as subpastas que o editor grava e confere a pasta de originais.
+
+    ``project_data/`` ja nasce nas settings (o SQLite precisa dela antes do
+    migrate); aqui entram ``deleted/`` e ``publicar/``. ``raw/`` NAO e criada:
+    pasta vazia criada por nos esconderia um erro de montagem — melhor dizer
+    no log que as fotos nao foram encontradas.
+    """
+    for path in (settings.PROJECT_DATA_DIR, settings.DELETED_DIR, settings.PUBLISH_DIR):
+        try:
+            path.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            log.exception("Could not create project folder %s.", path)
+
+    if not settings.RAW_DIR.is_dir():
+        log.error(
+            "Original photos folder not found: %s. Put the JPEGs in <project>/raw "
+            "and check the /project mount (PROJECT_DIR in the root .env).",
+            settings.RAW_DIR,
+        )
 
 
 def ensure_admin_user():

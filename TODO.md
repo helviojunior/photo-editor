@@ -29,33 +29,26 @@ Layout esperado dentro de `/project`:
 
 ---
 
-## Decisões em aberto (resolver antes do item que depende delas)
+## Decisões tomadas
 
-- [ ] **SQLite × regra 12.1 do CLAUDE.md** (item 1): hoje a regra obriga
-      PostgreSQL e proíbe sqlite. O requisito pede SQLite em
-      `/project/project_data`. Proposta: o banco passa a ser o SQLite do
-      projeto montado, e o serviço `postgres` sai dos compose. É preciso
-      reescrever a regra 12.1 (e o trecho do `.env` único, regra 12).
-- [ ] **Formato das fotos em `raw/`** (item 3): JPEG apenas, como no
-      `../correct-photos`, ou também RAW de câmera (CR2/CR3/NEF/ARW)? RAW
-      exige `rawpy`/LibRaw e muda o custo de preview.
-- [ ] **Histórico do CTRL/CMD+Z** (item 6): vale só para a sessão aberta ou
-      persiste no banco (sobrevive a recarregar a página)? Proposta: persistir.
-- [ ] **Pasta de exportação**: `publicar/` (minúsculo, como pedido) ou
-      `Publicar/` (como o `../correct-photos` gera)? Proposta: `publicar/`.
+- **Banco:** SQLite em `/project/project_data/db.sqlite3`; o PostgreSQL sai
+  dos compose e a regra 12.1 do CLAUDE.md é reescrita.
+- **Formato das fotos em `raw/`:** somente JPEG.
+- **Histórico do CTRL/CMD+Z:** persistido no banco (sobrevive a recarregar).
+- **Pasta de exportação:** `publicar/`.
 
 ---
 
 ## 1. Infra e dados
 
-- [ ] **1.1** Montar `/project` no container do backend (volume nos
+- [x] **1.1** Montar `/project` no container do backend (volume nos
       `docker-compose*.yml`, caminho local configurável no `.env`, ex.:
       `PROJECT_DIR=~/Storage/teste`).
-- [ ] **1.2** Banco SQLite em `/project/project_data/db.sqlite3`, criado na
-      primeira execução se não existir (depende da decisão SQLite × PostgreSQL).
-- [ ] **1.3** No boot, o backend roda `makemigrations` + `migrate` para manter
-      o banco atualizado (o `entrypoint.sh` já faz; validar com o SQLite).
-- [ ] **1.4** Criar as subpastas `project_data/`, `deleted/` e `publicar/` se
+- [x] **1.2** Banco SQLite em `/project/project_data/db.sqlite3`, criado na
+      primeira execução se não existir.
+- [x] **1.3** No boot, o backend roda `makemigrations` + `migrate` para manter
+      o banco atualizado.
+- [x] **1.4** Criar as subpastas `project_data/`, `deleted/` e `publicar/` se
       faltarem; `raw/` ausente gera erro claro no log, sem derrubar a aplicação.
 
 ## 2. Catálogo das fotos originais
@@ -64,7 +57,8 @@ Layout esperado dentro de `/project`:
       dimensões, orientação EXIF, data/hora de captura
       (`DateTimeOriginal` + `SubsecTimeOriginal`, para ordenar como o evento
       aconteceu) e status (`active` / `deleted`).
-- [ ] **2.2** Varredura de `/project/raw`: cataloga fotos novas, marca as que
+- [ ] **2.2** Varredura de `/project/raw` (somente JPEG: `.jpg`/`.jpeg`, sem
+      diferenciar maiúsculas): cataloga fotos novas, marca as que
       sumiram, não duplica as já conhecidas (idempotente). Roda no boot e por um
       endpoint "reescanear".
 - [ ] **2.3** Derivados em cache em `project_data/` (thumbnail para a
@@ -101,7 +95,7 @@ Layout esperado dentro de `/project`:
 - [ ] **5.4** `CTRL+Z` / `CMD+Z` — desfaz a última ação (exclusão, ajuste,
       preset, auto…). Desfazer uma exclusão devolve o arquivo para `raw/`.
 - [ ] **5.5** Modelo de histórico de ações (tipo, foto, estado anterior) que
-      sustenta o desfazer (ver decisão sobre persistência).
+      sustenta o desfazer, persistido no banco.
 - [ ] **5.6** Atalhos não disparam enquanto o foco está em um campo de texto
       ou slider.
 

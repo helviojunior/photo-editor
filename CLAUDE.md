@@ -253,11 +253,29 @@ chegam ao React como build args.
   vaza esses dados no histórico. Manter `.env` no `.gitignore` (já está); nunca
   `git add .env` nem `git add -A` sem confirmar que o `.env` continua ignorado.
 
-### 12.1. Banco: sempre PostgreSQL, `DEBUG=False` por padrão
-- `POSTGRES_URL` é **obrigatória**. Não há fallback para sqlite em nenhum modo:
-  sem a variável, `core/settings.py` levanta `ImproperlyConfigured`. Isso evita
-  o problema visto no `../sec_face`, em que dados do primeiro setup foram
-  gravados num sqlite criado silenciosamente.
+### 12.1. Banco: SQLite dentro da pasta do projeto, `DEBUG=False` por padrão
+Cada evento é uma pasta de projeto no host, montada em `/project` no backend
+(`PROJECT_DIR` no `.env` → volume nos `docker-compose*.yml`):
+
+```
+/project/raw/            originais (somente JPEG, nunca alterados)
+/project/project_data/   db.sqlite3 + caches gerados
+/project/deleted/        fotos excluídas (movidas, nunca apagadas)
+/project/publicar/       saída do Exportar
+```
+
+- O banco é **sempre** o SQLite em `project_data/db.sqlite3`: catálogo e
+  ajustes acompanham as fotos do evento. Não há PostgreSQL nem outro banco.
+- **Sem `/project` montado, `core/settings.py` levanta `ImproperlyConfigured`**
+  — nunca cai para um banco em outro lugar, o que "perderia" o catálogo na
+  execução seguinte. Os caminhos vêm das settings (`PROJECT_ROOT`, `RAW_DIR`,
+  `PROJECT_DATA_DIR`, `DELETED_DIR`, `PUBLISH_DIR`); nada de caminho montado à
+  mão no código.
+- `project_data/` nasce nas settings (o SQLite precisa dela antes do
+  `migrate`); `deleted/` e `publicar/` no init da app
+  (`startup.py:ensure_project_dirs`). `raw/` **não** é criada: sem ela o log
+  mostra um erro claro e a app continua de pé.
+- O entrypoint roda `makemigrations` + `migrate` a cada boot.
 - `DEBUG` tem default `False`; ligar exige `DEBUG=True` explícito no ambiente.
 - O entrypoint não cria conta nenhuma: o `admin` do Django admin público é
   garantido pelo init da app (regra 5).

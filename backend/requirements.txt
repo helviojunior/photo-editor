@@ -14,5 +14,3 @@ django-fullurl
 django-filter
 django-crontab
 django-recaptcha
-psycopg2-binary
-dj-database-url

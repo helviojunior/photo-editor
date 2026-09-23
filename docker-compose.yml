@@ -1,23 +1,4 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: photoeditor-postgres
-    restart: unless-stopped
-    environment:
-      TZ: "America/Sao_Paulo"
-      POSTGRES_USER: photoeditor
-      POSTGRES_PASSWORD: photoeditor
-      POSTGRES_DB: photoeditor
-    volumes:
-      - ./photoeditor_data/postgres_db:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U photoeditor -d photoeditor"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    networks:
-      - photoeditor-net
-
   backend:
     build:
       context: ./backend
@@ -28,12 +9,14 @@ services:
       - "proxy.local:host-gateway"
     volumes:
       - ./photoeditor_data:/app/data
+      # Pasta do projeto de fotos (raw/, project_data/ com o SQLite, deleted/,
+      # publicar/). Obrigatoria: sem ela o backend nao sobe.
+      - ${PROJECT_DIR:?Set PROJECT_DIR in the root .env (photo project folder)}:/project
     env_file:
       - .env
     environment:
       TZ: "America/Sao_Paulo"
       DEBUG: "False"
-      POSTGRES_URL: "postgresql://photoeditor:photoeditor@postgres:5432/photoeditor"
     command:
       - uwsgi
       - --http
@@ -50,9 +33,6 @@ services:
       - file:/dev/null
       - --touch-reload
       - ./core/settings.py
-    depends_on:
-      postgres:
-        condition: service_healthy
     networks:
       - photoeditor-net
 
