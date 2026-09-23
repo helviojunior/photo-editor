@@ -1,0 +1,104 @@
+# PhotoEditor
+
+Editor de fotos de eventos, no estilo Lightroom (Django REST + React).
+
+O sistema é **100% público e não autenticado**: não há login, contas, empresas
+nem permissionamento. O Django admin também é aberto — quem acessa `/admin/`
+entra automaticamente como o usuário padrão `admin`, que não tem senha.
+
+> As convenções obrigatórias do projeto estão em [`CLAUDE.md`](./CLAUDE.md).
+> Toda variável, valor padrão e identificador de código é escrito em **inglês**.
+
+## Stack
+
+| Camada    | Tecnologia                                             |
+|-----------|--------------------------------------------------------|
+| Backend   | Django 5.2 + Django REST Framework, uWSGI              |
+| Frontend  | React 19 (CRA/craco), TailwindCSS, react-router        |
+| Banco     | PostgreSQL 16 (**sempre** — sem fallback sqlite)       |
+| Proxy/TLS | nginx (nginx-extras) com certificado self-signed       |
+
+Estrutura:
+
+```
+backend/    core/ (settings, wsgi/asgi) + photoeditor/ (app: models, views, services)
+frontend/   src/ (pages, components/ui, contexts, i18n, lib)
+nginx/      Dockerfile + nginx.conf + entrypoint (TLS, FORCE_TLS, real_ip)
+docker-compose.yml       # produção (postgres + backend + nginx)
+docker-compose.dev.yml   # desenvolvimento (postgres + backend + frontend hot-reload)
+.env.example             # template do .env ÚNICO (nunca versione o .env real)
+```
+
+## Principais pontos
+
+### 1. Acesso público
+- A API não tem classe de autenticação e libera tudo por padrão
+  (`REST_FRAMEWORK` em `core/settings.py`).
+- Django admin público: `photoeditor/middleware.py` (`PublicAdminMiddleware`)
+  loga toda visita a `/admin/` como o usuário `admin` (senha inutilizável). O
+  usuário é criado no boot (`startup.py:ensure_admin_user`) ou na primeira visita.
+- Os estáticos do admin saem por `/django-static/` (o `/static/` é do React),
+  servidos pelo `dj_static.Cling` no `core/wsgi.py` e repassados pelo nginx.
+
+### 2. Internacionalização (EN + PT-BR)
+- **EN é o padrão e o fallback** de toda tradução.
+- Frontend: `useI18n()` (`t`/`tf`) + catálogos em `src/i18n/locales.js`.
+- Backend: `photoeditor/i18n.py` (`translate`, `tr`, `language_for_request`).
+- Idioma: cookie `photoeditor_ln` → navegador → padrão do sistema
+  (`/api/config/`). O cookie é escrito pelo frontend ao trocar o idioma.
+
+### 3. E-mail e identidade visual
+- Template HTML de marca em `photoeditor/templates/email/`, renderizado por
+  `services/mailer.py`.
+- Favicon e logo servidos de `media.sec4us.com.br`, com cache-busting
+  `?ts=<BUILD_TS>` em todo objeto estático (a cada build).
+- Marca configurável por env (`BRAND_*` / `REACT_APP_BRAND_*`).
+
+### 4. UI/UX (convenções)
+- Confirmações/alertas via **modais próprios** (nunca diálogos nativos do browser).
+- Telas e formulários ocupam **100%** da largura.
+- Detalhe de objeto abre em **janela/rota própria**, não em modal.
+
+### 5. Infra / nginx
+- Portas publicáveis via `HTTP_PORT`/`HTTPS_PORT`.
+- `FORCE_TLS` (redirect HTTP→HTTPS + HSTS) respeitando `X-Forwarded-Proto` de
+  proxy upstream (links saem em https mesmo recebendo na porta 80).
+- `USE_REAL_IP` + `real_ip` (`set_real_ip_from`, header `SC-Connecting-IP`).
+
+### 6. Configuração
+- **Um único `.env` na raiz**, consumido pelos compose e pelo backend. Nunca
+  versione o `.env` — só o `.env.example`.
+- `DEBUG=False` por padrão; `POSTGRES_URL` obrigatória.
+
+## Como rodar
+
+Pré-requisitos: Docker + Docker Compose.
+
+```bash
+cp .env.example .env          # ajuste BRAND_*, portas, etc.
+docker compose build
+docker compose up -d
+```
+
+- App: `https://localhost` (ou a `HTTPS_PORT` configurada; certificado self-signed).
+- Admin: `https://localhost/admin/` — entra direto como `admin`, sem senha.
+
+Desenvolvimento (frontend com hot-reload em `:3000`, backend em `:8000`):
+
+```bash
+docker compose -f docker-compose.dev.yml up
+```
+
+## Banco e migrations
+
+- Hoje o app `photoeditor` não tem modelos próprios; o único usuário é o
+  `admin` no `auth.User` do Django.
+- Novos modelos herdam de `photoeditor.dbmodels.base.Base`; as migrations
+  seguem a regra 13 do `CLAUDE.md` (baseline congelada em `0001_initial.py`).
+
+## Principais endpoints (API)
+
+| Método/Rota          | Descrição                                          |
+|----------------------|----------------------------------------------------|
+| `GET  /api/config/`  | Idioma padrão, idiomas suportados, marca e versão  |
+| `/admin/`            | Django admin público                               |

@@ -1,0 +1,17 @@
+{% comment %}
+  Logo do cabecalho, vinda da setting BRAND_EMAIL_LOGO (regra 11: favicon e
+  logo remotos).
+
+  Aqui e URL, e nao base64 embutido: num BASELINE a marca e' de quem forkar, e
+  um blob no template entregaria o logotipo errado para todo projeto derivado.
+  O custo e' depender da rede — cliente que bloqueia imagem externa mostra o
+  texto alternativo. Um projeto derivado que queira o logo sempre visivel
+  troca esta tag por um data: URI com a PROPRIA arte (PNG, nao SVG: Gmail e
+  Outlook descartam SVG).
+
+  ATENCAO: comentario de template aqui e `{% comment %}`, nunca `{# #}`. O
+  `{# #}` do Django e' de UMA LINHA so — o lexer nao usa re.DOTALL —, entao um
+  bloco de varias linhas entre `{#` e `#}` VAZA como texto no corpo do e-mail.
+{% endcomment %}
+<img src="{{ logo_url }}" alt="{{ brand_name }}" height="40"
+     style="height:40px;display:inline-block;border:0;" />

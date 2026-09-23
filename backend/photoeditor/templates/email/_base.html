@@ -1,0 +1,39 @@
+{% load l10n %}<!DOCTYPE html>
+{% comment %} Shell de marca de todos os e-mails, copiado do layout do ../sec_chall:
+   cabecalho escuro com o logo, cartao central claro e rodape escuro. Estilos
+   inline porque cliente de e-mail descarta folha externa, e o logo vai em
+   base64 (ver _logo.html) para a mensagem abrir sem buscar nada na rede.
+
+   Todo texto chega ja traduzido no idioma da conta do destinatario (regra 4);
+   este arquivo nao carrega frase nenhuma alem do rodape, que vem em `footer`. {% endcomment %}
+<html lang="{{ lang|default:'en' }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
+  <title>{{ subject }}</title>
+  <style>
+    :root { color-scheme: light dark; supported-color-schemes: light dark; }
+  </style>
+</head>
+<body style="margin:0;padding:0;background:#f4f6f8;color:#333;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif;">
+  {% comment %} Preheader: o trecho que a caixa de entrada mostra ao lado do assunto. {% endcomment %}
+  <div style="display:none;max-height:0;overflow:hidden;color:#f4f6f8;">{{ preheader }}</div>
+  <div style="max-width:560px;margin:20px auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+
+    <div style="background:#0b0b0f;padding:24px;text-align:center;">
+      {% include "email/_logo.html" %}
+    </div>
+
+    <div style="padding:28px 32px;">
+      {% block content %}{% endblock %}
+    </div>
+
+    <div style="background:#0b0b0f;padding:16px;text-align:center;">
+      <p style="margin:0;color:#999;font-size:11px;">{{ footer_copyright }}</p>
+      <p style="margin:6px 0 0;color:#777;font-size:11px;">{{ footer_automatic }}</p>
+    </div>
+
+  </div>
+</body>
+</html>

@@ -1,0 +1,97 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: photoeditor-postgres
+    restart: unless-stopped
+    environment:
+      TZ: "America/Sao_Paulo"
+      POSTGRES_USER: photoeditor
+      POSTGRES_PASSWORD: photoeditor
+      POSTGRES_DB: photoeditor
+    volumes:
+      - ./photoeditor_data/postgres_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U photoeditor -d photoeditor"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - photoeditor-net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: photoeditor-backend
+    restart: unless-stopped
+    extra_hosts:
+      - "proxy.local:host-gateway"
+    volumes:
+      - ./photoeditor_data:/app/data
+    env_file:
+      - .env
+    environment:
+      TZ: "America/Sao_Paulo"
+      DEBUG: "False"
+      POSTGRES_URL: "postgresql://photoeditor:photoeditor@postgres:5432/photoeditor"
+    command:
+      - uwsgi
+      - --http
+      - 0.0.0.0:8001
+      - --http-buffer-size=32768
+      - --buffer-size=32768
+      - --module
+      - core.wsgi
+      - --env
+      - DJANGO_SETTINGS_MODULE=core.settings
+      - --reload-mercy=1
+      - --worker-reload-mercy=1
+      - --req-logger
+      - file:/dev/null
+      - --touch-reload
+      - ./core/settings.py
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - photoeditor-net
+
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+      args:
+        REACT_APP_BACKEND_URL: ""
+        # Quem exporta APP_VERSION e o deploy, a partir do arquivo VERSION da
+        # raiz (ver bump-version.sh). E' o que aparece no rodape e responde
+        # "qual commit esta no ar".
+        REACT_APP_VERSION: "${APP_VERSION:-0.0.0}"
+        REACT_APP_BRAND_NAME: "${REACT_APP_BRAND_NAME:-PhotoEditor}"
+        REACT_APP_MEDIA_BASE: "${REACT_APP_MEDIA_BASE:-https://media.sec4us.com.br}"
+        REACT_APP_BRAND_LOGO: "${REACT_APP_BRAND_LOGO:-https://media.sec4us.com.br/logo/sec4us-light-mode.svg}"
+        REACT_APP_BRAND_LOGO_DARK: "${REACT_APP_BRAND_LOGO_DARK:-https://media.sec4us.com.br/logo/sec4us-dark-mode.svg}"
+        REACT_APP_BRAND_CONTACT_EMAIL: "${REACT_APP_BRAND_CONTACT_EMAIL:-contato@photoeditor.local}"
+    container_name: photoeditor-nginx
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./photoeditor_data/tls:/etc/nginx/tls
+    environment:
+      TZ: "America/Sao_Paulo"
+      BRAND_NAME: "${BRAND_NAME:-PhotoEditor}"
+      TLS_CN: "${TLS_CN:-photoeditor.local}"
+      FORCE_TLS: "${FORCE_TLS:-true}"
+      USE_REAL_IP: "${USE_REAL_IP:-true}"
+      REAL_IP_FROM: "${REAL_IP_FROM:-192.168.0.0/16,10.0.0.0/8,172.16.0.0/12}"
+      REAL_IP_HEADER: "${REAL_IP_HEADER:-SC-Connecting-IP}"
+      REAL_IP_RECURSIVE: "${REAL_IP_RECURSIVE:-on}"
+    depends_on:
+      - backend
+    networks:
+      - photoeditor-net
+
+networks:
+  photoeditor-net:
+    driver: bridge

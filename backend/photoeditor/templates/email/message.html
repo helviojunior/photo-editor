@@ -1,0 +1,14 @@
+{% extends "email/_base.html" %}
+{% comment %}
+  Mensagem generica: saudacao + blocos de texto ja traduzidos.
+
+  E o que o `send_localized()` usa quando a mensagem nao precisa de layout
+  proprio. Quem precisar (credenciais em caixa, QR Code, botao de acao) cria um
+  template dedicado que estende o _base.html.
+{% endcomment %}
+{% block content %}
+  {% if greeting %}<p style="font-size:16px;">{{ greeting }}</p>{% endif %}
+  {% for bloco in blocks %}
+    <p>{{ bloco|safe }}</p>
+  {% endfor %}
+{% endblock %}

@@ -1,0 +1,82 @@
+# Docker-compose for development/testing
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: photoeditor-postgres-dev
+    restart: unless-stopped
+    environment:
+      TZ: "America/Sao_Paulo"
+      POSTGRES_USER: photoeditor
+      POSTGRES_PASSWORD: photoeditor
+      POSTGRES_DB: photoeditor
+    volumes:
+      - ./photoeditor_data/postgres_db:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U photoeditor -d photoeditor"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - photoeditor-net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: photoeditor-backend-dev
+    restart: unless-stopped
+    ports:
+      - "8000:8001"
+    extra_hosts:
+      - "proxy.local:host-gateway"
+    volumes:
+      - ./photoeditor_data:/app/data
+      - ./backend:/app
+    env_file:
+      - .env
+    environment:
+      TZ: "America/Sao_Paulo"
+      DEBUG: "True"
+      POSTGRES_URL: "postgresql://photoeditor:photoeditor@postgres:5432/photoeditor"
+      EMAIL_BACKEND: "django.core.mail.backends.console.EmailBackend"
+    command: ["python", "manage.py", "runserver", "0.0.0.0:8001"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - photoeditor-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_BACKEND_URL: "${REACT_APP_BACKEND_URL:-http://localhost:8000}"
+    container_name: photoeditor-frontend-dev
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+    environment:
+      TZ: "America/Sao_Paulo"
+      REACT_APP_BACKEND_URL: "${REACT_APP_BACKEND_URL:-http://localhost:8000}"
+      REACT_APP_BRAND_NAME: "${REACT_APP_BRAND_NAME:-PhotoEditor}"
+      REACT_APP_MEDIA_BASE: "${REACT_APP_MEDIA_BASE:-https://media.sec4us.com.br}"
+      REACT_APP_BRAND_LOGO: "${REACT_APP_BRAND_LOGO:-https://media.sec4us.com.br/logo/sec4us-light-mode.svg}"
+      REACT_APP_BRAND_LOGO_DARK: "${REACT_APP_BRAND_LOGO_DARK:-https://media.sec4us.com.br/logo/sec4us-dark-mode.svg}"
+      REACT_APP_BRAND_CONTACT_EMAIL: "${REACT_APP_BRAND_CONTACT_EMAIL:-contato@photoeditor.com.br}"
+    depends_on:
+      - backend
+    networks:
+      - photoeditor-net
+
+networks:
+  photoeditor-net:
+    driver: bridge

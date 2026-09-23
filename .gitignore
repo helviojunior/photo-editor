@@ -1,0 +1,25 @@
+# Segredos: so o .env.example vai para o git (regra 12)
+.env
+.env.*
+!.env.example
+
+# Dados dos containers (postgres, TLS, segredos gerados no boot)
+photoeditor_data/
+
+# Python
+__pycache__/
+*.pyc
+backend/staticfiles/
+backend/media/
+
+# Frontend
+frontend/node_modules/
+frontend/build/
+
+# Rascunhos locais
+temp/
+
+# SO / editores
+.DS_Store
+.idea/
+.vscode/
