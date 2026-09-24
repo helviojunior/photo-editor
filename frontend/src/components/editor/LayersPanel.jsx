@@ -7,6 +7,7 @@ import { Toggle } from "components/ui/toggle";
 
 export const BRUSH_MIN = 0.005;
 export const BRUSH_MAX = 0.15;
+export const BRUSH_STEP = 0.005;
 
 const layerLabel = (tf, index) => tf("layers.name", { n: index + 1 });
 
@@ -100,7 +101,7 @@ export function SelectionPanel({
           {editing ? t("layers.editArea", "Edit area") : t("layers.new", "Select area")}
         </h2>
         <p className="text-[11px] text-muted-foreground">
-          {t("layers.hint", "Paint over the object to extract it. Each stroke adds to the selection; Subtract (or holding Alt) removes. S or Enter finishes, Esc cancels.")}
+          {t("layers.hint", "Paint over the object to extract it. Each stroke adds to the selection; Subtract (or holding Alt) removes. [ and ] change the brush size. S or Enter finishes, Esc cancels.")}
         </p>
       </section>
 
@@ -119,7 +120,7 @@ export function SelectionPanel({
           <label htmlFor="slider-brush-size">{t("layers.brushSize", "Brush size")}</label>
           <span className="tabular-nums text-muted-foreground">{Math.round(brush.size * 1000) / 10}%</span>
         </div>
-        <input id="slider-brush-size" type="range" min={BRUSH_MIN} max={BRUSH_MAX} step={0.005}
+        <input id="slider-brush-size" type="range" min={BRUSH_MIN} max={BRUSH_MAX} step={BRUSH_STEP}
           value={brush.size}
           onChange={(e) => onBrush({ size: Number(e.target.value) })}
           onPointerUp={(e) => e.currentTarget.blur()}

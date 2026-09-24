@@ -9,7 +9,7 @@ import { FormError } from "components/ui/form-error";
 import ImagePane from "components/editor/ImagePane";
 import CropEditor from "components/editor/CropEditor";
 import SelectEditor from "components/editor/SelectEditor";
-import { LayersSection, SelectionPanel } from "components/editor/LayersPanel";
+import { BRUSH_MAX, BRUSH_MIN, BRUSH_STEP, LayersSection, SelectionPanel } from "components/editor/LayersPanel";
 import Filmstrip from "components/editor/Filmstrip";
 import PhotoHistory from "components/editor/PhotoHistory";
 import EditPanel from "components/editor/EditPanel";
@@ -396,7 +396,8 @@ export default function Editor() {
     if (activeLayer === id) setActiveLayer(null);
   }, [updateDraft, commitDraft, activeLayer]);
 
-  // Enter conclui e Esc cancela a seleção (o S, nos atalhos, também conclui).
+  // Enter conclui e Esc cancela a seleção (o S, nos atalhos, também conclui);
+  // [ e ] diminuem e aumentam o pincel, como no Photoshop/Lightroom.
   useEffect(() => {
     if (!selecting) return undefined;
     const onKey = (e) => {
@@ -404,6 +405,12 @@ export default function Editor() {
       const tag = e.target?.tagName;
       if (e.key === "Escape") exitSelect();
       else if (e.key === "Enter" && tag !== "BUTTON" && tag !== "INPUT") applySelection();
+      else if ((e.key === "[" || e.key === "]") && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        const delta = e.key === "]" ? BRUSH_STEP : -BRUSH_STEP;
+        setBrushState((b) => ({ ...b, size: Math.round(
+          Math.min(Math.max(b.size + delta, BRUSH_MIN), BRUSH_MAX) * 1000) / 1000 }));
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

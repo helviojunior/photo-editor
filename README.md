@@ -38,7 +38,8 @@ vivo — aqui girado a -90°, trocando paisagem por retrato sem girar a imagem:
 `S` entra no modo seleção: pinte por cima de uma pessoa ou objeto na
 original e ele vira uma **camada**, com ajustes próprios — o resto da foto
 fica em outra, com os dela (ex.: fundo escuro e P&B, jogador em cor). Cada
-traço soma à seleção; **Subtrair** (ou `Alt`) remove. `L` passa de uma camada
+traço soma à seleção; **Subtrair** (ou `Alt`) remove; `[` e `]` diminuem e
+aumentam o pincel. `L` passa de uma camada
 para a outra; sliders, presets e Auto editam a camada ativa.
 
 Quem acha o objeto sob o traço é o **SAM 2.1 tiny** (Segment Anything 2, Meta,
