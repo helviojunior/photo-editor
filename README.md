@@ -1,6 +1,17 @@
 # PhotoEditor
 
-Editor de fotos de eventos, no estilo Lightroom (Django REST + React).
+**PhotoEditor é um sistema livre, feito para otimizar a seleção e a edição
+rápida de fotos de eventos.** Em vez de abrir centenas de arquivos um a um,
+você percorre o evento inteiro pelo teclado: descarta as fotos ruins com `DEL`,
+aplica `A` (Auto) ou um preset, recorta com `C` e exporta tudo de uma vez, já no
+formato de publicação. A edição nunca altera os originais.
+
+Foi criado por **Helvio Junior** para agilizar o fluxo das coberturas
+fotográficas do [PhotoE](https://photoe.com.br/) — da triagem logo depois do
+evento até a pasta pronta para publicar.
+
+Editor no estilo Lightroom (Django REST + React), rodando localmente em Docker
+sobre a pasta de fotos do evento.
 
 O sistema é **100% público e não autenticado**: não há login, contas, empresas
 nem permissionamento. O Django admin também é aberto — quem acessa `/admin/`
