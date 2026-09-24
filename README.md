@@ -9,6 +9,18 @@ entra automaticamente como o usuário padrão `admin`, que não tem senha.
 > As convenções obrigatórias do projeto estão em [`CLAUDE.md`](./CLAUDE.md).
 > Toda variável, valor padrão e identificador de código é escrito em **inglês**.
 
+## Exemplos
+
+Original e editada lado a lado, painel de edição à direita (Auto, presets e
+ajustes de luz e cor) e a filmstrip do evento embaixo:
+
+![Editor com o preset P&B aplicado](./images/screen1.png)
+
+Modo recorte: o quadro fica sobre a original e a editada mostra o resultado ao
+vivo — aqui girado a -90°, trocando paisagem por retrato sem girar a imagem:
+
+![Modo recorte com o quadro girado a -90°](./images/screen2.png)
+
 ## Stack
 
 | Camada    | Tecnologia                                             |
