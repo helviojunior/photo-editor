@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef } from "react";
 import { cn } from "lib/utils";
 import { normalizeCrop } from "./crop";
+import useFitSize from "./useFitSize";
 
 // Cantos em "L" (a alça visível) dentro de uma área de toque maior e
 // invisível; (sx, sy) diz qual canto é, nos eixos do quadro.
@@ -33,24 +34,8 @@ export default function CropEditor({ src, busy, photo, crop, onChange, onCommit,
   const paneRef = useRef(null);
   const frameRef = useRef(null);
   const drag = useRef(null);
-  const [size, setSize] = useState({ w: 0, h: 0 });
   const aspect = photo.width && photo.height ? photo.height / photo.width : 1;
-
-  // Maior retângulo na proporção da foto que cabe no painel.
-  useEffect(() => {
-    const pane = paneRef.current;
-    if (!pane) return undefined;
-    const fit = () => {
-      const pw = pane.clientWidth - 16;
-      const ph = pane.clientHeight - 16;
-      const w = Math.max(Math.min(pw, ph / aspect), 0);
-      setSize({ w, h: w * aspect });
-    };
-    fit();
-    const ro = new ResizeObserver(fit);
-    ro.observe(pane);
-    return () => ro.disconnect();
-  }, [aspect]);
+  const size = useFitSize(paneRef, aspect);
 
   const center = () => {
     const r = frameRef.current.getBoundingClientRect();

@@ -4,8 +4,8 @@
 otimizar a seleção e a edição rápida de fotos de eventos.** Em vez de abrir
 centenas de arquivos um a um, você percorre o evento inteiro pelo teclado:
 descarta as fotos ruins com `DEL`,
-aplica `A` (Auto) ou um preset, recorta com `C` e exporta tudo de uma vez, já no
-formato de publicação. A edição nunca altera os originais.
+aplica `A` (Auto) ou um preset, recorta com `C`, extrai uma pessoa ou objeto
+numa camada com `S` e exporta tudo de uma vez, já no formato de publicação. A edição nunca altera os originais.
 
 Foi criado por **Helvio Junior** para agilizar o fluxo das coberturas
 fotográficas do [PhotoE](https://photoe.com.br/) — da triagem logo depois do
@@ -32,6 +32,25 @@ Modo recorte: o quadro fica sobre a original e a editada mostra o resultado ao
 vivo — aqui girado a -90°, trocando paisagem por retrato sem girar a imagem:
 
 ![Modo recorte com o quadro girado a -90°](./images/screen2.png)
+
+## Camadas (seleção de objetos)
+
+`S` entra no modo seleção: pinte por cima de uma pessoa ou objeto na
+original e ele vira uma **camada**, com ajustes próprios — o resto da foto
+fica em outra, com os dela (ex.: fundo escuro e P&B, jogador em cor). Cada
+traço soma à seleção; **Subtrair** (ou `Alt`) remove. `L` passa de uma camada
+para a outra; sliders, presets e Auto editam a camada ativa.
+
+Quem acha o objeto sob o traço é o **SAM 2.1 tiny** (Segment Anything 2, Meta,
+Apache-2.0) em ONNX, rodando **localmente em CPU** — não precisa de GPU, de
+Ollama nem de internet. O modelo (~155 MB) é baixado no build da imagem do
+backend, com revisão e hashes fixos. Custo: ~1,5 s na primeira seleção de
+cada foto e ~0,3 s por traço; pico de ~1,2 GB de RAM durante a análise.
+Com a opção **Detectar o objeto (IA)** desligada, o pincel seleciona
+exatamente a área pintada.
+
+As máscaras ficam em `project_data/masks/` (PNG, nome = hash do conteúdo) e
+entram no histórico, no desfazer e na exportação como qualquer ajuste.
 
 ## Stack
 
@@ -103,7 +122,7 @@ montada em `/project` no backend:
 ```
 <PROJECT_DIR>/
     raw/            fotos originais (somente JPEG, nunca alteradas)
-    project_data/   db.sqlite3 + caches gerados
+    project_data/   db.sqlite3 + caches gerados + masks/ (camadas)
     deleted/        fotos excluídas (movidas, nunca apagadas)
     publicar/       saída do botão Exportar
 ```
@@ -141,6 +160,9 @@ docker compose -f docker-compose.dev.yml up
 | Método/Rota          | Descrição                                          |
 |----------------------|----------------------------------------------------|
 | `GET  /api/config/`  | Idioma padrão, idiomas suportados, marca e versão  |
+| `GET  /api/develop/` | Sliders, presets e camadas (`smart_select`)        |
+| `POST /api/photos/<id>/segment/` | Traço do pincel → máscara do objeto    |
+| `GET  /api/masks/<chave>.png` | Máscara de uma camada (overlay)           |
 | `/admin/`            | Django admin público                               |
 
 ## Licença

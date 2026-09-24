@@ -24,7 +24,7 @@ from django.utils import timezone
 from photoeditor.imaging import develop, publish
 from photoeditor.imaging.io import raw_path
 from photoeditor.models import Photo
-from photoeditor.services import editing
+from photoeditor.services import editing, layers
 from photoeditor.services.derivatives import write_atomic
 
 log = logging.getLogger(__name__)
@@ -52,7 +52,8 @@ def status() -> dict:
 
 
 def export_hash(photo, state) -> str:
-    edit = develop.settings_hash(state['values'], state['preset'], state['crop'])
+    edit = develop.settings_hash(state['values'], state['preset'], state['crop'],
+                                 state['layers'])
     key = (f'{EXPORT_VERSION}:{edit}'
            f':{photo.mtime_ns}:{photo.size_bytes}')
     return hashlib.sha1(key.encode()).hexdigest()[:16]
@@ -85,10 +86,10 @@ def _export_one(photo):
         if photo.exported_hash == digest and out.is_file():
             _bump(skipped=1)
             return
-        # Recorta na resolucao cheia, depois reduz para a caixa, depois revela.
+        # Recorta na resolucao cheia, depois reduz para a caixa, depois revela
+        # (as mascaras das camadas passam pelo mesmo crop e pela mesma reducao).
         rgb, exif = publish.load(raw_path(photo), state['crop']['scale'])
-        rgb = publish.fit(develop.apply_crop(rgb, state['crop']))
-        rendered = develop.render(rgb, state['values'], state['preset'])
+        rendered = layers.develop_image(rgb, state, fit=publish.fit)
         write_atomic(out, publish.encode(rendered, exif))
         Photo.objects.filter(pk=photo.pk).update(exported_hash=digest)
         _bump(written=1)

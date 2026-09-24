@@ -239,6 +239,14 @@ RAW_DIR = PROJECT_ROOT / 'raw'                    # originais (somente JPEG)
 PROJECT_DATA_DIR = PROJECT_ROOT / 'project_data'  # SQLite + caches gerados
 DELETED_DIR = PROJECT_ROOT / 'deleted'            # fotos excluidas (movidas)
 PUBLISH_DIR = PROJECT_ROOT / 'publicar'           # saida do Exportar
+# Mascaras das camadas (PNG por hash do conteudo). Nao e cache: a edicao
+# gravada aponta para elas, entao moram fora de project_data/cache.
+MASKS_DIR = PROJECT_DATA_DIR / 'masks'
+
+# Modelo de segmentacao (SAM 2.1 tiny em ONNX) que transforma o traco do
+# pincel em mascara do objeto. Baixado no build da imagem (backend/Dockerfile),
+# fora de /app para o volume do docker-compose.dev.yml nao esconde-lo.
+SEGMENT_MODEL_DIR = Path(os.environ.get('SEGMENT_MODEL_DIR', '/opt/models/sam2.1-hiera-tiny'))
 
 # O banco e SEMPRE o SQLite do projeto montado. Sem /project nao ha onde
 # gravar: falha na hora, com mensagem clara, em vez de criar um banco em

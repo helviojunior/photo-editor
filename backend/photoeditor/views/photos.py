@@ -1,15 +1,16 @@
+import json
 from urllib.parse import urlencode
 
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from photoeditor.i18n import tr
-from photoeditor.imaging import develop
+from photoeditor.imaging import develop, segment
 from photoeditor.imaging.io import raw_path
 from photoeditor.models import Photo
-from photoeditor.services import catalog, derivatives, editing, export, history, trash
+from photoeditor.services import catalog, derivatives, editing, export, history, layers, trash
 
 # URLs de imagem carregam a versao (mtime / hash dos ajustes): o conteudo de
 # uma URL nunca muda, entao o navegador pode guardar para sempre.
@@ -26,7 +27,30 @@ def render_url(photo, state):
         params['preset'] = state['preset']
     if not develop.is_crop_identity(state['crop']):
         params.update({f'crop_{k}': v for k, v in state['crop'].items()})
+    if state['layers']:
+        params['layers'] = layers_param(state['layers'])
     return f'/api/photos/{photo.pk}/render/?{urlencode(params)}'
+
+
+def layers_param(state_layers):
+    """Camadas na query do render, no formato curto que o frontend tambem
+    monta (``renderUrl.js``): ``[{"m": mascara, "v": ajustes != 0, "p": preset}]``."""
+    return json.dumps([{'m': lay['mask'],
+                        'v': {k: v for k, v in lay['values'].items() if v},
+                        'p': lay['preset']} for lay in state_layers],
+                      separators=(',', ':'), sort_keys=True)
+
+
+def parse_layers_param(raw):
+    try:
+        items = json.loads(raw) if raw else []
+    except ValueError:
+        return []
+    if not isinstance(items, list):
+        return []
+    return develop.normalize_layers([
+        {'id': f'q{i}', 'mask': it.get('m'), 'values': it.get('v'), 'preset': it.get('p')}
+        for i, it in enumerate(items) if isinstance(it, dict)])
 
 
 def photo_json(photo):
@@ -131,17 +155,24 @@ class PhotoRenderView(APIView):
         q = request.query_params
         values = {k: q[k] for k in develop.SLIDERS if k in q}
         preset = q.get('preset', '')
-        crop = develop.normalize_crop(
-            {k: q[f'crop_{k}'] for k in develop.CROP_IDENTITY if f'crop_{k}' in q},
-            editing.aspect(photo))
-        return image_response(derivatives.render_path(photo, values, preset, crop))
+        state = {
+            'values': develop.normalize(values),
+            'preset': develop.normalize_preset(preset),
+            'crop': develop.normalize_crop(
+                {k: q[f'crop_{k}'] for k in develop.CROP_IDENTITY if f'crop_{k}' in q},
+                editing.aspect(photo)),
+            'layers': parse_layers_param(q.get('layers')),
+        }
+        return image_response(derivatives.render_path(photo, state))
 
 
 class DevelopConfigView(APIView):
     """Sliders (limites/passo), presets e versao do motor."""
 
     def get(self, request):
-        return Response(develop.describe())
+        return Response({**develop.describe(),
+                         'layers': {'max': develop.MAX_LAYERS,
+                                    'smart_select': segment.available()}})
 
 
 class PhotoAdjustmentsView(APIView):
@@ -149,15 +180,68 @@ class PhotoAdjustmentsView(APIView):
         photo = active_photo(pk)
         editing.set_adjustments(photo, request.data.get('values') or {},
                                 request.data.get('preset') or '',
-                                request.data.get('crop'))
+                                request.data.get('crop'),
+                                request.data.get('layers'))
         return Response(photo_json(photo))
 
 
 class PhotoAutoView(APIView):
+    """Auto da foto ou, com ``{"layer": id}``, so da camada."""
+
     def post(self, request, pk):
         photo = active_photo(pk)
-        editing.run_auto(photo)
+        editing.run_auto(photo, (request.data or {}).get('layer'))
         return Response(photo_json(photo))
+
+
+class PhotoSegmentView(APIView):
+    """Selecao por pincel (modo selecao do editor).
+
+    ``{"base": chave|null, "stroke": {"points": [[x, y], ...], "radius": r,
+    "mode": "add"|"subtract"}, "smart": bool}`` -> ``{"mask", "coverage",
+    "smart"}``. Pontos em fracao da foto inteira (antes do crop), raio em
+    fracao do lado maior. Sem ``stroke``, so prepara o modelo para a foto.
+
+    Nao grava a edicao: a mascara so vira camada quando o painel manda o
+    estado com ela (PUT adjustments), o que entra no historico."""
+
+    def post(self, request, pk):
+        photo = active_photo(pk)
+        data = request.data or {}
+        base = data.get('base') or None
+        if base is not None and layers.load_mask(base) is None:
+            return Response({'error': tr(request, 'layers.maskNotFound')}, status=400)
+        stroke = data.get('stroke')
+        if not stroke:
+            layers.warm(photo)
+            return Response({'mask': base, 'coverage': layers.coverage(base) if base else 0.0,
+                             'smart': segment.available()})
+        try:
+            points = [(min(max(float(x), 0.0), 1.0), min(max(float(y), 0.0), 1.0))
+                      for x, y in stroke.get('points') or []][:2000]
+            radius = min(max(float(stroke.get('radius') or 0.02), 0.002), 0.5)
+        except (TypeError, ValueError):
+            points = []
+        if not points:
+            return Response({'error': tr(request, 'layers.invalidStroke')}, status=400)
+        mode = stroke.get('mode') if stroke.get('mode') in layers.MODES else 'add'
+        key, smart = layers.apply_stroke(photo, base, points, radius, mode,
+                                         data.get('smart', True))
+        return Response({'mask': key, 'coverage': layers.coverage(key) if key else 0.0,
+                         'smart': smart})
+
+
+class MaskView(APIView):
+    """Mascara como PNG com transparencia, para o overlay da selecao. A
+    chave e o hash do conteudo: a URL nunca muda de conteudo."""
+
+    def get(self, request, key):
+        data = layers.overlay_png(key)
+        if data is None:
+            raise Http404
+        response = HttpResponse(data, content_type='image/png')
+        response['Cache-Control'] = IMMUTABLE
+        return response
 
 
 class PhotoResetView(APIView):

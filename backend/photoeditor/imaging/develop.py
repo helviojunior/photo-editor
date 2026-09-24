@@ -97,8 +97,57 @@ def effective(values, preset='') -> dict:
     return out
 
 
-def is_neutral(values, preset='') -> bool:
-    return all(v == 0 for v in effective(values, preset).values())
+def is_neutral(values, preset='', layers=None) -> bool:
+    return (all(v == 0 for v in effective(values, preset).values())
+            and all(is_neutral(layer['values'], layer['preset'])
+                    for layer in layers or ()))
+
+
+# --------------------------------------------------------------------------- #
+# Camadas
+#
+# Uma camada e uma area da foto (mascara) com os PROPRIOS ajustes. Os ajustes
+# da foto (``values``/``preset``) passam a valer so para o restante: cada
+# camada e revelada a partir do original, nao por cima do restante, e a
+# mascara decide quanto de cada uma aparece em cada pixel. Escurecer o fundo
+# nao escurece a pessoa recortada.
+#
+# A mascara mora num PNG em ``project_data/masks`` com o nome igual ao hash do
+# conteudo (``services/layers.py``); aqui so circula a chave. Mascara nunca
+# muda de conteudo, entao a chave entra no hash do render como um numero.
+# --------------------------------------------------------------------------- #
+
+MAX_LAYERS = 8
+_MASK_KEY_CHARS = set('0123456789abcdef')
+MASK_KEY_LEN = 20
+
+
+def is_mask_key(key) -> bool:
+    return (isinstance(key, str) and len(key) == MASK_KEY_LEN
+            and set(key) <= _MASK_KEY_CHARS)
+
+
+def normalize_layers(layers) -> list:
+    """Camadas validas, na ordem (a de baixo primeiro).
+
+    Deterministico — normalizar duas vezes da o mesmo resultado, que e o que
+    o ``apply_state`` compara para saber se algo mudou. O ``id`` vem do
+    frontend; sem ele (ou repetido), sai um derivado da posicao e da mascara.
+    """
+    out, seen = [], set()
+    for i, layer in enumerate(layers if isinstance(layers, list) else ()):
+        if not isinstance(layer, dict) or not is_mask_key(layer.get('mask')):
+            continue
+        lid = str(layer.get('id') or '')
+        if not (0 < len(lid) <= 32 and lid.isalnum()) or lid in seen:
+            lid = f"{layer['mask'][:8]}{i}"
+        seen.add(lid)
+        out.append({'id': lid, 'mask': layer['mask'],
+                    'values': normalize(layer.get('values')),
+                    'preset': normalize_preset(layer.get('preset'))})
+        if len(out) == MAX_LAYERS:
+            break
+    return out
 
 
 # --------------------------------------------------------------------------- #
@@ -199,13 +248,17 @@ def apply_crop(img: np.ndarray, crop) -> np.ndarray:
                           borderMode=cv2.BORDER_REPLICATE)
 
 
-def settings_hash(values, preset='', crop=None) -> str:
+def settings_hash(values, preset='', crop=None, layers=None) -> str:
     """Identidade do resultado: mesmos ajustes + mesma versao = mesma imagem."""
     parts = [ENGINE_VERSION, effective(values, preset)]
     # Sem crop, o hash e o mesmo de antes de o crop existir: nada ja
-    # renderizado ou exportado fica "sujo" so por causa desta versao.
+    # renderizado ou exportado fica "sujo" so por causa desta versao. O mesmo
+    # vale para as camadas.
     if crop and not is_crop_identity(crop):
         parts.append(crop)
+    if layers:
+        parts.append({'layers': [[layer['mask'], effective(layer['values'], layer['preset'])]
+                                 for layer in layers]})
     payload = json.dumps(parts, sort_keys=True)
     return hashlib.sha1(payload.encode()).hexdigest()[:16]
 
@@ -386,6 +439,20 @@ def render(img: np.ndarray, values, preset='') -> np.ndarray:
         np.clip(x, 0, 1, out=x)
 
     return (x * 255.0 + 0.5).astype(np.uint8)
+
+
+def render_layers(img: np.ndarray, values, preset='', layers=()) -> np.ndarray:
+    """Restante com ``values``/``preset``; cada camada ``(values, preset,
+    alpha)`` revelada do mesmo ``img`` e misturada por cima pela ``alpha``
+    (float32 em [0, 1], do tamanho de ``img``). Sem camadas = ``render``."""
+    out = render(img, values, preset)
+    if not layers:
+        return out
+    acc = out.astype(np.float32)
+    for layer_values, layer_preset, alpha in layers:
+        top = render(img, layer_values, layer_preset).astype(np.float32)
+        acc += (top - acc) * alpha[..., None]
+    return (acc + 0.5).astype(np.uint8)
 
 
 def describe() -> dict:

@@ -11,15 +11,17 @@ function isFieldTarget(el) {
 /**
  * Atalhos do editor: → proxima, ← anterior, DEL excluir, CTRL/CMD+Z desfazer,
  * A aplica o Auto, C entra/sai do modo crop (no modo crop, quem decide o que
- * as setas fazem e o Editor: elas giram o quadro).
+ * as setas fazem e o Editor: elas giram o quadro), S entra/sai do modo
+ * selecao (camadas) e L passa para a proxima camada (o restante da foto conta
+ * como uma, e depois da ultima volta a ele).
  *
  * O DEL aceita tambem o Backspace: no teclado do Mac a tecla "delete" manda
  * Backspace, e o Delete de verdade so existe com fn.
  */
-export default function useShortcuts({ onNext, onPrev, onDelete, onUndo, onCrop, onAuto }) {
+export default function useShortcuts({ onNext, onPrev, onDelete, onUndo, onCrop, onAuto, onSelect, onLayer }) {
   // Os handlers mudam a cada render; o listener fica um so.
   const handlers = useRef({});
-  handlers.current = { onNext, onPrev, onDelete, onUndo, onCrop, onAuto };
+  handlers.current = { onNext, onPrev, onDelete, onUndo, onCrop, onAuto, onSelect, onLayer };
 
   useEffect(() => {
     const onKeyDown = (e) => {
@@ -37,6 +39,8 @@ export default function useShortcuts({ onNext, onPrev, onDelete, onUndo, onCrop,
       else if (e.key === "Delete" || e.key === "Backspace") handler = h.onDelete;
       else if (e.key.toLowerCase() === "c" && !e.shiftKey) handler = h.onCrop;
       else if (e.key.toLowerCase() === "a" && !e.shiftKey) handler = h.onAuto;
+      else if (e.key.toLowerCase() === "s" && !e.shiftKey) handler = h.onSelect;
+      else if (e.key.toLowerCase() === "l" && !e.shiftKey) handler = h.onLayer;
 
       if (!handler) return;
       e.preventDefault();

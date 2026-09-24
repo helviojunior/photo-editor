@@ -13,7 +13,10 @@ function formatValue(slider, value) {
 }
 
 /**
- * Painel de edição: Auto, Reset, crop, presets e os sliders do motor.
+ * Painel de edição: Auto, Reset, crop, camadas, presets e os sliders do motor.
+ *
+ * Sliders e presets editam a camada ATIVA (`layerId`); sem camada ativa, os
+ * ajustes da própria foto — que, havendo camadas, valem para o restante.
  *
  * Os sliders vêm do backend (`/api/develop/`): limites, passo e grupo são do
  * motor, e o painel só os desenha. Arrastar muda o rascunho (`onDraft`, o
@@ -24,7 +27,7 @@ function formatValue(slider, value) {
  */
 export default function EditPanel({
   config, draft, onDraft, onCommit, onAuto, onReset, busy, disabled,
-  cropMode, onToggleCrop, onCropChange, aspect,
+  cropMode, onToggleCrop, onCropChange, aspect, layerId = null, layersSection,
 }) {
   const { t } = useI18n();
   // Seta segurada no slider = um ajuste, nao um por passo: grava quando o
@@ -33,8 +36,15 @@ export default function EditPanel({
   useEffect(() => () => clearTimeout(keyTimer.current), []);
   if (!config || !draft) return null;
 
+  const layer = layerId ? (draft.layers || []).find((l) => l.id === layerId) : null;
+  const target = layer || draft;
+  // O rascunho com `patch` ({values} e/ou {preset}) aplicado na camada ativa.
+  const patched = (patch) => (layer
+    ? { ...draft, layers: draft.layers.map((l) => (l.id === layer.id ? { ...l, ...patch } : l)) }
+    : { ...draft, ...patch });
+
   const setValue = (name, value) =>
-    onDraft({ ...draft, values: { ...draft.values, [name]: value } });
+    onDraft(patched({ values: { ...target.values, [name]: value } }));
 
   // Soltar o slider grava e devolve o foco à página: com o foco no slider as
   // setas e o DEL seriam dele (TODO 5.6), e o atalho "morreria" até um clique.
@@ -44,13 +54,13 @@ export default function EditPanel({
   };
 
   const resetSlider = (name) => {
-    const next = { ...draft, values: { ...draft.values, [name]: 0 } };
+    const next = patched({ values: { ...target.values, [name]: 0 } });
     onDraft(next);
     onCommit(next);
   };
 
   const choosePreset = (id) => {
-    const next = { ...draft, preset: draft.preset === id ? "" : id };
+    const next = patched({ preset: target.preset === id ? "" : id });
     onDraft(next);
     onCommit(next);
   };
@@ -113,13 +123,15 @@ export default function EditPanel({
         )}
       </section>
 
+      {layersSection}
+
       <section>
         <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           {t("edit.presets", "Presets")}
         </h2>
         <div className="flex flex-wrap gap-1.5">
           {config.presets.map((p) => {
-            const active = draft.preset === p.id;
+            const active = target.preset === p.id;
             return (
               <button
                 key={p.id}
@@ -146,7 +158,7 @@ export default function EditPanel({
             {t(`edit.group.${group}`, group)}
           </h2>
           {config.sliders.filter((s) => s.group === group).map((s) => {
-            const value = draft.values[s.name] ?? 0;
+            const value = target.values[s.name] ?? 0;
             const id = `slider-${s.name}`;
             return (
               <div key={s.name} className="py-1">

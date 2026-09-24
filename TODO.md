@@ -163,3 +163,16 @@ original + ajustes.
       exportação: cada foto guarda o hash do que foi escrito (arquivo +
       ajustes + versões do motor e do formato) e é pulada se nada mudou; a
       cópia exportada de uma foto excluída depois sai de `publicar/`.
+
+## 8. Camadas
+
+- [x] **8.1** Selecionar uma ou mais áreas da foto com um pincel e extraí-las
+      numa **camada**; o restante da foto fica em outra, e cada uma tem os
+      próprios ajustes (sliders, presets e Auto). Algoritmo avaliado em
+      2026-09-24 nas fotos do evento: GrabCut (OpenCV) vaza para fundos com
+      textura e os modelos do Ollama não geram máscara por pixel; ficou o
+      SAM 2.1 tiny em ONNX, local em CPU, com o traço virando vários prompts
+      e vencendo a máscara que melhor coincide com a área pintada. Máscaras
+      em `project_data/masks/`, gravadas no estado da foto (histórico,
+      desfazer, render e exportação). `S` entra/conclui o modo seleção, `L`
+      passa para a próxima camada.

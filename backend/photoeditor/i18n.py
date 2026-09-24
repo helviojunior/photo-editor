@@ -20,6 +20,8 @@ CATALOGS = {
         'error.notFound': 'Not found.',
         'error.photoFileMissing': 'The file {name} is no longer where the catalog expected it.',
         'error.restoreConflict': 'Cannot restore {name}: there is already a file with that name in raw/.',
+        'layers.maskNotFound': 'The selection no longer exists. Start a new one.',
+        'layers.invalidStroke': 'The brush stroke is empty or invalid.',
 
         # E-mails
         'email.greeting': 'Hello, {name},',
@@ -30,6 +32,8 @@ CATALOGS = {
         'error.notFound': 'Não encontrado.',
         'error.photoFileMissing': 'O arquivo {name} não está mais onde o catálogo esperava.',
         'error.restoreConflict': 'Não foi possível restaurar {name}: já existe um arquivo com esse nome em raw/.',
+        'layers.maskNotFound': 'A seleção não existe mais. Comece uma nova.',
+        'layers.invalidStroke': 'O traço do pincel está vazio ou é inválido.',
 
         'email.greeting': 'Olá, {name},',
         'email.footer.copyright': '© {year} {brand}. Todos os direitos reservados.',

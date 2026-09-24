@@ -7,6 +7,7 @@ from photoeditor.views.photos import (
     PhotoThumbnailView, PhotoPreviewView, PhotoOriginalView,
     PhotoHistoryView, UndoView, PhotoRenderView, DevelopConfigView,
     PhotoAdjustmentsView, PhotoAutoView, PhotoResetView, ExportView,
+    PhotoSegmentView, MaskView,
 )
 
 
@@ -38,6 +39,10 @@ urlpatterns = [
     path('api/photos/<uuid:pk>/auto/', PhotoAutoView.as_view(), name='photo-auto'),
     path('api/photos/<uuid:pk>/reset/', PhotoResetView.as_view(), name='photo-reset'),
     path('api/photos/<uuid:pk>/history/', PhotoHistoryView.as_view(), name='photo-history'),
+
+    # Camadas: selecao por pincel (vira mascara) e o PNG da mascara
+    path('api/photos/<uuid:pk>/segment/', PhotoSegmentView.as_view(), name='photo-segment'),
+    path('api/masks/<str:key>.png', MaskView.as_view(), name='mask'),
 
     # Exportar para publicar/
     path('api/export/', ExportView.as_view(), name='export'),

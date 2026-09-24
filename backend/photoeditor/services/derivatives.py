@@ -68,21 +68,23 @@ def thumbnail_path(photo) -> Path:
     return path
 
 
-def render_path(photo, values, preset='', crop=None) -> Path:
-    """Preview EDITADO: o preview do original recortado (``crop`` ja
-    normalizado) e passado pelo motor de revelacao.
+def render_path(photo, state) -> Path:
+    """Preview EDITADO: o preview do original passado pelo crop, pelo motor
+    de revelacao e pelas camadas (``state`` ja normalizado).
 
     O nome carrega o hash dos ajustes efetivos (e a versao do motor), entao
     arrastar um slider de volta a um valor ja visto reaproveita o arquivo.
     """
-    no_crop = not crop or develop.is_crop_identity(crop)
-    if no_crop and develop.is_neutral(values, preset):
+    from photoeditor.services import layers   # layers importa este modulo
+
+    values, preset, crop = state['values'], state['preset'], state['crop']
+    if develop.is_crop_identity(crop) and develop.is_neutral(values, preset, state['layers']):
         return preview_path(photo)
-    key = develop.settings_hash(values, preset, crop)
+    key = develop.settings_hash(values, preset, crop, state['layers'])
     path = cache_dir('render') / f'{photo.pk}-{photo.mtime_ns}-{key}.jpg'
     if not path.is_file():
         with Image.open(preview_path(photo)) as img:
-            rgb = develop.apply_crop(np.asarray(img.convert('RGB')), crop)
-        out = Image.fromarray(develop.render(rgb, values, preset))
+            rgb = np.asarray(img.convert('RGB'))
+        out = Image.fromarray(layers.develop_image(rgb, state))
         write_atomic(path, _encode(out, RENDER_QUALITY))
     return path

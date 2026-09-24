@@ -16,11 +16,32 @@ export default function renderUrl(photo, draft) {
   if (draft.crop && !isCropIdentity(draft.crop)) {
     ["scale", "cx", "cy", "angle"].forEach((k) => params.set(`crop_${k}`, String(draft.crop[k])));
   }
+  if (draft.layers?.length) params.set("layers", layersParam(draft.layers));
   return `${base.pathname}?${params.toString()}`;
+}
+
+// Formato curto do backend (views/photos.py:layers_param), chaves em ordem.
+function layersParam(layers) {
+  return JSON.stringify(layers.map((l) => {
+    const v = {};
+    Object.keys(l.values).sort().forEach((k) => { if (l.values[k]) v[k] = l.values[k]; });
+    return { m: l.mask, p: l.preset || "", v };
+  }));
+}
+
+function sameValues(a, b) {
+  const keys = new Set([...Object.keys(a || {}), ...Object.keys(b || {})]);
+  return [...keys].every((k) => ((a || {})[k] || 0) === ((b || {})[k] || 0));
+}
+
+function sameLayers(a, b) {
+  const x = a || [];
+  const y = b || [];
+  return x.length === y.length && x.every((l, i) => l.id === y[i].id && l.mask === y[i].mask
+    && (l.preset || "") === (y[i].preset || "") && sameValues(l.values, y[i].values));
 }
 
 export function sameState(a, b) {
   if (!a || !b || a.preset !== b.preset || !sameCrop(a.crop, b.crop)) return false;
-  const keys = new Set([...Object.keys(a.values), ...Object.keys(b.values)]);
-  return [...keys].every((k) => (a.values[k] || 0) === (b.values[k] || 0));
+  return sameValues(a.values, b.values) && sameLayers(a.layers, b.layers);
 }

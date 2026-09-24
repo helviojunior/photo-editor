@@ -6,6 +6,8 @@ Pillow>=10
 numpy>=1.26,<3
 # <5: o OpenCV 5 tirou o HOGDescriptor (detector de pessoas do Auto)
 opencv-python-headless>=4.9,<5
+# Selecao de objetos das camadas (imaging/segment.py): roda o SAM 2.1 em CPU
+onnxruntime>=1.18,<2
 # EXIF da exportacao (DateTimeOriginal preservado, Orientation=1)
 piexif
 python-dotenv==1.1.1

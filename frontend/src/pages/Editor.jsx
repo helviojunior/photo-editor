@@ -8,6 +8,8 @@ import { Button } from "components/ui/button";
 import { FormError } from "components/ui/form-error";
 import ImagePane from "components/editor/ImagePane";
 import CropEditor from "components/editor/CropEditor";
+import SelectEditor from "components/editor/SelectEditor";
+import { LayersSection, SelectionPanel } from "components/editor/LayersPanel";
 import Filmstrip from "components/editor/Filmstrip";
 import PhotoHistory from "components/editor/PhotoHistory";
 import EditPanel from "components/editor/EditPanel";
@@ -26,7 +28,14 @@ import { SORT_OPTIONS, readSort, sortPhotos, writeSort } from "components/editor
  *
  * Abaixo de `lg:` as duas fotos ficam lado a lado numa faixa, o painel desce
  * para baixo delas e a página rola — no celular não há altura para 70/30.
+ *
+ * Camadas: o modo seleção (S) troca a original por um pincel; cada traço vira,
+ * no backend, a máscara do objeto sob ele. "Criar camada" guarda a máscara
+ * com uma cópia dos ajustes atuais, e daí em diante sliders, presets e Auto
+ * editam a camada ativa — a camada e o restante da foto têm ajustes próprios.
  */
+const newLayerId = () => Math.random().toString(36).slice(2, 10) || "layer";
+
 export default function Editor() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -163,6 +172,85 @@ export default function Editor() {
   }, [cropMode]);
   const aspect = current?.width ? current.height / current.width : 1;
 
+  // Camada que o painel edita (null = a foto / o restante dela).
+  const [activeLayer, setActiveLayer] = useState(null);
+  useEffect(() => { setActiveLayer(null); }, [currentId]);
+  // L: a próxima camada; depois da última, volta ao restante da foto.
+  const nextLayer = useCallback(() => {
+    const ids = [null, ...(draftRef.current?.layers || []).map((l) => l.id)];
+    if (ids.length < 2) return;
+    setActiveLayer((cur) => ids[(ids.indexOf(cur) + 1) % ids.length]);
+  }, []);
+  // Desfazer pode tirar a camada ativa do estado.
+  useEffect(() => {
+    if (activeLayer && !(draft?.layers || []).some((l) => l.id === activeLayer)) setActiveLayer(null);
+  }, [draft, activeLayer]);
+  const activeLayerObj = (draft?.layers || []).find((l) => l.id === activeLayer) || null;
+
+  // Modo seleção: `selecting` diz se é camada nova (layerId null) ou a área de
+  // uma existente; `selection` é a máscara em construção. Os traços vão em
+  // FILA — cada um parte da máscara que o anterior devolveu — e o `token`
+  // descarta respostas de uma seleção que já acabou.
+  const [selecting, setSelecting] = useState(null);
+  const [selection, setSelectionState] = useState({ mask: null, coverage: 0 });
+  const selectionRef = useRef(selection);
+  const setSelection = useCallback((sel) => { selectionRef.current = sel; setSelectionState(sel); }, []);
+  const [brush, setBrushState] = useState({ size: 0.04, mode: "add", smart: true });
+  const setBrush = useCallback((patch) => setBrushState((b) => ({ ...b, ...patch })), []);
+  const [segmenting, setSegmenting] = useState(0);
+  const segmentQueue = useRef(Promise.resolve());
+  const selectToken = useRef(0);
+
+  const segmentRequest = useCallback((photoId, body) => {
+    const token = selectToken.current;
+    setSegmenting((n) => n + 1);
+    segmentQueue.current = segmentQueue.current.then(async () => {
+      if (token !== selectToken.current) return;
+      try {
+        const res = await api.post(`/api/photos/${photoId}/segment/`,
+          { ...body, base: selectionRef.current.mask });
+        if (token === selectToken.current) {
+          setSelection({ mask: res.data.mask, coverage: res.data.coverage });
+        }
+      } catch (err) {
+        if (token === selectToken.current && body.stroke) {
+          await alert({
+            title: t("layers.segmentError", "Could not select the area"),
+            description: err?.response?.data?.error || t("error.generic"),
+            variant: "danger",
+          });
+        }
+      } finally {
+        setSegmenting((n) => n - 1);
+      }
+    });
+  }, [alert, t, setSelection]);
+
+  const exitSelect = useCallback(() => {
+    selectToken.current += 1;
+    setSelecting(null);
+    setSelection({ mask: null, coverage: 0 });
+  }, [setSelection]);
+  useEffect(() => { exitSelect(); }, [currentId, exitSelect]);
+
+  // Sem stroke, o pedido só prepara o modelo para a foto (o primeiro traço
+  // não paga o encoder) e devolve a área da máscara de partida.
+  const startSelect = useCallback((layerId = null) => {
+    const d = draftRef.current;
+    if (!current || !d) return;
+    const layer = layerId ? (d.layers || []).find((l) => l.id === layerId) : null;
+    if (!layer && (d.layers || []).length >= (develop?.layers?.max || 8)) return;
+    selectToken.current += 1;
+    setCropMode(false);
+    setSelection({ mask: layer?.mask || null, coverage: 0 });
+    setSelecting({ layerId: layer?.id || null });
+    segmentRequest(current.id, {});
+  }, [current, develop, segmentRequest, setSelection]);
+
+  const addStroke = useCallback((stroke) => {
+    if (current) segmentRequest(current.id, { stroke, smart: brush.smart });
+  }, [current, brush.smart, segmentRequest]);
+
   const updateCrop = useCallback((crop, mode) => {
     let next = crop;
     if (mode === "rotate") {
@@ -262,12 +350,64 @@ export default function Editor() {
     return () => window.removeEventListener("pointerup", onUp);
   }, []);
 
+  // O Auto vale para a camada ativa; o Reset, para a foto inteira.
   const autoOrReset = useCallback((kind) => runAction(async () => {
     if (!current) return;
-    const res = await api.post(`/api/photos/${current.id}/${kind}/`);
+    const body = kind === "auto" && activeLayer ? { layer: activeLayer } : {};
+    const res = await api.post(`/api/photos/${current.id}/${kind}/`, body);
     replacePhoto(res.data);
     setSyncKey((k) => k + 1);
-  }, kind), [runAction, current, replacePhoto]);
+  }, kind), [runAction, current, replacePhoto, activeLayer]);
+
+  // Concluir a seleção: camada nova com uma CÓPIA dos ajustes atuais (nada
+  // muda na tela até mexer nela), ou a área nova de uma existente. Área vazia
+  // numa camada existente = a camada sai.
+  const applySelection = useCallback(() => {
+    const d = draftRef.current;
+    const sel = selectionRef.current;
+    if (!selecting || !d || segmenting) return;
+    const layers = d.layers || [];
+    let next = null;
+    let nextActive = null;
+    if (selecting.layerId) {
+      next = { ...d, layers: sel.mask
+        ? layers.map((l) => (l.id === selecting.layerId ? { ...l, mask: sel.mask } : l))
+        : layers.filter((l) => l.id !== selecting.layerId) };
+      nextActive = sel.mask ? selecting.layerId : null;
+    } else if (sel.mask) {
+      nextActive = newLayerId();
+      next = { ...d, layers: [...layers,
+        { id: nextActive, mask: sel.mask, values: { ...d.values }, preset: d.preset }] };
+    }
+    exitSelect();
+    if (next) {
+      updateDraft(next);
+      commitDraft(next);
+      setActiveLayer(nextActive);
+    }
+  }, [selecting, segmenting, exitSelect, updateDraft, commitDraft]);
+
+  const deleteLayer = useCallback((id) => {
+    const d = draftRef.current;
+    if (!d) return;
+    const next = { ...d, layers: (d.layers || []).filter((l) => l.id !== id) };
+    updateDraft(next);
+    commitDraft(next);
+    if (activeLayer === id) setActiveLayer(null);
+  }, [updateDraft, commitDraft, activeLayer]);
+
+  // Enter conclui e Esc cancela a seleção (o S, nos atalhos, também conclui).
+  useEffect(() => {
+    if (!selecting) return undefined;
+    const onKey = (e) => {
+      if (document.querySelector('[role="dialog"]')) return;
+      const tag = e.target?.tagName;
+      if (e.key === "Escape") exitSelect();
+      else if (e.key === "Enter" && tag !== "BUTTON" && tag !== "INPUT") applySelection();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selecting, exitSelect, applySelection]);
 
   const step = useCallback((delta) => {
     if (!photos || index < 0) return;
@@ -299,14 +439,18 @@ export default function Editor() {
   }), [runAction, t, tf, loadPhotos, goTo]);
 
   // No modo crop as setas giram o quadro (e cada toque grava); fora dele,
-  // trocam de foto. C entra e sai do modo crop; A aplica o Auto.
+  // trocam de foto. C entra e sai do modo crop; A aplica o Auto; S entra no
+  // modo seleção e, dentro dele, conclui; L passa para a próxima camada. Pintando, nada troca de foto nem
+  // exclui: um Backspace perdido não pode jogar a foto fora.
   useShortcuts({
-    onNext: () => (cropMode ? (rotateCrop(1), commitDraft()) : step(1)),
-    onPrev: () => (cropMode ? (rotateCrop(-1), commitDraft()) : step(-1)),
-    onDelete: deleteCurrent,
+    onNext: () => (selecting ? null : cropMode ? (rotateCrop(1), commitDraft()) : step(1)),
+    onPrev: () => (selecting ? null : cropMode ? (rotateCrop(-1), commitDraft()) : step(-1)),
+    onDelete: () => (selecting ? null : deleteCurrent()),
     onUndo: undo,
-    onCrop: () => { if (current) setCropMode((m) => !m); },
-    onAuto: () => autoOrReset("auto"),
+    onCrop: () => { if (current && !selecting) setCropMode((m) => !m); },
+    onAuto: () => (selecting ? null : autoOrReset("auto")),
+    onSelect: () => (selecting ? applySelection() : startSelect(null)),
+    onLayer: () => (selecting || cropMode ? null : nextLayer()),
   });
 
   const rescan = async () => {
@@ -352,6 +496,13 @@ export default function Editor() {
             <CropEditor label={t("editor.original")} src={current.preview_url}
               photo={current} crop={draft.crop} onChange={updateCrop}
               onCommit={() => commitDraft()} />
+          ) : selecting && current ? (
+            <SelectEditor label={t("editor.original")} src={current.preview_url}
+              photo={current} mask={selection.mask} brush={brush}
+              busy={segmenting > 0} onStroke={addStroke} />
+          ) : activeLayerObj && current ? (
+            <SelectEditor label={t("editor.original")} src={current.preview_url}
+              photo={current} mask={activeLayerObj.mask} faint />
           ) : (
             <ImagePane label={t("editor.original")} src={current?.preview_url}
               alt={current?.file_name} />
@@ -374,12 +525,26 @@ export default function Editor() {
               </div>
             </div>
           )}
-          <EditPanel config={develop} draft={draft} onDraft={updateDraft}
-            onCommit={commitDraft} onAuto={() => autoOrReset("auto")}
-            onReset={() => autoOrReset("reset")} busy={busy} disabled={!current}
-            cropMode={cropMode} onToggleCrop={() => setCropMode((m) => !m)}
-            onCropChange={updateCrop}
-            aspect={aspect} />
+          {selecting ? (
+            <SelectionPanel editing={!!selecting.layerId} selection={selection}
+              brush={brush} onBrush={setBrush} busy={segmenting > 0}
+              smartAvailable={!!develop?.layers?.smart_select}
+              onApply={applySelection} onCancel={exitSelect}
+              onClear={() => setSelection({ mask: null, coverage: 0 })} />
+          ) : (
+            <EditPanel config={develop} draft={draft} onDraft={updateDraft}
+              onCommit={commitDraft} onAuto={() => autoOrReset("auto")}
+              onReset={() => autoOrReset("reset")} busy={busy} disabled={!current}
+              cropMode={cropMode} onToggleCrop={() => setCropMode((m) => !m)}
+              onCropChange={updateCrop}
+              aspect={aspect} layerId={activeLayerObj?.id || null}
+              layersSection={draft && (
+                <LayersSection layers={draft.layers || []} activeId={activeLayerObj?.id || null}
+                  onActivate={setActiveLayer} onNew={() => startSelect(null)}
+                  onEdit={startSelect} onDelete={deleteLayer}
+                  max={develop?.layers?.max || 8} disabled={!current} />
+              )} />
+          )}
           <div className="border-t border-border">
             <PhotoHistory photoId={current?.id} version={historyVersion} />
           </div>

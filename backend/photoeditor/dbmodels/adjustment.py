@@ -32,5 +32,10 @@ class Adjustment(Base):
     crop_cy = models.FloatField(default=0.5)
     crop_angle = models.FloatField(default=0)
 
+    # Camadas (ver develop.normalize_layers): cada uma e
+    # ``{id, mask, values, preset}`` — a chave da mascara em project_data/masks
+    # e os ajustes da area. Com camadas, os campos acima valem para o restante.
+    layers = models.JSONField(default=list, blank=True)
+
     def __str__(self):
         return f'Adjustment {self.photo_id}'
