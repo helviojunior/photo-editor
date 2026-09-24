@@ -1,7 +1,7 @@
 # PhotoEditor
 
-**PhotoEditor é um sistema livre, feito para otimizar a seleção e a edição
-rápida de fotos de eventos.** Em vez de abrir centenas de arquivos um a um,
+**PhotoEditor é um sistema livre ([BSD 2-Clause](./LICENSE)), feito para
+otimizar a seleção e a edição rápida de fotos de eventos.** Em vez de abrir centenas de arquivos um a um,
 você percorre o evento inteiro pelo teclado: descarta as fotos ruins com `DEL`,
 aplica `A` (Auto) ou um preset, recorta com `C` e exporta tudo de uma vez, já no
 formato de publicação. A edição nunca altera os originais.
@@ -140,3 +140,8 @@ docker compose -f docker-compose.dev.yml up
 |----------------------|----------------------------------------------------|
 | `GET  /api/config/`  | Idioma padrão, idiomas suportados, marca e versão  |
 | `/admin/`            | Django admin público                               |
+
+## Licença
+
+Distribuído sob a licença **BSD 2-Clause** — veja [`LICENSE`](./LICENSE).
+Criado por Helvio Junior para as coberturas do [PhotoE](https://photoe.com.br/).
