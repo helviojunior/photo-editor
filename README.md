@@ -1,8 +1,9 @@
 # PhotoEditor
 
 **PhotoEditor é um sistema livre ([BSD 2-Clause](./LICENSE)), feito para
-otimizar a seleção e a edição rápida de fotos de eventos.** Em vez de abrir centenas de arquivos um a um,
-você percorre o evento inteiro pelo teclado: descarta as fotos ruins com `DEL`,
+otimizar a seleção e a edição rápida de fotos de eventos.** Em vez de abrir
+centenas de arquivos um a um, você percorre o evento inteiro pelo teclado:
+descarta as fotos ruins com `DEL`,
 aplica `A` (Auto) ou um preset, recorta com `C` e exporta tudo de uma vez, já no
 formato de publicação. A edição nunca altera os originais.
 
@@ -73,7 +74,8 @@ docker-compose.dev.yml   # desenvolvimento (backend + frontend hot-reload)
 ### 3. E-mail e identidade visual
 - Template HTML de marca em `photoeditor/templates/email/`, renderizado por
   `services/mailer.py`.
-- Favicon e logo servidos de `media.sec4us.com.br`, com cache-busting
+- Logo do PhotoE no próprio build (`frontend/public/assets/logo/`, versões
+  clara e escura); favicon servido de `media.sec4us.com.br`. Cache-busting
   `?ts=<BUILD_TS>` em todo objeto estático (a cada build).
 - Marca configurável por env (`BRAND_*` / `REACT_APP_BRAND_*`).
 
