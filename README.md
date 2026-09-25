@@ -42,6 +42,17 @@ traço soma à seleção; **Subtrair** (ou `Alt`) remove; `[` e `]` diminuem e
 aumentam o pincel. `L` passa de uma camada
 para a outra; sliders, presets e Auto editam a camada ativa.
 
+Seleção: o traço do pincel (em vermelho, sobre a original) cobre o jogador e
+a IA estende a seleção ao objeto inteiro sob ele:
+
+![Modo seleção pintando o jogador com o pincel](./images/screen3.png)
+
+Resultado: o jogador virou a camada **Seleção 1** e mantém a cor, enquanto o
+**Restante da foto** recebeu o preset P&B — o objeto é editado separado do
+fundo:
+
+![Jogador em cor sobre o fundo em P&B, cada um na sua camada](./images/screen4.png)
+
 Quem acha o objeto sob o traço é o **SAM 2.1 tiny** (Segment Anything 2, Meta,
 Apache-2.0) em ONNX, rodando **localmente em CPU** — não precisa de GPU, de
 Ollama nem de internet. O modelo (~155 MB) é baixado no build da imagem do
