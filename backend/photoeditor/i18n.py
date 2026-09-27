@@ -24,6 +24,7 @@ CATALOGS = {
         'layers.invalidStroke': 'The brush stroke is empty or invalid.',
         'merge.tooFew': 'Select at least two photos: the first is the base, the others become layers.',
         'merge.alreadyMerged': 'Already part of a merge: {name}. Undo that merge first.',
+        'merge.notALayer': 'This photo is not a layer of the merge.',
 
         # E-mails
         'email.greeting': 'Hello, {name},',
@@ -38,6 +39,7 @@ CATALOGS = {
         'layers.invalidStroke': 'O traço do pincel está vazio ou é inválido.',
         'merge.tooFew': 'Selecione pelo menos duas fotos: a primeira é a base, as outras viram camadas.',
         'merge.alreadyMerged': 'Já faz parte de um merge: {name}. Desfaça aquele merge antes.',
+        'merge.notALayer': 'Esta foto não é uma camada do merge.',
 
         'email.greeting': 'Olá, {name},',
         'email.footer.copyright': '© {year} {brand}. Todos os direitos reservados.',

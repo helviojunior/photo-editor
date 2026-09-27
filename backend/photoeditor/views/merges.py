@@ -44,6 +44,21 @@ class MergeDetailView(APIView):
         return Response(status=204)
 
 
+class MergeLayerView(APIView):
+    """DELETE: tira a foto da composicao (ela volta a filmstrip). Era a
+    ultima camada = o merge e desfeito (``{"dissolved": true}``)."""
+
+    def delete(self, request, pk, photo_pk):
+        merge = get_merge(pk)
+        try:
+            dissolved = merges.remove_layer(merge, photo_pk)
+        except history.ActionError as exc:
+            return action_error(request, exc, status=404)
+        if dissolved:
+            return Response({'dissolved': True, 'merge': None})
+        return Response({'dissolved': False, 'merge': merges.merge_json(merge)})
+
+
 class MergeCutoutView(APIView):
     """A area de uma camada, alinhada sobre o preview da base (PNG com
     transparencia). ``?mask=<chave>``: a URL carrega tudo de que o conteudo

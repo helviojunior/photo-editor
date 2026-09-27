@@ -114,6 +114,11 @@ export const LOCALES = {
 
     // Merge
     "merge.button": "Merge",
+    "merge.remove": "Remove from the merge",
+    "merge.removeTitle": "Remove from the merge?",
+    "merge.removeDescription": "{name} leaves the composition and goes back to the filmstrip.",
+    "merge.removeLastDescription": "{name} is the last layer: removing it undoes the merge, and the photos go back to the filmstrip.",
+    "merge.removeConfirm": "Remove",
     "merge.baseHasArea": "Base · object selected",
     "merge.baseNoArea": "Base · select its object to fade it",
     "merge.baseOpacity": "Object opacity",
@@ -292,6 +297,11 @@ export const LOCALES = {
 
     // Merge
     "merge.button": "Merge",
+    "merge.remove": "Remover do merge",
+    "merge.removeTitle": "Remover do merge?",
+    "merge.removeDescription": "{name} sai da composição e volta para a filmstrip.",
+    "merge.removeLastDescription": "{name} é a última camada: removê-la desfaz o merge, e as fotos voltam para a filmstrip.",
+    "merge.removeConfirm": "Remover",
     "merge.baseHasArea": "Base · objeto selecionado",
     "merge.baseNoArea": "Base · selecione o objeto dela para esmaecê-lo",
     "merge.baseOpacity": "Opacidade do objeto",

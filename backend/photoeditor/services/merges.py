@@ -164,6 +164,23 @@ def update(merge, items) -> Merge:
     return merge
 
 
+def remove_layer(merge, photo_id) -> bool:
+    """Tira uma foto da composicao: ela volta a filmstrip. Sem camada
+    nenhuma nao sobra merge, e ele e desfeito — devolve ``True`` nesse caso.
+    O fundo atras do objeto da base e escolhido de novo sozinho
+    (``backdrop_source``), caso viesse da foto removida."""
+    layers_left = [e for e in merge.layers if e['photo'] != str(photo_id)]
+    if len(layers_left) == len(merge.layers):
+        raise ActionError('merge.notALayer')
+    if not layers_left:
+        dissolve(merge)
+        return True
+    merge.layers = layers_left
+    merge.save(update_fields=['layers', 'updated'])
+    log.info("Merge %s: layer %s removed", merge.pk, photo_id)
+    return False
+
+
 def dissolve(merge):
     """Desfaz o merge: a base volta a ser so a foto dela e as fotos das
     camadas voltam a filmstrip. As mascaras ficam em project_data/masks."""

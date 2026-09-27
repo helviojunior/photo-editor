@@ -1,5 +1,5 @@
 import React, { useRef } from "react";
-import { Brush, Image as ImageIcon, Pencil } from "lucide-react";
+import { Brush, Image as ImageIcon, Pencil, Trash2 } from "lucide-react";
 import { useI18n } from "i18n";
 import { cn } from "lib/utils";
 import { Button } from "components/ui/button";
@@ -74,7 +74,9 @@ const fmt = (value, digits) => Number(value).toLocaleString(undefined,
  * ativa é a que aparece à esquerda (e recebe o pincel); uma por vez, então
  * as linhas são um grupo de rádio.
  */
-export default function MergePanel({ merge, activeId, onActivate, onSelectArea, onPatch, onRamp }) {
+export default function MergePanel({
+  merge, activeId, onActivate, onSelectArea, onPatch, onRamp, onRemove,
+}) {
   const { t } = useI18n();
 
   return (
@@ -105,7 +107,8 @@ export default function MergePanel({ merge, activeId, onActivate, onSelectArea, 
             <LayerRow key={layer.photo.id} layer={layer} active={layer.photo.id === activeId}
               onActivate={() => onActivate(layer.photo.id)}
               onSelectArea={() => onSelectArea(layer.photo.id)}
-              onPatch={(patch, now) => onPatch({ [layer.photo.id]: patch }, now)} />
+              onPatch={(patch, now) => onPatch({ [layer.photo.id]: patch }, now)}
+              onRemove={() => onRemove(layer.photo)} />
           ))}
           <LayerRow isBase active={merge.base.id === activeId}
             layer={{ ...merge.base_layer, photo: merge.base }}
@@ -118,7 +121,7 @@ export default function MergePanel({ merge, activeId, onActivate, onSelectArea, 
   );
 }
 
-function LayerRow({ layer, active, onActivate, onSelectArea, onPatch, isBase = false }) {
+function LayerRow({ layer, active, onActivate, onSelectArea, onPatch, onRemove, isBase = false }) {
   const { t, tf } = useI18n();
   const a = layer.align;
   const percent = Math.round(layer.opacity * 100);
@@ -153,8 +156,15 @@ function LayerRow({ layer, active, onActivate, onSelectArea, onPatch, isBase = f
             {layer.mask ? t("merge.editArea", "Edit area") : t("merge.selectArea", "Select area")}
           </Button>
           {!isBase && (
-            <Toggle checked={layer.visible} onChange={(v) => onPatch({ visible: v }, true)}
-              label={t("merge.visible", "Visible")} />
+            <>
+              <Toggle checked={layer.visible} onChange={(v) => onPatch({ visible: v }, true)}
+                label={t("merge.visible", "Visible")} />
+              <Button size="sm" variant="ghost" onClick={onRemove}
+                aria-label={t("merge.remove", "Remove from the merge")}
+                title={t("merge.remove", "Remove from the merge")}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </>
           )}
         </div>
         <div>

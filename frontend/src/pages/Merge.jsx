@@ -199,6 +199,31 @@ export default function Merge() {
     navigate(`/photos/${mergeRef.current.base.id}`);
   };
 
+  // Tira a foto da composição (ela volta para a filmstrip). Na última
+  // camada, o backend desfaz o merge inteiro.
+  const removeLayer = async (photo) => {
+    const last = (mergeRef.current?.layers.length || 0) <= 1;
+    await confirm({
+      title: t("merge.removeTitle", "Remove from the merge?"),
+      description: last
+        ? tf("merge.removeLastDescription", { name: photo.file_name })
+        : tf("merge.removeDescription", { name: photo.file_name }),
+      variant: "danger",
+      confirmLabel: t("merge.removeConfirm", "Remove"),
+      onConfirm: async () => {
+        await flush();
+        const res = await api.delete(`/api/merges/${id}/layers/${photo.id}/`);
+        if (res.data.dissolved) {
+          navigate(`/photos/${mergeRef.current.base.id}`);
+          return;
+        }
+        edits.current += 1;
+        applyMerge(res.data.merge);
+        if (active === photo.id) setActive(res.data.merge.base.id);
+      },
+    });
+  };
+
   const dissolve = async () => {
     if (!merge) return;
     await confirm({
@@ -288,7 +313,8 @@ export default function Merge() {
               onClear={() => setSelection({ mask: null, coverage: 0 })} />
           ) : merge && (
             <MergePanel merge={merge} activeId={active} onActivate={setActive}
-              onSelectArea={startSelect} onPatch={patchLayers} onRamp={setRamp} />
+              onSelectArea={startSelect} onPatch={patchLayers} onRamp={setRamp}
+              onRemove={removeLayer} />
           )}
         </aside>
       </section>

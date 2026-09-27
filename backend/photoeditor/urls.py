@@ -10,7 +10,7 @@ from photoeditor.views.photos import (
     PhotoSegmentView, MaskView, PhotoDuplicateView,
 )
 from photoeditor.views.merges import (
-    MergeListView, MergeDetailView, MergeCutoutView,
+    MergeListView, MergeDetailView, MergeLayerView, MergeCutoutView,
 )
 
 
@@ -51,6 +51,8 @@ urlpatterns = [
     # Merge: areas de varias fotos, alinhadas, em camadas sobre uma base
     path('api/merges/', MergeListView.as_view(), name='merge-list'),
     path('api/merges/<uuid:pk>/', MergeDetailView.as_view(), name='merge-detail'),
+    path('api/merges/<uuid:pk>/layers/<uuid:photo_pk>/', MergeLayerView.as_view(),
+         name='merge-layer'),
     path('api/merges/<uuid:pk>/layers/<uuid:photo_pk>.png', MergeCutoutView.as_view(),
          name='merge-cutout'),
 

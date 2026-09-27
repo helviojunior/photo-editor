@@ -101,8 +101,10 @@ fundo. Nas fotos de teste: ~2.100 pontos de fundo por par e erro mediano de
 Nada é gravado em `raw/`. A base passa a representar o merge: no editor, a
 **Editada** mostra o merge (ajustes, crop e Auto valem sobre ele) e o
 **Exportar** grava `publicar/<base>_merge.jpg`. As fotos das camadas saem da
-filmstrip e do Exportar enquanto o merge existir; **Desfazer merge** as
-devolve.
+filmstrip e do Exportar enquanto o merge existir. A lixeira de uma camada
+(**Remover do merge**) tira só aquela foto da composição e a devolve à
+filmstrip — na última camada, o merge inteiro é desfeito; **Desfazer merge**
+devolve todas.
 
 ## Stack
 
@@ -218,6 +220,7 @@ docker compose -f docker-compose.dev.yml up
 | `POST /api/photos/<id>/duplicate/` | Cópia virtual da foto, com os ajustes dela |
 | `POST /api/merges/`  | Cria o merge (`{"photos": [...]}`, a 1ª é a base)  |
 | `GET/PUT/DELETE /api/merges/<id>/` | Lê, edita (área/opacidade) e desfaz o merge |
+| `DELETE /api/merges/<id>/layers/<foto>/` | Tira a foto da composição (volta à filmstrip) |
 | `GET  /api/merges/<id>/layers/<foto>.png?mask=` | Área alinhada sobre o preview da base |
 | `/admin/`            | Django admin público                               |
 
