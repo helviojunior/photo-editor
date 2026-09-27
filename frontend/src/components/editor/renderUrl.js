@@ -2,8 +2,9 @@ import { isCropIdentity, sameCrop } from "./crop";
 
 /**
  * URL do preview editado para um rascunho de ajustes — a mesma que o backend
- * monta em `photo_json` (views/photos.py:render_url). Versão do arquivo (`v`)
- * e do motor (`e`) vêm da `edited_url` que o backend mandou.
+ * monta em `photo_json` (views/photos.py:render_url). Versão do arquivo (`v`),
+ * do motor (`e`) e do merge (`m`, na base de um merge) vêm da `edited_url`
+ * que o backend mandou.
  */
 export default function renderUrl(photo, draft) {
   if (!photo || !draft) return null;
@@ -11,6 +12,7 @@ export default function renderUrl(photo, draft) {
   const params = new URLSearchParams();
   params.set("v", base.searchParams.get("v") || "");
   params.set("e", base.searchParams.get("e") || "");
+  if (base.searchParams.get("m")) params.set("m", base.searchParams.get("m"));
   Object.entries(draft.values).forEach(([k, v]) => { if (v) params.set(k, String(v)); });
   if (draft.preset) params.set("preset", draft.preset);
   if (draft.crop && !isCropIdentity(draft.crop)) {

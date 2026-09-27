@@ -17,7 +17,7 @@ import { useI18n, LANGUAGE_OPTIONS } from "i18n";
 export default function AppLayout({ darkMode, setDarkMode }) {
   const { t, lang, setLanguage, adoptSystemDefault } = useI18n();
   const location = useLocation();
-  const fullBleed = location.pathname.startsWith("/photos");
+  const fullBleed = /^\/(photos|merges)(\/|$)/.test(location.pathname);
 
   // Padrao de idioma do deploy: so vale se nem cookie nem navegador responderam.
   useEffect(() => {

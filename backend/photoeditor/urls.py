@@ -9,6 +9,9 @@ from photoeditor.views.photos import (
     PhotoAdjustmentsView, PhotoAutoView, PhotoResetView, ExportView,
     PhotoSegmentView, MaskView,
 )
+from photoeditor.views.merges import (
+    MergeListView, MergeDetailView, MergeCutoutView,
+)
 
 
 app_name = 'photoeditor'
@@ -43,6 +46,12 @@ urlpatterns = [
     # Camadas: selecao por pincel (vira mascara) e o PNG da mascara
     path('api/photos/<uuid:pk>/segment/', PhotoSegmentView.as_view(), name='photo-segment'),
     path('api/masks/<str:key>.png', MaskView.as_view(), name='mask'),
+
+    # Merge: areas de varias fotos, alinhadas, em camadas sobre uma base
+    path('api/merges/', MergeListView.as_view(), name='merge-list'),
+    path('api/merges/<uuid:pk>/', MergeDetailView.as_view(), name='merge-detail'),
+    path('api/merges/<uuid:pk>/layers/<uuid:photo_pk>.png', MergeCutoutView.as_view(),
+         name='merge-cutout'),
 
     # Exportar para publicar/
     path('api/export/', ExportView.as_view(), name='export'),

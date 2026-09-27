@@ -10,18 +10,22 @@ from photoeditor.i18n import tr
 from photoeditor.imaging import develop, segment
 from photoeditor.imaging.io import raw_path
 from photoeditor.models import Photo
-from photoeditor.services import catalog, derivatives, editing, export, history, layers, trash
+from photoeditor.services import (
+    catalog, derivatives, editing, export, history, layers, merges, trash,
+)
 
 # URLs de imagem carregam a versao (mtime / hash dos ajustes): o conteudo de
 # uma URL nunca muda, entao o navegador pode guardar para sempre.
 IMMUTABLE = 'public, max-age=31536000, immutable'
 
 
-def render_url(photo, state):
+def render_url(photo, state, merge_version=''):
     """URL do preview editado: TODOS os insumos do render vao na query (versao
-    do arquivo, do motor e cada ajuste), entao ela nunca muda de conteudo.
-    O frontend monta a mesma URL enquanto o slider e arrastado."""
+    do arquivo, do motor, do merge e cada ajuste), entao ela nunca muda de
+    conteudo. O frontend monta a mesma URL enquanto o slider e arrastado."""
     params = {'v': photo.mtime_ns, 'e': develop.ENGINE_VERSION}
+    if merge_version:
+        params['m'] = merge_version
     params.update({k: v for k, v in state['values'].items() if v})
     if state['preset']:
         params['preset'] = state['preset']
@@ -53,8 +57,12 @@ def parse_layers_param(raw):
         for i, it in enumerate(items) if isinstance(it, dict)])
 
 
-def photo_json(photo):
+def photo_json(photo, merge_index=None):
+    """``merge_index`` (``merges.index()``) evita uma consulta por foto na
+    lista inteira."""
     state = editing.get_state(photo)
+    merge = (merge_index.get(photo.pk) if merge_index is not None
+             else merges.for_base(photo))
     return {
         'id': str(photo.pk),
         'file_name': photo.file_name,
@@ -63,8 +71,10 @@ def photo_json(photo):
         'captured_at': photo.captured_at.isoformat() if photo.captured_at else None,
         'thumbnail_url': f'/api/photos/{photo.pk}/thumbnail/?v={photo.mtime_ns}',
         'preview_url': f'/api/photos/{photo.pk}/preview/?v={photo.mtime_ns}',
-        'edited_url': render_url(photo, state),
+        'edited_url': render_url(photo, state, merges.version(merge)),
         'adjustments': state,
+        # A foto e a base de um merge: a "Editada" parte dele.
+        'merge_id': str(merge.pk) if merge else None,
     }
 
 
@@ -80,11 +90,14 @@ def image_response(path, cache=IMMUTABLE):
 
 
 class PhotoListView(APIView):
-    """Fotos ativas na ordem de captura — a sequencia da filmstrip."""
+    """Fotos ativas na ordem de captura — a sequencia da filmstrip. As fotos
+    que sao camada de um merge ficam de fora (a base representa o merge)."""
 
     def get(self, request):
-        photos = Photo.objects.filter(status=Photo.Status.ACTIVE).select_related('adjustment')
-        return Response({'results': [photo_json(p) for p in photos]})
+        photos = (Photo.objects.filter(status=Photo.Status.ACTIVE)
+                  .exclude(pk__in=merges.hidden_ids()).select_related('adjustment'))
+        index = merges.index()
+        return Response({'results': [photo_json(p, index) for p in photos]})
 
 
 def action_error(request, exc, status=409):

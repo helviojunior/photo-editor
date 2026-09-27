@@ -15,7 +15,7 @@ from PIL import Image
 
 from photoeditor.imaging import auto, develop
 from photoeditor.models import Adjustment, HistoryEntry
-from photoeditor.services import derivatives, history, layers
+from photoeditor.services import history, layers, merges
 
 log = logging.getLogger(__name__)
 
@@ -103,13 +103,14 @@ def _bbox(mask):
 
 def run_auto(photo, layer_id=None):
     """Auto sobre o preview JA RECORTADO: a exposicao e medida no que fica na
-    foto. A analise roda numa miniatura de 750 px de qualquer forma, e o
+    foto (na base de um merge, no merge composto). A analise roda numa miniatura de 750 px de qualquer forma, e o
     preview ja esta em cache e na orientacao certa.
 
     Com ``layer_id``, mede so a caixa da area da camada (na foto inteira, onde
     a mascara vive) e grava nos ajustes DELA."""
     state = get_state(photo)
-    with Image.open(derivatives.preview_path(photo)) as img:
+    # Na base de um merge, o Auto mede o merge composto.
+    with Image.open(merges.edit_source(photo)[0]) as img:
         rgb = np.asarray(img.convert('RGB'))
     layer = next((lay for lay in state['layers'] if lay['id'] == layer_id), None)
     if layer is not None:

@@ -22,6 +22,8 @@ CATALOGS = {
         'error.restoreConflict': 'Cannot restore {name}: there is already a file with that name in raw/.',
         'layers.maskNotFound': 'The selection no longer exists. Start a new one.',
         'layers.invalidStroke': 'The brush stroke is empty or invalid.',
+        'merge.tooFew': 'Select at least two photos: the first is the base, the others become layers.',
+        'merge.alreadyMerged': 'Already part of a merge: {name}. Undo that merge first.',
 
         # E-mails
         'email.greeting': 'Hello, {name},',
@@ -34,6 +36,8 @@ CATALOGS = {
         'error.restoreConflict': 'Não foi possível restaurar {name}: já existe um arquivo com esse nome em raw/.',
         'layers.maskNotFound': 'A seleção não existe mais. Comece uma nova.',
         'layers.invalidStroke': 'O traço do pincel está vazio ou é inválido.',
+        'merge.tooFew': 'Selecione pelo menos duas fotos: a primeira é a base, as outras viram camadas.',
+        'merge.alreadyMerged': 'Já faz parte de um merge: {name}. Desfaça aquele merge antes.',
 
         'email.greeting': 'Olá, {name},',
         'email.footer.copyright': '© {year} {brand}. Todos os direitos reservados.',

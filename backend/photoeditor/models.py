@@ -9,3 +9,4 @@
 from photoeditor.dbmodels.photo import Photo  # noqa: F401
 from photoeditor.dbmodels.history import HistoryEntry  # noqa: F401
 from photoeditor.dbmodels.adjustment import Adjustment  # noqa: F401
+from photoeditor.dbmodels.merge import Merge  # noqa: F401

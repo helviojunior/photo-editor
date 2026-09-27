@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ChevronLeft, ChevronRight, ImageOff, RefreshCw, Trash2, Undo2, Upload } from "lucide-react";
+import { ChevronLeft, ChevronRight, Combine, ImageOff, RefreshCw, Trash2, Undo2, Upload, X } from "lucide-react";
 import api from "lib/api";
 import { useI18n } from "i18n";
 import { useDialog } from "contexts/DialogContext";
@@ -9,7 +9,8 @@ import { FormError } from "components/ui/form-error";
 import ImagePane from "components/editor/ImagePane";
 import CropEditor from "components/editor/CropEditor";
 import SelectEditor from "components/editor/SelectEditor";
-import { BRUSH_MAX, BRUSH_MIN, BRUSH_STEP, LayersSection, SelectionPanel } from "components/editor/LayersPanel";
+import { LayersSection, SelectionPanel } from "components/editor/LayersPanel";
+import useBrushSelection from "components/editor/useBrushSelection";
 import Filmstrip from "components/editor/Filmstrip";
 import PhotoHistory from "components/editor/PhotoHistory";
 import EditPanel from "components/editor/EditPanel";
@@ -33,6 +34,10 @@ import { SORT_OPTIONS, readSort, sortPhotos, writeSort } from "components/editor
  * no backend, a máscara do objeto sob ele. "Criar camada" guarda a máscara
  * com uma cópia dos ajustes atuais, e daí em diante sliders, presets e Auto
  * editam a camada ativa — a camada e o restante da foto têm ajustes próprios.
+ *
+ * Merge: o botão "Merge" liga o modo de marcar fotos na filmstrip; a primeira
+ * marcada (na ordem da faixa) é a base e as outras viram camadas. "Criar
+ * merge" abre a tela do merge (`/merges/:id`).
  */
 const newLayerId = () => Math.random().toString(36).slice(2, 10) || "layer";
 
@@ -188,64 +193,29 @@ export default function Editor() {
   const activeLayerObj = (draft?.layers || []).find((l) => l.id === activeLayer) || null;
 
   // Modo seleção: `selecting` diz se é camada nova (layerId null) ou a área de
-  // uma existente; `selection` é a máscara em construção. Os traços vão em
-  // FILA — cada um parte da máscara que o anterior devolveu — e o `token`
-  // descarta respostas de uma seleção que já acabou.
+  // uma existente; a máscara em construção e o pincel vêm do hook.
   const [selecting, setSelecting] = useState(null);
-  const [selection, setSelectionState] = useState({ mask: null, coverage: 0 });
-  const selectionRef = useRef(selection);
-  const setSelection = useCallback((sel) => { selectionRef.current = sel; setSelectionState(sel); }, []);
-  const [brush, setBrushState] = useState({ size: 0.04, mode: "add", smart: true });
-  const setBrush = useCallback((patch) => setBrushState((b) => ({ ...b, ...patch })), []);
-  const [segmenting, setSegmenting] = useState(0);
-  const segmentQueue = useRef(Promise.resolve());
-  const selectToken = useRef(0);
-
-  const segmentRequest = useCallback((photoId, body) => {
-    const token = selectToken.current;
-    setSegmenting((n) => n + 1);
-    segmentQueue.current = segmentQueue.current.then(async () => {
-      if (token !== selectToken.current) return;
-      try {
-        const res = await api.post(`/api/photos/${photoId}/segment/`,
-          { ...body, base: selectionRef.current.mask });
-        if (token === selectToken.current) {
-          setSelection({ mask: res.data.mask, coverage: res.data.coverage });
-        }
-      } catch (err) {
-        if (token === selectToken.current && body.stroke) {
-          await alert({
-            title: t("layers.segmentError", "Could not select the area"),
-            description: err?.response?.data?.error || t("error.generic"),
-            variant: "danger",
-          });
-        }
-      } finally {
-        setSegmenting((n) => n - 1);
-      }
-    });
-  }, [alert, t, setSelection]);
+  const {
+    selection, selectionRef, setSelection, brush, setBrush, stepBrush,
+    busy: segmenting, request: segmentRequest, reset: resetSelection,
+  } = useBrushSelection();
 
   const exitSelect = useCallback(() => {
-    selectToken.current += 1;
+    resetSelection();
     setSelecting(null);
-    setSelection({ mask: null, coverage: 0 });
-  }, [setSelection]);
+  }, [resetSelection]);
   useEffect(() => { exitSelect(); }, [currentId, exitSelect]);
 
-  // Sem stroke, o pedido só prepara o modelo para a foto (o primeiro traço
-  // não paga o encoder) e devolve a área da máscara de partida.
   const startSelect = useCallback((layerId = null) => {
     const d = draftRef.current;
     if (!current || !d) return;
     const layer = layerId ? (d.layers || []).find((l) => l.id === layerId) : null;
     if (!layer && (d.layers || []).length >= (develop?.layers?.max || 8)) return;
-    selectToken.current += 1;
     setCropMode(false);
-    setSelection({ mask: layer?.mask || null, coverage: 0 });
+    resetSelection(layer?.mask || null);
     setSelecting({ layerId: layer?.id || null });
     segmentRequest(current.id, {});
-  }, [current, develop, segmentRequest, setSelection]);
+  }, [current, develop, segmentRequest, resetSelection]);
 
   const addStroke = useCallback((stroke) => {
     if (current) segmentRequest(current.id, { stroke, smart: brush.smart });
@@ -385,7 +355,7 @@ export default function Editor() {
       commitDraft(next);
       setActiveLayer(nextActive);
     }
-  }, [selecting, segmenting, exitSelect, updateDraft, commitDraft]);
+  }, [selecting, segmenting, exitSelect, updateDraft, commitDraft, selectionRef]);
 
   const deleteLayer = useCallback((id) => {
     const d = draftRef.current;
@@ -407,14 +377,26 @@ export default function Editor() {
       else if (e.key === "Enter" && tag !== "BUTTON" && tag !== "INPUT") applySelection();
       else if ((e.key === "[" || e.key === "]") && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
-        const delta = e.key === "]" ? BRUSH_STEP : -BRUSH_STEP;
-        setBrushState((b) => ({ ...b, size: Math.round(
-          Math.min(Math.max(b.size + delta, BRUSH_MIN), BRUSH_MAX) * 1000) / 1000 }));
+        stepBrush(e.key === "]" ? 1 : -1);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selecting, exitSelect, applySelection]);
+  }, [selecting, exitSelect, applySelection, stepBrush]);
+
+  // Fotos marcadas para o merge (null = fora do modo). Guardadas na ordem do
+  // clique; quem manda na ordem do merge é a filmstrip.
+  const [picked, setPicked] = useState(null);
+  const togglePick = useCallback((photoId) => setPicked((list) => (
+    list.includes(photoId) ? list.filter((x) => x !== photoId) : [...list, photoId])), []);
+  const pickedInOrder = useMemo(
+    () => (picked && photos ? photos.filter((p) => picked.includes(p.id)).map((p) => p.id) : []),
+    [picked, photos]);
+  const createMerge = () => runAction(async () => {
+    const res = await api.post("/api/merges/", { photos: pickedInOrder });
+    setPicked(null);
+    navigate(`/merges/${res.data.id}`);
+  }, "merge");
 
   const step = useCallback((delta) => {
     if (!photos || index < 0) return;
@@ -452,7 +434,7 @@ export default function Editor() {
   useShortcuts({
     onNext: () => (selecting ? null : cropMode ? (rotateCrop(1), commitDraft()) : step(1)),
     onPrev: () => (selecting ? null : cropMode ? (rotateCrop(-1), commitDraft()) : step(-1)),
-    onDelete: () => (selecting ? null : deleteCurrent()),
+    onDelete: () => (selecting || picked ? null : deleteCurrent()),
     onUndo: undo,
     onCrop: () => { if (current && !selecting) setCropMode((m) => !m); },
     onAuto: () => (selecting ? null : autoOrReset("auto")),
@@ -506,7 +488,7 @@ export default function Editor() {
           ) : selecting && current ? (
             <SelectEditor label={t("editor.original")} src={current.preview_url}
               photo={current} mask={selection.mask} brush={brush}
-              busy={segmenting > 0} onStroke={addStroke} />
+              busy={segmenting} onStroke={addStroke} />
           ) : activeLayerObj && current ? (
             <SelectEditor label={t("editor.original")} src={current.preview_url}
               photo={current} mask={activeLayerObj.mask} faint />
@@ -530,11 +512,17 @@ export default function Editor() {
                   <> · {new Date(current.captured_at).toLocaleString()}</>
                 )}
               </div>
+              {current.merge_id && (
+                <Button variant="outline" size="sm" className="mt-2 w-full"
+                  onClick={() => navigate(`/merges/${current.merge_id}`)}>
+                  <Combine className="h-4 w-4" /> {t("merge.edit", "Edit merge")}
+                </Button>
+              )}
             </div>
           )}
           {selecting ? (
             <SelectionPanel editing={!!selecting.layerId} selection={selection}
-              brush={brush} onBrush={setBrush} busy={segmenting > 0}
+              brush={brush} onBrush={setBrush} busy={segmenting}
               smartAvailable={!!develop?.layers?.smart_select}
               onApply={applySelection} onCancel={exitSelect}
               onClear={() => setSelection({ mask: null, coverage: 0 })} />
@@ -566,7 +554,11 @@ export default function Editor() {
               ? tf("editor.counter", { position: index + 1, total: photos.length })
               : t("common.loading")}
           </span>
-          {status && <span className="text-muted-foreground" role="status">{status}</span>}
+          {picked ? (
+            <span className="text-muted-foreground" role="status">
+              {tf("merge.picked", { count: pickedInOrder.length })}
+            </span>
+          ) : status && <span className="text-muted-foreground" role="status">{status}</span>}
           <select
             value={sort}
             onChange={(e) => changeSort(e.target.value)}
@@ -579,7 +571,26 @@ export default function Editor() {
               </option>
             ))}
           </select>
-          <div className="ml-auto flex items-center gap-1">
+          <div className="ml-auto flex flex-wrap items-center gap-1">
+            {picked ? (
+              <>
+                <Button size="sm" onClick={createMerge} loading={busy === "merge"}
+                  disabled={pickedInOrder.length < 2}>
+                  {busy !== "merge" && <Combine className="h-4 w-4" />}
+                  {t("merge.create", "Create merge")}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setPicked(null)}>
+                  <X className="h-4 w-4" /> {t("merge.exitPick", "Exit selection")}
+                </Button>
+              </>
+            ) : (
+              <Button variant="ghost" size="sm" onClick={() => setPicked([])}
+                disabled={!photos || photos.length < 2}
+                title={t("merge.startHint", "Select photos to merge: the first is the base, the others become layers")}>
+                <Combine className="h-4 w-4" />
+                <span className="hidden sm:inline">{t("merge.button", "Merge")}</span>
+              </Button>
+            )}
             {/* Os mesmos comandos dos atalhos, para quem nao tem teclado. */}
             <IconButton icon={ChevronLeft} label={t("editor.prev", "Previous photo (←)")}
               onClick={() => step(-1)} disabled={index <= 0} />
@@ -603,7 +614,8 @@ export default function Editor() {
         </div>
         <div className="min-h-0 flex-1 px-2">
           {photos && (
-            <Filmstrip photos={photos} currentId={current?.id} onSelect={goTo} />
+            <Filmstrip photos={photos} currentId={current?.id} onSelect={goTo}
+              picked={picked} onPick={togglePick} />
           )}
         </div>
       </section>

@@ -69,21 +69,26 @@ def thumbnail_path(photo) -> Path:
 
 
 def render_path(photo, state) -> Path:
-    """Preview EDITADO: o preview do original passado pelo crop, pelo motor
-    de revelacao e pelas camadas (``state`` ja normalizado).
+    """Preview EDITADO: o preview do original (ou, na base de um merge, o
+    merge composto) passado pelo crop, pelo motor de revelacao e pelas
+    camadas (``state`` ja normalizado).
 
-    O nome carrega o hash dos ajustes efetivos (e a versao do motor), entao
-    arrastar um slider de volta a um valor ja visto reaproveita o arquivo.
+    O nome carrega o hash dos ajustes efetivos (e a versao do motor e do
+    merge), entao arrastar um slider de volta a um valor ja visto reaproveita
+    o arquivo.
     """
-    from photoeditor.services import layers   # layers importa este modulo
+    # layers e merges importam este modulo.
+    from photoeditor.services import layers, merges
 
     values, preset, crop = state['values'], state['preset'], state['crop']
+    source, merge_version = merges.edit_source(photo)
     if develop.is_crop_identity(crop) and develop.is_neutral(values, preset, state['layers']):
-        return preview_path(photo)
+        return source
     key = develop.settings_hash(values, preset, crop, state['layers'])
-    path = cache_dir('render') / f'{photo.pk}-{photo.mtime_ns}-{key}.jpg'
+    tag = f'-m{merge_version}' if merge_version else ''
+    path = cache_dir('render') / f'{photo.pk}-{photo.mtime_ns}{tag}-{key}.jpg'
     if not path.is_file():
-        with Image.open(preview_path(photo)) as img:
+        with Image.open(source) as img:
             rgb = np.asarray(img.convert('RGB'))
         out = Image.fromarray(layers.develop_image(rgb, state))
         write_atomic(path, _encode(out, RENDER_QUALITY))

@@ -4,6 +4,7 @@ import { DialogProvider } from "contexts/DialogContext";
 import { I18nProvider } from "i18n";
 import AppLayout from "components/layout/AppLayout";
 import Editor from "pages/Editor";
+import Merge from "pages/Merge";
 import "./App.css";
 
 function App() {
@@ -28,6 +29,7 @@ function App() {
                 {/* Uma rota por foto: navegar atualiza a URL (regra 3). */}
                 <Route path="/photos" element={<Editor />} />
                 <Route path="/photos/:id" element={<Editor />} />
+                <Route path="/merges/:id" element={<Merge />} />
               </Route>
 
               <Route path="/" element={<Navigate to="/photos" replace />} />

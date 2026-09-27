@@ -64,6 +64,33 @@ exatamente a área pintada.
 As máscaras ficam em `project_data/masks/` (PNG, nome = hash do conteúdo) e
 entram no histórico, no desfazer e na exportação como qualquer ajuste.
 
+## Merge (trajetória da bola)
+
+Várias fotos da mesma jogada viram uma só, com o objeto de cada clique
+empilhado em camadas — a trajetória da bola sobre a cena parada.
+
+1. **Merge** na barra da filmstrip liga a marcação: marque as fotos (a
+   primeira, na ordem da faixa, é a **base**) e clique em **Criar merge**.
+2. Na tela do merge (`/merges/:id`), pinte com o pincel (`S`, o mesmo das
+   camadas, com o SAM) a bola de cada foto. **Só a área pintada** entra no
+   resultado. Na base, pinte a bola dela para **esmaecê-la**: o fundo por trás
+   vem de uma foto seguinte, onde a bola já saiu dali.
+3. Ajuste a **opacidade** de cada camada. **Surgir** (o padrão) deixa a bola
+   da base bem clara e cada foto seguinte mais forte, até 100% na última.
+
+Antes de extrair, cada foto é **alinhada à base pelo fundo**: pontos SIFT
+filtrados por RANSAC numa transformação de similaridade (deslocamento,
+rotação e escala — a câmera na mão anda entre um clique e outro), com a área
+selecionada fora da análise. O ganho de exposição/cor também é medido no
+fundo. Nas fotos de teste: ~2.100 pontos de fundo por par e erro mediano de
+0,2 px no preview.
+
+Nada é gravado em `raw/`. A base passa a representar o merge: no editor, a
+**Editada** mostra o merge (ajustes, crop e Auto valem sobre ele) e o
+**Exportar** grava `publicar/<base>_merge.jpg`. As fotos das camadas saem da
+filmstrip e do Exportar enquanto o merge existir; **Desfazer merge** as
+devolve.
+
 ## Stack
 
 | Camada    | Tecnologia                                             |
@@ -175,6 +202,9 @@ docker compose -f docker-compose.dev.yml up
 | `GET  /api/develop/` | Sliders, presets e camadas (`smart_select`)        |
 | `POST /api/photos/<id>/segment/` | Traço do pincel → máscara do objeto    |
 | `GET  /api/masks/<chave>.png` | Máscara de uma camada (overlay)           |
+| `POST /api/merges/`  | Cria o merge (`{"photos": [...]}`, a 1ª é a base)  |
+| `GET/PUT/DELETE /api/merges/<id>/` | Lê, edita (área/opacidade) e desfaz o merge |
+| `GET  /api/merges/<id>/layers/<foto>.png?mask=` | Área alinhada sobre o preview da base |
 | `/admin/`            | Django admin público                               |
 
 ## Licença
