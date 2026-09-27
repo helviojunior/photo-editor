@@ -89,7 +89,8 @@ def load_rgb(path: Path, max_side: int | None = None) -> Image.Image:
 
 
 def raw_path(photo) -> Path:
-    return settings.RAW_DIR / photo.file_name
+    """O JPEG da foto em raw/. A copia virtual le o da original."""
+    return settings.RAW_DIR / (photo.copy_of.file_name if photo.copy_of_id else photo.file_name)
 
 
 def deleted_path(photo) -> Path:

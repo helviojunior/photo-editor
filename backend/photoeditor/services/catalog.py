@@ -2,12 +2,16 @@
 
 A varredura e idempotente: roda no boot e pelo endpoint de reescanear, e o
 resultado so depende do que esta no disco.
+
+Copias virtuais (``Photo.copy_of``) nao tem arquivo proprio: a varredura as
+deixa de fora e so repassa a elas o que mudou no arquivo da original.
 """
 import logging
 import threading
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Q
 
 from photoeditor.imaging.io import is_jpeg, read_info
 from photoeditor.models import Photo
@@ -17,6 +21,13 @@ log = logging.getLogger(__name__)
 # Duas varreduras simultaneas (boot + clique em "reescanear") disputariam a
 # criacao das mesmas linhas.
 _scan_lock = threading.Lock()
+
+
+def visible():
+    """Fotos da filmstrip: ativas e, se copia, com a original ativa (sem a
+    original em raw/, a copia nao tem o que ler)."""
+    return (Photo.objects.filter(status=Photo.Status.ACTIVE)
+            .exclude(Q(copy_of__isnull=False) & ~Q(copy_of__status=Photo.Status.ACTIVE)))
 
 
 def scan():
@@ -34,10 +45,17 @@ def _scan():
         return summary
 
     on_disk = {p.name: p for p in raw_dir.iterdir() if is_jpeg(p)}
-    known = {p.file_name: p for p in Photo.objects.all()}
+    known = {p.file_name: p for p in Photo.objects.filter(copy_of__isnull=True)}
+    copy_names = set(Photo.objects.filter(copy_of__isnull=False)
+                     .values_list('file_name', flat=True))
 
     with transaction.atomic():
         for name, path in sorted(on_disk.items()):
+            if name in copy_names:
+                log.warning("Scan: raw/%s has the name of a duplicate in the catalog; "
+                            "skipped. Rename the file to add it.", name)
+                summary['errors'] += 1
+                continue
             stat = path.stat()
             photo = known.get(name)
             if photo and photo.mtime_ns == stat.st_mtime_ns \
@@ -68,6 +86,11 @@ def _scan():
                 for k, v in fields.items():
                     setattr(photo, k, v)
                 photo.save()
+                # As copias leem o mesmo arquivo: o mtime novo invalida os
+                # derivados delas tambem.
+                Photo.objects.filter(copy_of=photo).update(**{
+                    k: v for k, v in fields.items()
+                    if k not in ('status', 'deleted_file_name')})
                 summary['updated'] += 1
 
         # Catalogadas que nao estao em raw/: excluidas pelo editor continuam
@@ -83,6 +106,6 @@ def _scan():
                 photo.save(update_fields=['status', 'updated'])
                 summary['missing'] += 1
 
-    summary['total'] = Photo.objects.filter(status=Photo.Status.ACTIVE).count()
+    summary['total'] = visible().count()
     log.info("Catalog scan: %s", summary)
     return summary

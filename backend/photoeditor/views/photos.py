@@ -11,7 +11,7 @@ from photoeditor.imaging import develop, segment
 from photoeditor.imaging.io import raw_path
 from photoeditor.models import Photo
 from photoeditor.services import (
-    catalog, derivatives, editing, export, history, layers, merges, trash,
+    catalog, copies, derivatives, editing, export, history, layers, merges, trash,
 )
 
 # URLs de imagem carregam a versao (mtime / hash dos ajustes): o conteudo de
@@ -73,6 +73,8 @@ def photo_json(photo, merge_index=None):
         'preview_url': f'/api/photos/{photo.pk}/preview/?v={photo.mtime_ns}',
         'edited_url': render_url(photo, state, merges.version(merge)),
         'adjustments': state,
+        # Copia virtual (Duplicar): o id da original, de quem e o arquivo.
+        'copy_of': str(photo.copy_of_id) if photo.copy_of_id else None,
         # A foto e a base de um merge: a "Editada" parte dele.
         'merge_id': str(merge.pk) if merge else None,
     }
@@ -94,8 +96,8 @@ class PhotoListView(APIView):
     que sao camada de um merge ficam de fora (a base representa o merge)."""
 
     def get(self, request):
-        photos = (Photo.objects.filter(status=Photo.Status.ACTIVE)
-                  .exclude(pk__in=merges.hidden_ids()).select_related('adjustment'))
+        photos = (catalog.visible().exclude(pk__in=merges.hidden_ids())
+                  .select_related('adjustment', 'copy_of'))
         index = merges.index()
         return Response({'results': [photo_json(p, index) for p in photos]})
 
@@ -115,6 +117,13 @@ class PhotoDetailView(APIView):
         except history.ActionError as exc:
             return action_error(request, exc)
         return Response(status=204)
+
+
+class PhotoDuplicateView(APIView):
+    """Copia virtual da foto, com os ajustes dela (desfazivel)."""
+
+    def post(self, request, pk):
+        return Response(photo_json(copies.duplicate(active_photo(pk))), status=201)
 
 
 class PhotoHistoryView(APIView):

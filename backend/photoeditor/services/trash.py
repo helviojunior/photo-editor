@@ -3,6 +3,9 @@
 Desfazer devolve o arquivo para raw/ com o nome original. O ``mtime`` passa
 intacto pelo ``rename`` (mesmo volume), entao os derivados em cache continuam
 validos.
+
+Copia virtual (Duplicar) nao tem arquivo proprio: excluir so a tira do
+catalogo — o JPEG e da original e fica onde esta.
 """
 import logging
 import os
@@ -30,6 +33,16 @@ def _free_name(directory, file_name):
 
 
 def delete_photo(photo):
+    if photo.copy_of_id:
+        with transaction.atomic():
+            photo.status = Photo.Status.DELETED
+            photo.save(update_fields=['status', 'updated'])
+            history.record(photo, HistoryEntry.Kind.DELETE,
+                           before={'status': Photo.Status.ACTIVE},
+                           after={'status': Photo.Status.DELETED, 'copy': True})
+        log.info("Deleted duplicate %s", photo.file_name)
+        return
+
     source = raw_path(photo)
     if not source.is_file():
         raise history.ActionError('error.photoFileMissing', name=photo.file_name)
@@ -50,6 +63,10 @@ def delete_photo(photo):
 
 def _undo_delete(entry):
     photo = entry.photo
+    if photo.copy_of_id:
+        photo.status = Photo.Status.ACTIVE
+        photo.save(update_fields=['status', 'updated'])
+        return
     name = entry.after.get('deleted_file_name') or photo.deleted_file_name \
         or photo.file_name
     source = settings.DELETED_DIR / name

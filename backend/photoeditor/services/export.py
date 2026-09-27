@@ -28,7 +28,7 @@ from django.utils import timezone
 from photoeditor.imaging import develop, publish
 from photoeditor.imaging.io import raw_path
 from photoeditor.models import Photo
-from photoeditor.services import editing, layers, merges
+from photoeditor.services import catalog, editing, layers, merges
 from photoeditor.services.derivatives import write_atomic
 
 log = logging.getLogger(__name__)
@@ -124,10 +124,11 @@ def _export_one(photo, merge=None):
 
 
 def _remove_stale(hidden):
-    """Tira de publicar/ o que o editor exportou de fotos que nao estao mais
-    ativas (excluidas ou sumidas) ou que viraram camada de um merge."""
+    """Tira de publicar/ o que o editor exportou de fotos que sairam da
+    filmstrip: excluidas, sumidas, copias sem a original ou camadas de um
+    merge."""
     stale = (Photo.objects.exclude(exported_hash='')
-             .filter(~Q(status=Photo.Status.ACTIVE) | Q(pk__in=hidden)))
+             .exclude(Q(pk__in=catalog.visible()) & ~Q(pk__in=hidden)))
     for photo in stale:
         (settings.PUBLISH_DIR / photo.file_name).unlink(missing_ok=True)
         _unlink_output(merges.export_name(photo))
@@ -140,8 +141,8 @@ def _run():
         settings.PUBLISH_DIR.mkdir(parents=True, exist_ok=True)
         hidden = merges.hidden_ids()
         index = merges.index()
-        photos = list(Photo.objects.filter(status=Photo.Status.ACTIVE)
-                      .exclude(pk__in=hidden).select_related('adjustment'))
+        photos = list(catalog.visible().exclude(pk__in=hidden)
+                      .select_related('adjustment', 'copy_of'))
         with _lock:
             _state['total'] = len(photos)
         log.info("Export started: %d photos -> %s", len(photos), settings.PUBLISH_DIR)

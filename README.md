@@ -64,6 +64,19 @@ exatamente a área pintada.
 As máscaras ficam em `project_data/masks/` (PNG, nome = hash do conteúdo) e
 entram no histórico, no desfazer e na exportação como qualquer ajuste.
 
+## Duplicar (cópia virtual)
+
+O botão **Duplicar** da barra da filmstrip cria uma cópia virtual da foto:
+uma entrada nova no catálogo, ao lado da original, que lê o **mesmo JPEG**
+(nada é gravado em `raw/`) e tem ajustes, crop e camadas próprios —
+começando pelos da foto duplicada. Serve para ter duas versões da mesma foto
+(ex.: uma em cor e outra em P&B, ou dois cortes).
+
+O **Exportar** grava a cópia como `publicar/<nome>_copy.jpg` (`_copy2`,
+`_copy3`...). Excluir a cópia só a tira do catálogo; excluir a original tira
+as cópias da filmstrip junto (desfazer traz tudo de volta). `Ctrl/Cmd+Z`
+desfaz a duplicação.
+
 ## Merge (trajetória da bola)
 
 Várias fotos da mesma jogada viram uma só, com o objeto de cada clique
@@ -202,6 +215,7 @@ docker compose -f docker-compose.dev.yml up
 | `GET  /api/develop/` | Sliders, presets e camadas (`smart_select`)        |
 | `POST /api/photos/<id>/segment/` | Traço do pincel → máscara do objeto    |
 | `GET  /api/masks/<chave>.png` | Máscara de uma camada (overlay)           |
+| `POST /api/photos/<id>/duplicate/` | Cópia virtual da foto, com os ajustes dela |
 | `POST /api/merges/`  | Cria o merge (`{"photos": [...]}`, a 1ª é a base)  |
 | `GET/PUT/DELETE /api/merges/<id>/` | Lê, edita (área/opacidade) e desfaz o merge |
 | `GET  /api/merges/<id>/layers/<foto>.png?mask=` | Área alinhada sobre o preview da base |

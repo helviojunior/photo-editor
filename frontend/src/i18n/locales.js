@@ -43,6 +43,9 @@ export const LOCALES = {
     "editor.prev": "Previous photo (←)",
     "editor.next": "Next photo (→)",
     "editor.delete": "Delete photo (Del)",
+    "editor.duplicate": "Duplicate photo (virtual copy)",
+    "editor.duplicated": "{name} created: same file, its own adjustments.",
+    "editor.copyBadge": "Copy",
     "editor.undo": "Undo (Ctrl/Cmd+Z)",
     "editor.deleted": "{name} moved to deleted/.",
     "editor.undone": "Undone: {action}.",
@@ -64,6 +67,7 @@ export const LOCALES = {
     "action.reset": "Reset",
     "action.crop": "Crop",
     "action.layer": "Layers",
+    "action.duplicate": "Duplicate",
 
     // Edição
     "edit.auto": "Auto",
@@ -220,6 +224,9 @@ export const LOCALES = {
     "editor.prev": "Foto anterior (←)",
     "editor.next": "Próxima foto (→)",
     "editor.delete": "Excluir foto (Del)",
+    "editor.duplicate": "Duplicar foto (cópia virtual)",
+    "editor.duplicated": "{name} criada: mesmo arquivo, ajustes próprios.",
+    "editor.copyBadge": "Cópia",
     "editor.undo": "Desfazer (Ctrl/Cmd+Z)",
     "editor.deleted": "{name} movida para deleted/.",
     "editor.undone": "Desfeito: {action}.",
@@ -240,6 +247,7 @@ export const LOCALES = {
     "action.reset": "Reset",
     "action.crop": "Recorte",
     "action.layer": "Camadas",
+    "action.duplicate": "Duplicar",
 
     "edit.auto": "Auto",
     "edit.reset": "Resetar",

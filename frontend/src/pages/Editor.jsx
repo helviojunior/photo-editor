@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Combine, ImageOff, RefreshCw, Trash2, Undo2, Upload, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Combine, Copy, ImageOff, RefreshCw, Trash2, Undo2, Upload, X } from "lucide-react";
 import api from "lib/api";
 import { useI18n } from "i18n";
 import { useDialog } from "contexts/DialogContext";
@@ -413,6 +413,16 @@ export default function Editor() {
     setStatus(tf("editor.deleted", { name: current.file_name }));
   }), [runAction, current, tf]);
 
+  // Duplicar: cópia virtual (o mesmo JPEG, ajustes próprios, começando pelos
+  // desta foto), aberta logo em seguida.
+  const duplicateCurrent = useCallback(() => runAction(async () => {
+    if (!current) return;
+    const res = await api.post(`/api/photos/${current.id}/duplicate/`);
+    await loadPhotos();
+    setStatus(tf("editor.duplicated", { name: res.data.file_name }));
+    goTo(res.data.id);
+  }, "duplicate"), [runAction, current, loadPhotos, tf, goTo]);
+
   // CTRL/CMD+Z: desfaz a ultima acao de QUALQUER foto e abre a foto afetada.
   const undo = useCallback(() => runAction(async () => {
     const res = await api.post("/api/history/undo/");
@@ -596,6 +606,8 @@ export default function Editor() {
               onClick={() => step(-1)} disabled={index <= 0} />
             <IconButton icon={ChevronRight} label={t("editor.next", "Next photo (→)")}
               onClick={() => step(1)} disabled={!photos || index >= photos.length - 1} />
+            <IconButton icon={Copy} label={t("editor.duplicate", "Duplicate photo (virtual copy)")}
+              onClick={duplicateCurrent} disabled={!current || !!picked} />
             <IconButton icon={Trash2} label={t("editor.delete", "Delete photo (Del)")}
               onClick={deleteCurrent} disabled={!current} />
             <IconButton icon={Undo2} label={t("editor.undo", "Undo (Ctrl/Cmd+Z)")}

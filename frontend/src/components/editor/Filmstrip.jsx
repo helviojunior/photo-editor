@@ -63,9 +63,9 @@ export default function Filmstrip({ photos, currentId, onSelect, picked = null, 
               <SelectionCheck checked={checked}
                 className="absolute left-1.5 top-1.5 z-10 bg-black/50 text-white" />
             )}
-            {!picking && photo.merge_id && (
+            {!picking && (photo.merge_id || photo.copy_of) && (
               <span className="absolute bottom-1 left-1 z-10 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white">
-                {t("merge.badge", "Merge")}
+                {photo.merge_id ? t("merge.badge", "Merge") : t("editor.copyBadge", "Copy")}
               </span>
             )}
             {photo.id === baseId && (

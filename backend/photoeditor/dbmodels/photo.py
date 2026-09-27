@@ -37,6 +37,12 @@ class Photo(Base):
     # fotos na sequencia em que o evento aconteceu.
     captured_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
+    # Copia virtual (Duplicar): aponta para a foto original, de quem le o JPEG
+    # (``io.raw_path``). ``file_name`` e so o nome dela no catalogo e em
+    # publicar/ (``<nome>_copy.jpg``); em raw/ nao existe arquivo com ele.
+    copy_of = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True,
+                                related_name='copies')
+
     # Hash do que foi escrito em publicar/ na ultima exportacao (arquivo +
     # ajustes + versoes). Reexportar pula a foto quando ele nao mudou.
     exported_hash = models.CharField(max_length=32, blank=True, default='')

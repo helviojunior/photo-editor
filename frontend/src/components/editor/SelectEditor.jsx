@@ -47,7 +47,11 @@ export default function SelectEditor({
   const editable = !!onStroke;
   const radiusPx = (brush?.size || 0) * Math.max(size.w, size.h);
 
-  // O canvas guarda o traço desenhado até a máscara nova chegar.
+  // O canvas guarda o traço desenhado até a máscara nova chegar. Ele só
+  // existe no modo seleção: entrar no modo sobre a foto que já estava na tela
+  // (a camada ativa) cria o canvas sem mudar o tamanho, então `editable` entra
+  // nas dependências — sem isso ele ficava com o bitmap padrão de 300×150
+  // esticado, e o traço aparecia longe do pincel.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !size.w) return;
@@ -55,7 +59,7 @@ export default function SelectEditor({
     canvas.width = Math.round(size.w * dpr);
     canvas.height = Math.round(size.h * dpr);
     canvas.getContext("2d").setTransform(dpr, 0, 0, dpr, 0, 0);
-  }, [size.w, size.h]);
+  }, [size.w, size.h, editable]);
 
   // Terminou tudo o que estava na fila: o traço já virou máscara.
   useEffect(() => {

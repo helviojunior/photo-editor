@@ -63,6 +63,12 @@ def _save_state(photo, state):
     photo.adjustment = adj
 
 
+def copy_state(src, dst):
+    """Grava em ``dst`` os ajustes de ``src`` (Duplicar), sem historico: a
+    acao registrada e a criacao da copia."""
+    _save_state(dst, get_state(src))
+
+
 def apply_state(photo, values, preset, crop, layers, kind):
     """Grava o novo estado e o historico. Sem mudanca real, nao grava nada."""
     before = get_state(photo)
