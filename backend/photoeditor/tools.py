@@ -12,7 +12,6 @@ import locale
 import uuid
 import time
 import requests
-from pathlib import Path
 
 
 from django.contrib import messages
@@ -20,11 +19,8 @@ from email.utils import formataddr
 from django.conf import settings as conf_settings
 
 from django.core.exceptions import FieldDoesNotExist
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives import serialization, hashes
 from django.core.mail import EmailMultiAlternatives
 from django.utils.html import escape
-from dotenv import dotenv_values
 
 log = logging.getLogger(__name__)
 
@@ -309,52 +305,6 @@ def generate_password(size=12, lowercase=True, uppercase=True, digits=True, punc
     char_list = list(pwd1)
     _rand.shuffle(char_list)
     return ''.join(char_list)
-
-
-def encrypt_string(plaintext: str) -> str:
-    """
-    Lê a chave pública em PEM e cifra a string (UTF-8) com RSA-OAEP(SHA-256).
-    Retorna o ciphertext em Base64 (string).
-    OBS: RSA cifra apenas mensagens pequenas; para textos grandes, use cifragem híbrida.
-    """
-    ciphertext = conf_settings.PUBLIC_KEY.encrypt(
-        plaintext.encode("utf-8"),
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None,
-        ),
-    )
-    return base64.b64encode(ciphertext).decode("UTF-8")
-
-
-def decrypt_string(ciphertext_b64: str) -> str:
-    """
-    Lê a chave privada em PEM e decifra o Base64 produzido por encrypt_string.
-    Se a chave privada estiver protegida, informe 'passphrase'.
-    Somente realiza a leitura da chave privada + passphrase dentro desta função para evitar vazamento
-      em caso de DEBUG=True e um exception ou outra vulnerabilidade qualquer que possa expor as
-      variáveis de ambiente
-    Retorna a string original (UTF-8).
-    """
-    _env = dotenv_values(conf_settings.BASE_DIR / ".env")
-    passphrase = _env.get("RSA_PASSPHRASE", None)
-    priv_pem = Path(conf_settings.RSA_KEY_PATH).read_bytes()
-    private_key = serialization.load_pem_private_key(
-        priv_pem,
-        password=(passphrase.encode("utf-8") if passphrase else None),
-    )
-
-    ciphertext = base64.b64decode(ciphertext_b64.encode("utf-8"))
-    plaintext_bytes = private_key.decrypt(
-        ciphertext,
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None,
-        ),
-    )
-    return plaintext_bytes.decode("utf-8")
 
 
 def json_serial(obj) -> str:

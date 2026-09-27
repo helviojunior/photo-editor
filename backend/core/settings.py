@@ -19,7 +19,6 @@ from django.core.exceptions import ImproperlyConfigured
 from pathlib import Path
 import os, json
 from dotenv import dotenv_values
-from cryptography.hazmat.primitives import serialization
 
 
 def _smart_cast(value: str):
@@ -90,7 +89,7 @@ ENV_FILE = next(
     BASE_DIR.parent / ".env",
 )
 
-# Segredos GERADOS no primeiro boot (SECRET_KEY, RSA_*) — nao sao configuracao,
+# Segredos GERADOS no primeiro boot (SECRET_KEY) — nao sao configuracao,
 # ficam no volume de dados. Ver photoeditor/startup.py:create_default_dot_env().
 SECRETS_ENV_FILE = Path(DATA_DIR) / ".env"
 
@@ -129,8 +128,6 @@ TIME_ZONE = 'America/Sao_Paulo'
 DEFAULT_LANGUAGE = 'en'
 SUPPORTED_LANGUAGES = ['en', 'pt-br']
 
-RSA_PUB_KEY = ""
-
 # 1) Valores do(s) arquivo(s) .env ja carregados acima
 _env = _file_env
 
@@ -154,20 +151,8 @@ def _is_raw_string_setting(key: str) -> bool:
 for key, val in (_env or {}).items():
     if not key or not key.isupper():
         continue
-    if key == "RSA_PASSPHRASE":
-        continue
     raw = os.environ.get(key, val)
     globals()[key] = raw if _is_raw_string_setting(key) else _smart_cast(raw)
-
-# Load Public key
-try:
-    PUBLIC_KEY = serialization.load_pem_public_key(
-        f"-----BEGIN PUBLIC KEY-----\n{RSA_PUB_KEY}\n-----END PUBLIC KEY-----".encode("UTF-8")
-        )
-except Exception as e:
-    print("Error loading RSA public KEY")
-    if os.path.isfile(ENV_FILE):
-        raise e
 
 # Automatically add the current machine's local IP address to ALLOWED_HOSTS
 try:

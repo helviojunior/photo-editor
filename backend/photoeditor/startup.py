@@ -19,8 +19,7 @@ _SECRET_ALPHABET = string.ascii_letters + string.digits + "-_.~"
 def _generate_secret(min_len, max_len):
     """Segredo aleatorio com CSPRNG — nunca ``random``, que e previsivel.
 
-    Usado para a SECRET_KEY do Django e para a passphrase da chave RSA: sao os
-    segredos que assinam sessoes e protegem a chave privada do deploy.
+    Usado para a SECRET_KEY do Django, o segredo que assina sessoes e tokens.
     """
     length = secrets.randbelow(max_len - min_len + 1) + min_len
     return ''.join(secrets.choice(_SECRET_ALPHABET) for _ in range(length))
@@ -149,27 +148,10 @@ def ensure_admin_user():
 
 def create_default_dot_env():
     dotenv_path = Path(settings.DATA_DIR) / ".env"
-    private_key_path = Path(settings.DATA_DIR) / "rsa_private.pem"
-    public_key_path = Path(settings.DATA_DIR) / "rsa_public.pem"
 
     data = {
         "SECRET_KEY": _generate_secret(60, 80)
     }
-
-    if not private_key_path.exists():
-        data['RSA_PASSPHRASE'] = _generate_secret(40, 60)
-        data['RSA_KEY_PATH'] = private_key_path.name
-        generate_rsa_keypair(str(private_key_path), str(public_key_path), data['RSA_PASSPHRASE'])
-        with open(public_key_path, 'r', encoding="UTF-8") as fpub:
-            pk = fpub.read()
-            pk = pk.replace('-----BEGIN PUBLIC KEY-----', '')
-            pk = pk.replace('-----END PUBLIC KEY-----', '')
-            pk = pk.replace('\r', '').replace('\n', '')
-        data['RSA_PUB_KEY'] = pk
-        try:
-            os.unlink(public_key_path)
-        except Exception:
-            pass
 
     default_config = "\n".join(
         f"{k}={v}"
@@ -180,53 +162,7 @@ def create_default_dot_env():
         f.write("\n")
 
     try:
-        # Em sistemas POSIX, restringe leitura da chave privada ao usuário
+        # Em sistemas POSIX, restringe a leitura dos segredos ao usuário
         dotenv_path.chmod(0o600)
-    except Exception:
-        pass  # Ignora em sistemas que não suportam chmod
-
-
-def generate_rsa_keypair(
-    private_key_path: str | Path = "rsa_private.pem",
-    public_key_path: str | Path = "rsa_public.pem",
-    passphrase: str | None = None,
-) -> None:
-    """
-    Gera um par de chaves RSA 4096 bits e salva em disco (PEM).
-    Se 'passphrase' for fornecida, a chave privada é cifrada no PEM.
-    """
-    from cryptography.hazmat.primitives.asymmetric import rsa
-    from cryptography.hazmat.primitives import serialization
-
-    private_key = rsa.generate_private_key(public_exponent=65537, key_size=4096)
-
-    # Serializar chave privada (PEM), opcionalmente com criptografia
-    if passphrase:
-        encryption_algo = serialization.BestAvailableEncryption(passphrase.encode("utf-8"))
-    else:
-        encryption_algo = serialization.NoEncryption()
-
-    priv_pem = private_key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=encryption_algo,
-    )
-
-    # Serializar chave pública (PEM)
-    public_key = private_key.public_key()
-    pub_pem = public_key.public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo,
-    )
-
-    # Salvar em disco com permissões razoáveis
-    private_key_path = Path(private_key_path)
-    public_key_path = Path(public_key_path)
-    private_key_path.write_bytes(priv_pem)
-    public_key_path.write_bytes(pub_pem)
-
-    try:
-        # Em sistemas POSIX, restringe leitura da chave privada ao usuário
-        private_key_path.chmod(0o600)
     except Exception:
         pass  # Ignora em sistemas que não suportam chmod

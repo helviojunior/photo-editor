@@ -253,7 +253,7 @@ chegam ao React como build args.
 - **Proibido:** `.env` separado por serviço (não existe `frontend/.env`),
   valores duplicados entre compose e backend, ou segredo direto no compose.
 - **Única exceção:** `<DATA_DIR>/.env`, gerado no primeiro boot com os segredos
-  do próprio processo (`SECRET_KEY`, chave RSA) — é estado, não configuração, e
+  do próprio processo (`SECRET_KEY`) — é estado, não configuração, e
   também é carregado pelas settings.
 - **Nunca versionar o `.env`** (nem qualquer `.env` local com segredos). Só o
   `.env.example` — template sem valores sensíveis — vai para o git; o `.env`
