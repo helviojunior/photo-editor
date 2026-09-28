@@ -8,17 +8,24 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
+
+O backend roda DENTRO do app desktop: o processo filho iniciado por
+``desktop/server.py`` (waitress em 127.0.0.1) recebe tudo por variavel de
+ambiente — pasta do projeto, pasta de dados, build do frontend, modelo, token.
 """
 
 import datetime
-from pathlib import Path
+import json
+import logging
 import os
-import socket
+import sys
+from pathlib import Path
+
 from django.contrib.messages import constants as messages
 from django.core.exceptions import ImproperlyConfigured
-from pathlib import Path
-import os, json
 from dotenv import dotenv_values
+
+from core.secret_key import ensure_secrets_file
 
 
 def _smart_cast(value: str):
@@ -55,11 +62,12 @@ def _smart_cast(value: str):
 
 START_TIME = datetime.datetime.now()
 APP_STARTED = str(int(datetime.datetime.now().timestamp()))
-# Versao do deploy: APP_VERSION do ambiente, senao o arquivo VERSION da raiz
-# do repositorio (ver bump-version.sh). Uma string fixa no codigo envelhece no
-# primeiro commit e passa a mentir sobre o que esta rodando.
+
+
+# Versao do app: APP_VERSION do ambiente, senao o arquivo VERSION da raiz
+# (ver bump-version.sh). Uma string fixa no codigo envelhece no primeiro commit
+# e passa a mentir sobre o que esta rodando.
 def _version():
-    from pathlib import Path
     env = (os.environ.get('APP_VERSION') or '').strip()
     if env:
         return env
@@ -79,23 +87,28 @@ VERSION = _version()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = "/app/data"
+# Raiz do app: o repositorio em desenvolvimento, <instalacao>/app no pacote.
+APP_ROOT = BASE_DIR.parent
 
-# .env UNICO do repositorio: a raiz manda (mesmo arquivo dos docker-compose).
-# Dentro do container o backend e montado em /app e o compose injeta tudo via
-# env_file, entao o arquivo pode nao existir — dai o fallback para backend/.env.
-ENV_FILE = next(
-    (p for p in (BASE_DIR.parent / ".env", BASE_DIR / ".env") if p.is_file()),
-    BASE_DIR.parent / ".env",
-)
+# Pasta do app na HOME do usuario, igual nos tres SOs: ``~/.photoe`` (banco do
+# app, segredos gerados, perfil do navegador, capas, logs). Nunca dentro da
+# instalacao, que pode ser somente leitura. O launcher repassa a mesma pasta
+# (desktop/paths.py); DATA_DIR no ambiente sobrescreve.
+DATA_DIR = Path(os.environ.get('DATA_DIR') or Path.home() / '.photoe')
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-# Segredos GERADOS no primeiro boot (SECRET_KEY) — nao sao configuracao,
-# ficam no volume de dados. Ver photoeditor/startup.py:create_default_dot_env().
-SECRETS_ENV_FILE = Path(DATA_DIR) / ".env"
+# .env da raiz: OPCIONAL, so para desenvolvimento (o app instalado nao tem um).
+ENV_FILE = APP_ROOT / ".env"
 
-# Precedencia: os.environ (SO/compose) > .env da raiz > segredos gerados.
+# Segredos GERADOS no primeiro uso (SECRET_KEY) — nao sao configuracao, sao
+# estado da maquina: ficam na pasta de dados do usuario.
+SECRETS_ENV_FILE = ensure_secrets_file(DATA_DIR / ".env")
+
+# Precedencia: os.environ > .env da raiz > segredos gerados.
 _file_env = {}
 for _source in (SECRETS_ENV_FILE, ENV_FILE):  # o ultimo sobrescreve o anterior
+    if not _source.is_file():
+        continue
     _file_env.update({
         k: v for k, v in (dotenv_values(_source) or {}).items()
         if k and v is not None
@@ -104,17 +117,21 @@ for _source in (SECRETS_ENV_FILE, ENV_FILE):  # o ultimo sobrescreve o anterior
 for _key, _val in _file_env.items():
     os.environ.setdefault(_key, _val)
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
+# Sobrescrito pelo SECRET_KEY de SECRETS_ENV_FILE (promovido logo abaixo).
 SECRET_KEY = 'django-insecure-pk+@s=gxiu_v_z!a@8(b0d6l!j28amk_@)jg54f8le^ma99pfy'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # O padrao do sistema e DEBUG=False — ligar exige acao explicita no ambiente.
 DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = ['*']
+# O servidor so escuta em 127.0.0.1. Host fixo tambem barra DNS rebinding: um
+# site externo que resolva o proprio nome para 127.0.0.1 chega com outro Host.
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+
+# Token da sessao do app desktop, sorteado a cada execucao pelo launcher e
+# entregue ao navegador embarcado como cookie (ver AppTokenMiddleware). Vazio
+# (ex.: ``manage.py runserver`` em dev) = sem verificacao.
+APP_TOKEN = os.environ.get('APP_TOKEN', '')
 
 
 # Internationalization
@@ -123,7 +140,7 @@ ALLOWED_HOSTS = ['*']
 USE_I18N = True
 USE_TZ = True
 LANGUAGE_CODE = 'en'
-TIME_ZONE = 'America/Sao_Paulo'
+TIME_ZONE = os.environ.get('TIME_ZONE', 'America/Sao_Paulo')
 
 DEFAULT_LANGUAGE = 'en'
 SUPPORTED_LANGUAGES = ['en', 'pt-br']
@@ -146,22 +163,19 @@ def _is_raw_string_setting(key: str) -> bool:
 
 
 # 2) Promove as variáveis MAIÚSCULAS a settings do módulo.
-#    O valor efetivo vem de os.environ (SO/compose manda mais que o arquivo);
-#    o .env só entra como default — ver o setdefault feito junto ao BASE_DIR.
+#    O valor efetivo vem de os.environ (SO/launcher manda mais que o arquivo);
+#    o .env só entra como default — ver o setdefault acima.
 for key, val in (_env or {}).items():
     if not key or not key.isupper():
         continue
     raw = os.environ.get(key, val)
     globals()[key] = raw if _is_raw_string_setting(key) else _smart_cast(raw)
 
-# Automatically add the current machine's local IP address to ALLOWED_HOSTS
-try:
-    hostname = socket.gethostname()
-    local_ip = socket.gethostbyname(hostname)
-    if local_ip not in ALLOWED_HOSTS:
-        ALLOWED_HOSTS.append(local_ip)
-except Exception:
-    pass
+# Settings que o Django exige como LISTA: um valor so, sem virgula, o
+# _smart_cast deixa como string — e o Django itera letra por letra.
+for _key in ('CSRF_TRUSTED_ORIGINS',):
+    if isinstance(globals().get(_key), str):
+        globals()[_key] = [v.strip() for v in globals()[_key].split(',') if v.strip()]
 
 # Application definition
 
@@ -172,18 +186,19 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django_crontab',
     'rest_framework',
-    'corsheaders',
-    'django_filters',
 
     'photoeditor'
 ]
 
 MIDDLEWARE = [
+    # Primeiro de todos: requisicao sem o token da sessao do app nao chega a
+    # nenhuma view (nem aos estaticos).
+    'photoeditor.middleware.AppTokenMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    # Estaticos do Django admin e o build do React (WHITENOISE_ROOT).
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -216,39 +231,56 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-# Pasta do projeto de fotos, montada no container (ex.: -v ~/Storage/teste:/project).
-# Tudo o que o editor le e grava vive nela — inclusive o banco, para que o
-# catalogo e os ajustes acompanhem as fotos de cada evento.
-PROJECT_ROOT = Path(os.environ.get('PROJECT_ROOT', '/project'))
-RAW_DIR = PROJECT_ROOT / 'raw'                    # originais (somente JPEG)
-PROJECT_DATA_DIR = PROJECT_ROOT / 'project_data'  # SQLite + caches gerados
-DELETED_DIR = PROJECT_ROOT / 'deleted'            # fotos excluidas (movidas)
-PUBLISH_DIR = PROJECT_ROOT / 'publicar'           # saida do Exportar
-# Mascaras das camadas (PNG por hash do conteudo). Nao e cache: a edicao
-# gravada aponta para elas, entao moram fora de project_data/cache.
-MASKS_DIR = PROJECT_DATA_DIR / 'masks'
+# Pasta do projeto de fotos (o evento), escolhida no app desktop e repassada
+# pelo launcher. Tudo o que o editor le e grava vive nela — inclusive o banco,
+# para que o catalogo e os ajustes acompanhem as fotos de cada evento.
+_project_root = (os.environ.get('PROJECT_ROOT') or '').strip()
+PROJECT_ROOT = Path(_project_root).expanduser() if _project_root else None
+
+# Sem PROJECT_ROOT o servidor sobe no MODO HOME: so a tela inicial (projetos
+# recentes) e suas APIs — ver photoeditor/urls.py. Nao ha catalogo, entao o
+# banco e um SQLite em memoria que nada grava de verdade.
+HOME_MODE = PROJECT_ROOT is None
+
+# Com projeto, o banco e SEMPRE o SQLite dele. Pasta informada que nao existe
+# falha na hora, com mensagem clara, em vez de criar um banco em outro lugar e
+# "perder" o catalogo na proxima execucao.
+if not HOME_MODE and not PROJECT_ROOT.is_dir():
+    raise ImproperlyConfigured(
+        f'PROJECT_ROOT ({PROJECT_ROOT}) is not a folder. Open the photo project '
+        f'from the desktop app, or set PROJECT_ROOT to the event folder.'
+    )
+
+if HOME_MODE:
+    RAW_DIR = PROJECT_DATA_DIR = DELETED_DIR = PUBLISH_DIR = MASKS_DIR = None
+else:
+    PROJECT_ROOT = PROJECT_ROOT.resolve()
+    RAW_DIR = PROJECT_ROOT / 'raw'                    # originais (somente JPEG)
+    PROJECT_DATA_DIR = PROJECT_ROOT / 'project_data'  # SQLite + caches gerados
+    DELETED_DIR = PROJECT_ROOT / 'deleted'            # fotos excluidas (movidas)
+    PUBLISH_DIR = PROJECT_ROOT / 'publicar'           # saida do Exportar
+    # Mascaras das camadas (PNG por hash do conteudo). Nao e cache: a edicao
+    # gravada aponta para elas, entao moram fora de project_data/cache.
+    MASKS_DIR = PROJECT_DATA_DIR / 'masks'
+    # O SQLite cria o arquivo, mas nao a pasta — ela tem de existir antes do migrate.
+    PROJECT_DATA_DIR.mkdir(exist_ok=True)
+
+# Banco do APP (nao do evento): a lista de projetos da tela Home. Quem registra
+# e o app desktop, ao abrir um projeto; a Home le e remove. Acesso por sqlite3
+# puro, fora do ORM — ver photoeditor/services/recent_projects.py.
+APP_DB = Path(os.environ.get('APP_DB') or DATA_DIR / 'photoe.db')
+# Capas dos cards da Home (uma miniatura por projeto), geradas sob demanda.
+PROJECT_COVERS_DIR = DATA_DIR / 'covers'
 
 # Modelo de segmentacao (SAM 2.1 tiny em ONNX) que transforma o traco do
-# pincel em mascara do objeto. Baixado no build da imagem (backend/Dockerfile),
-# fora de /app para o volume do docker-compose.dev.yml nao esconde-lo.
-SEGMENT_MODEL_DIR = Path(os.environ.get('SEGMENT_MODEL_DIR', '/opt/models/sam2.1-hiera-tiny'))
-
-# O banco e SEMPRE o SQLite do projeto montado. Sem /project nao ha onde
-# gravar: falha na hora, com mensagem clara, em vez de criar um banco em
-# outro lugar e "perder" o catalogo na proxima execucao.
-if not PROJECT_ROOT.is_dir():
-    raise ImproperlyConfigured(
-        f'PROJECT_ROOT ({PROJECT_ROOT}) does not exist. Mount the photo project '
-        f'folder into the container (e.g. -v ~/Storage/event:/project, via '
-        f'PROJECT_DIR in the root .env).'
-    )
-# O SQLite cria o arquivo, mas nao a pasta — ela tem de existir antes do migrate.
-PROJECT_DATA_DIR.mkdir(exist_ok=True)
+# pincel em mascara do objeto. Vai no pacote do app (``tools/build.py model``).
+SEGMENT_MODEL_DIR = Path(
+    os.environ.get('SEGMENT_MODEL_DIR') or APP_ROOT / 'models' / 'sam2.1-hiera-tiny')
 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': PROJECT_DATA_DIR / 'db.sqlite3',
+        'NAME': ':memory:' if HOME_MODE else PROJECT_DATA_DIR / 'db.sqlite3',
         # Espera o lock em vez de falhar com "database is locked" quando duas
         # requisicoes gravam ao mesmo tempo.
         'OPTIONS': {'timeout': 20},
@@ -276,21 +308,23 @@ AUTH_PASSWORD_VALIDATORS = [
 
 USE_THOUSAND_SEPARATOR = True
 
-SESSION_EXPIRE_AFTER_LAST_ACTIVITY = True
-SESSION_EXPIRE_SECONDS = 60 * 60  # 60 minutos
 SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_HTTPONLY = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-# Prefixo proprio: /static/ e do build do React servido pelo nginx; os
-# estaticos do Django admin saem por /django-static/ (proxy para o backend).
+# Prefixo proprio: /static/ e do build do React; os estaticos do Django admin
+# saem por /django-static/. O WhiteNoise le direto das apps (USE_FINDERS), sem
+# collectstatic — o pacote do app nao precisa gerar nada no boot.
 STATIC_URL = '/django-static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # usado em produção
+WHITENOISE_USE_FINDERS = True
 
-if DEBUG:
-    STATIC_ROOT = os.path.join(BASE_DIR, 'photoeditor', 'static')
+# Build do React (index.html, /static/js, /assets...), servido na raiz pelo
+# WhiteNoise; o que nao for arquivo cai na SPA (core/urls.py).
+FRONTEND_BUILD_DIR = Path(
+    os.environ.get('FRONTEND_BUILD_DIR') or APP_ROOT / 'frontend' / 'build')
+WHITENOISE_ROOT = FRONTEND_BUILD_DIR if FRONTEND_BUILD_DIR.is_dir() else None
 
 # Media files
 MEDIA_URL = '/media/'
@@ -313,48 +347,14 @@ MESSAGE_TAGS = {
     messages.ERROR: 'danger',  # <-- troca 'error' por 'danger'
 }
 
-# Reverse proxy / TLS
-# The app always runs behind nginx (and possibly an upstream TLS-terminating
-# proxy). Trust X-Forwarded-Proto so request.is_secure()/request.scheme and
-# every absolute link (build_absolute_uri, redirects) reflect
-# the external scheme — https even when this hop arrives as plain HTTP on port 80.
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-USE_X_FORWARDED_HOST = True
-
-# FORCE_TLS mirrors the nginx flag: when on, cookies are marked Secure and Django
-# also redirects plain HTTP to HTTPS (belt-and-suspenders with nginx). Default on.
-FORCE_TLS = os.environ.get('FORCE_TLS', 'True').lower() in ('true', '1', 'yes', 'on')
-
-SESSION_COOKIE_SECURE = FORCE_TLS
-CSRF_COOKIE_SECURE = FORCE_TLS
-
-# CSRF trusted origins (scheme://host) — needed once cookies are Secure and the
-# app is served over https through the proxy.
-_csrf_trusted = os.environ.get('CSRF_TRUSTED_ORIGINS', '').strip()
-if _csrf_trusted:
-    CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_trusted.split(',') if o.strip()]
-
-# Security settings for production
-if not DEBUG:
-    SECURE_BROWSER_XSS_FILTER = True
-    SECURE_CONTENT_TYPE_NOSNIFF = True
-    X_FRAME_OPTIONS = 'DENY'
-    # nginx already redirects/HSTS; only let Django do it too when TLS is forced,
-    # otherwise a FORCE_TLS=false deployment would break its own HTTP access.
-    SECURE_SSL_REDIRECT = FORCE_TLS
-    if FORCE_TLS:
-        SECURE_HSTS_SECONDS = 31536000
-        SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-        SECURE_HSTS_PRELOAD = True
-
-CRONJOBS = [
-    #('* * * * *', 'photoeditor.cron.mailer'),
-]
+# Seguranca: o servidor e local (http://127.0.0.1), sem TLS nem proxy na frente.
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
 
 # Django REST Framework
 # Sistema publico e nao autenticado: nenhuma classe de autenticacao e tudo
 # liberado por padrao. Sem SessionAuthentication o DRF tambem nao exige CSRF
-# das chamadas da SPA.
+# das chamadas da SPA. Quem barra o resto da maquina e o AppTokenMiddleware.
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [],
     'DEFAULT_PERMISSION_CLASSES': [
@@ -362,14 +362,6 @@ REST_FRAMEWORK = {
     ],
     'UNAUTHENTICATED_USER': None,
 }
-
-# CORS
-CORS_ALLOW_CREDENTIALS = True
-_cors_origins = os.environ.get('CORS_ORIGINS', 'http://localhost:3000')
-if _cors_origins.strip() == '*':
-    CORS_ALLOW_ALL_ORIGINS = True
-else:
-    CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_origins.split(',') if o.strip()]
 
 # Branding — nome/dominio do produto, configuraveis por ambiente
 BRAND_NAME = os.environ.get('BRAND_NAME', 'PhotoEditor')
@@ -387,17 +379,42 @@ EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', f'{BRAND_NAME} <noreply@{BRAND_DOMAIN}>')
 
 # ---------------------------------------------------------------------------
-# Logging — SEMPRE para o stdout/stderr do processo (docker logs)
+# Logging — arquivo de log do usuario + stdout quando houver um
 # ---------------------------------------------------------------------------
+# O launcher passa LOG_FILE (pasta de logs do SO, ver desktop/paths.py): o app
+# instalado nao tem terminal, e log que nao vai para arquivo nao existe. Em
+# desenvolvimento o mesmo log sai tambem no terminal.
+#
 # Sem esta configuracao o Django cai no DEFAULT_LOGGING, cujo handler de console
 # tem o filtro ``require_debug_true``: com DEBUG=False (o padrao do projeto)
-# nada e emitido, e os loggers da aplicacao ("photoeditor.*") ficam
-# sem handler nenhum. Aqui o console e incondicional: em container, log que nao
-# vai para o stdout simplesmente nao existe.
+# nada seria emitido.
 LOG_LEVEL = (os.environ.get('LOG_LEVEL', 'INFO') or 'INFO').strip().upper()
 DJANGO_LOG_LEVEL = (os.environ.get('DJANGO_LOG_LEVEL', LOG_LEVEL) or LOG_LEVEL).strip().upper()
-# Requisicoes HTTP do runserver/uwsgi sao ruidosas; ligue com SQL_LOG_LEVEL=DEBUG.
 SQL_LOG_LEVEL = (os.environ.get('SQL_LOG_LEVEL', 'WARNING') or 'WARNING').strip().upper()
+LOG_FILE = (os.environ.get('LOG_FILE') or '').strip()
+
+_log_handlers = {}
+if sys.stdout is not None:
+    _log_handlers['console'] = {
+        'class': 'logging.StreamHandler',
+        'stream': 'ext://sys.stdout',
+        'formatter': 'standard',
+        'level': 'DEBUG',
+    }
+if LOG_FILE:
+    Path(LOG_FILE).parent.mkdir(parents=True, exist_ok=True)
+    _log_handlers['file'] = {
+        'class': 'logging.handlers.RotatingFileHandler',
+        'filename': LOG_FILE,
+        'maxBytes': 5 * 1024 * 1024,
+        'backupCount': 3,
+        'encoding': 'utf-8',
+        'formatter': 'standard',
+        'level': 'DEBUG',
+    }
+if not _log_handlers:
+    _log_handlers['null'] = {'class': 'logging.NullHandler'}
+_LOG_TO = list(_log_handlers)
 
 LOGGING = {
     'version': 1,
@@ -409,47 +426,50 @@ LOGGING = {
             'datefmt': '%Y-%m-%d %H:%M:%S',
         },
     },
-    'handlers': {
-        # stdout (nao stderr): o docker captura os dois, mas o stdout mantem a
-        # ordem em relacao aos echos do entrypoint e ao banner do bootstrap.
-        'console': {
-            'class': 'logging.StreamHandler',
-            'stream': 'ext://sys.stdout',
-            'formatter': 'standard',
-            'level': 'DEBUG',
-        },
-    },
+    'handlers': _log_handlers,
     'root': {
-        'handlers': ['console'],
+        'handlers': _LOG_TO,
         'level': LOG_LEVEL,
     },
     'loggers': {
         'django': {
-            'handlers': ['console'],
+            'handlers': _LOG_TO,
             'level': DJANGO_LOG_LEVEL,
             'propagate': False,
         },
         'django.db.backends': {
-            'handlers': ['console'],
+            'handlers': _LOG_TO,
             'level': SQL_LOG_LEVEL,
             'propagate': False,
         },
-        # Tracebacks de 500 no stdout — sem isto o Django so tentaria o
-        # AdminEmailHandler, que em container nao chega a lugar nenhum.
+        # Tracebacks de 500 no log — sem isto o Django so tentaria o
+        # AdminEmailHandler, que num app desktop nao chega a lugar nenhum.
         'django.request': {
-            'handlers': ['console'],
+            'handlers': _LOG_TO,
             'level': 'ERROR',
             'propagate': False,
         },
         'django.security': {
-            'handlers': ['console'],
+            'handlers': _LOG_TO,
             'level': 'WARNING',
             'propagate': False,
         },
         # Loggers da aplicacao: "photoeditor.*" (getLogger(__name__)).
         'photoeditor': {
-            'handlers': ['console'],
+            'handlers': _LOG_TO,
             'level': LOG_LEVEL,
+            'propagate': False,
+        },
+        'waitress': {
+            'handlers': _LOG_TO,
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        # "Task queue depth is N": so as threads ocupadas gerando miniaturas
+        # da filmstrip — normal, e encheria o log a cada projeto aberto.
+        'waitress.queue': {
+            'handlers': _LOG_TO,
+            'level': 'ERROR',
             'propagate': False,
         },
     },

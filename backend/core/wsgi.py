@@ -2,6 +2,8 @@
 WSGI config for the project.
 
 It exposes the WSGI callable as a module-level variable named ``application``.
+Quem serve e o waitress, dentro do processo filho do app desktop
+(``desktop/server.py``); estaticos saem pelo WhiteNoise (settings).
 
 For more information on this file, see
 https://docs.djangoproject.com/en/5.2/howto/deployment/wsgi/
@@ -9,11 +11,8 @@ https://docs.djangoproject.com/en/5.2/howto/deployment/wsgi/
 
 import os
 
-from dj_static import Cling
 from django.core.wsgi import get_wsgi_application
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 
-# Cling serve o STATIC_ROOT (CSS/JS do Django admin publico) tambem com
-# DEBUG=False (sob o uwsgi o Django nao serve estaticos sozinho).
-application = Cling(get_wsgi_application())
+application = get_wsgi_application()

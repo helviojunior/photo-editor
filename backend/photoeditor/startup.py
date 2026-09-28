@@ -1,28 +1,9 @@
 import os
 import sys
 import logging
-import secrets
-import signal
-import string
-from pathlib import Path
 from django.conf import settings
 
 log = logging.getLogger(__name__)
-
-# Alfabeto dos segredos gerados no primeiro boot. Sem pontuacao "viva": o valor
-# vai para um arquivo .env lido por dotenv, onde aspas, crase, '#', '$' e chaves
-# quebram o parse. Letras/digitos + simbolos sempre inertes ja dao entropia de
-# sobra nos comprimentos usados aqui.
-_SECRET_ALPHABET = string.ascii_letters + string.digits + "-_.~"
-
-
-def _generate_secret(min_len, max_len):
-    """Segredo aleatorio com CSPRNG — nunca ``random``, que e previsivel.
-
-    Usado para a SECRET_KEY do Django, o segredo que assina sessoes e tokens.
-    """
-    length = secrets.randbelow(max_len - min_len + 1) + min_len
-    return ''.join(secrets.choice(_SECRET_ALPHABET) for _ in range(length))
 
 # Flag de módulo para evitar execuções repetidas no mesmo processo
 _ALREADY_RAN = False
@@ -35,15 +16,20 @@ _SKIP_COMMANDS = {
     "makemessages", "squashmigrations", "test", "sendtestemail",
 }
 
+# O servidor do app desktop (desktop/server.py) liga esta variavel: ele roda o
+# ``migrate`` depois do ``django.setup()`` e so entao chama ``on_startup``.
+# Rodar no ``ready()`` catalogaria as fotos num banco ainda sem as tabelas.
+DEFER_ENV = "PHOTOEDITOR_DEFER_STARTUP"
+
 
 def _should_run_now() -> bool:
     """
-    Garante que on_startup só execute quando o app está servindo via
-    WSGI/ASGI (gunicorn, uwsgi, daphne, runserver), e não durante
-    comandos de build/manage (collectstatic, migrate, etc.).
+    Garante que on_startup só execute quando o app está servindo, e não
+    durante comandos de build/manage (migrate, etc.).
     """
-    # Gunicorn, uwsgi, daphne etc. não passam por manage.py —
-    # sys.argv[0] não será manage.py, então permitimos a execução.
+    if os.environ.get(DEFER_ENV):
+        return False
+
     if len(sys.argv) > 0 and os.path.basename(sys.argv[0]) in ("manage.py", "django-admin"):
         command = sys.argv[1] if len(sys.argv) > 1 else ""
         if command in _SKIP_COMMANDS:
@@ -55,35 +41,19 @@ def _should_run_now() -> bool:
     return True
 
 
-def on_startup():
+def on_startup(force=False):
+    """Tarefas de boot. ``force`` = chamada explicita do servidor desktop."""
     global _ALREADY_RAN
     if _ALREADY_RAN:
         return
-    if not _should_run_now():
+    if not force and not _should_run_now():
         return
     _ALREADY_RAN = True
 
-    # 👇 Coloque aqui o que precisa rodar no startup
     try:
         log.info("Running startup tasks...")
-        # exemplos:
-        # - registrar schedulers
-        # - pré-carregar caches
-        # - validar variáveis de ambiente
-        # - checar conexões externas
 
-        env_path = Path(settings.DATA_DIR) / ".env"
-        if not env_path.exists():
-            # warning, nao exception: nao ha excecao em curso aqui e o
-            # log.exception imprimia um "NoneType: None" logo abaixo da mensagem.
-            log.warning("Environment file '.env' not found, creating a default one!")
-            create_default_dot_env()
-            os.kill(os.getpid(), signal.SIGTERM)
-
-        from django.core.cache import cache
-        cache.set("app:healthy", True, timeout=60)
-
-        # Subpastas de trabalho em /project (raw/ ausente so gera aviso).
+        # Subpastas de trabalho do projeto (raw/ ausente so gera aviso).
         ensure_project_dirs()
 
         # Garante o usuario ``admin`` padrao (sem senha) do Django admin publico.
@@ -102,8 +72,9 @@ def ensure_project_dirs():
 
     ``project_data/`` ja nasce nas settings (o SQLite precisa dela antes do
     migrate); aqui entram ``deleted/`` e ``publicar/``. ``raw/`` NAO e criada:
-    pasta vazia criada por nos esconderia um erro de montagem — melhor dizer
-    no log que as fotos nao foram encontradas.
+    pasta vazia criada por nos esconderia a escolha da pasta errada — melhor
+    dizer no log que as fotos nao foram encontradas. (Quem pode criar e o app
+    desktop, depois de perguntar a pessoa.)
     """
     for path in (settings.PROJECT_DATA_DIR, settings.DELETED_DIR, settings.PUBLISH_DIR):
         try:
@@ -113,8 +84,7 @@ def ensure_project_dirs():
 
     if not settings.RAW_DIR.is_dir():
         log.error(
-            "Original photos folder not found: %s. Put the JPEGs in <project>/raw "
-            "and check the /project mount (PROJECT_DIR in the root .env).",
+            "Original photos folder not found: %s. Put the JPEGs in <project>/raw.",
             settings.RAW_DIR,
         )
 
@@ -144,25 +114,3 @@ def ensure_admin_user():
         # Banco ainda sem as tabelas (boot antes do migrate) — o middleware
         # cria o usuario na primeira visita ao admin.
         log.exception("Could not ensure the default admin user.")
-
-
-def create_default_dot_env():
-    dotenv_path = Path(settings.DATA_DIR) / ".env"
-
-    data = {
-        "SECRET_KEY": _generate_secret(60, 80)
-    }
-
-    default_config = "\n".join(
-        f"{k}={v}"
-        for k, v in data.items()
-    )
-    with open(dotenv_path, 'w', encoding="UTF-8") as f:
-        f.write(default_config)
-        f.write("\n")
-
-    try:
-        # Em sistemas POSIX, restringe a leitura dos segredos ao usuário
-        dotenv_path.chmod(0o600)
-    except Exception:
-        pass  # Ignora em sistemas que não suportam chmod

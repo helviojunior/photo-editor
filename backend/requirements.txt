@@ -1,5 +1,7 @@
+# Somente pacotes com WHEEL binaria (ou pura) para Windows, macOS e Linux: o
+# builder (tools/build.py, em Docker) monta o runtime de cada plataforma com
+# `pip --platform ... --only-binary=:all:` — sdist nao entra.
 requests
-py7zr==1.0.0
 bcrypt
 Pillow>=10
 # Motor de revelacao (imaging/develop.py) e Auto (imaging/auto.py)
@@ -12,12 +14,10 @@ onnxruntime>=1.18,<2
 piexif
 python-dotenv==1.1.1
 
+# Servidor HTTP local do app desktop (desktop/server.py) e estaticos
+waitress>=3
+whitenoise>=6
+
 #DJANGO LIBS
-django-cors-headers
 djangorestframework>=3.12.4
 Django==5.2.3
-dj-static>=0.0.6
-django-fullurl
-django-filter
-django-crontab
-django-recaptcha

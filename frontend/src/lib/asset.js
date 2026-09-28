@@ -3,7 +3,7 @@
 // browser/CDN — inclusive de URLs externas (media.sec4us.com.br).
 //
 // REACT_APP_BUILD_TS e fixado no craco.config.js (um valor por build, igual em
-// `start` e `build`) e pode ser sobrescrito pelo Docker/CI.
+// `start` e `build`) e pode ser sobrescrito pelo builder (tools/build.py).
 export const BUILD_TS = process.env.REACT_APP_BUILD_TS || "dev";
 
 /**

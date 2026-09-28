@@ -1,9 +1,10 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
-import { Moon, Sun } from "lucide-react";
+import { House, Moon, Sun } from "lucide-react";
 import api from "lib/api";
 import { cn } from "lib/utils";
 import brand from "lib/brand";
+import { desktopAction } from "lib/desktop";
 import { useI18n, LANGUAGE_OPTIONS } from "i18n";
 
 /**
@@ -18,13 +19,26 @@ export default function AppLayout({ darkMode, setDarkMode }) {
   const { t, lang, setLanguage, adoptSystemDefault } = useI18n();
   const location = useLocation();
   const fullBleed = /^\/(photos|merges)(\/|$)/.test(location.pathname);
+  // Projeto aberto e se ha app desktop em volta (para o botao Inicio).
+  const [config, setConfig] = useState(null);
 
-  // Padrao de idioma do deploy: so vale se nem cookie nem navegador responderam.
+  // Padrao de idioma do sistema: so vale se nem cookie nem navegador responderam.
   useEffect(() => {
     api.get("/api/config/")
-      .then((res) => adoptSystemDefault(res.data?.default_language))
+      .then((res) => {
+        setConfig(res.data);
+        adoptSystemDefault(res.data?.default_language);
+      })
       .catch(() => {});
   }, [adoptSystemDefault]);
+
+  // Nome do projeto no titulo da pagina (o shell tambem o poe na janela).
+  useEffect(() => {
+    const name = config?.project?.name;
+    document.title = name ? `${name} — ${brand.name}` : brand.name;
+  }, [config]);
+
+  const project = config?.project;
 
   return (
     <div className="flex flex-col h-dvh overflow-hidden bg-background">
@@ -39,6 +53,23 @@ export default function AppLayout({ darkMode, setDarkMode }) {
           <span className="hidden sm:inline text-[11px] text-muted-foreground">
             v{brand.version}
           </span>
+          {/* Voltar a tela inicial troca de projeto: quem faz e o shell desktop. */}
+          {config?.desktop && project && (
+            <>
+              <div className="h-6 w-px bg-border mx-1" />
+              <button
+                onClick={() => desktopAction("home")}
+                aria-label={t("nav.home", "Home")}
+                title={t("nav.home", "Home")}
+                className="touch-target inline-flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              >
+                <House size={18} />
+              </button>
+              <span className="truncate max-w-[40vw] text-sm font-medium" title={project.path}>
+                {project.name}
+              </span>
+            </>
+          )}
         </div>
 
         <div className="flex items-center gap-1 lg:gap-3">

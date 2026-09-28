@@ -5,6 +5,7 @@ import { I18nProvider } from "i18n";
 import AppLayout from "components/layout/AppLayout";
 import Editor from "pages/Editor";
 import Merge from "pages/Merge";
+import Home from "pages/Home";
 import "./App.css";
 
 function App() {
@@ -26,6 +27,8 @@ function App() {
           <DialogProvider>
             <Routes>
               <Route element={<AppLayout darkMode={darkMode} setDarkMode={setDarkMode} />}>
+                {/* Tela inicial do app desktop: projetos recentes. */}
+                <Route path="/home" element={<Home />} />
                 {/* Uma rota por foto: navegar atualiza a URL (regra 3). */}
                 <Route path="/photos" element={<Editor />} />
                 <Route path="/photos/:id" element={<Editor />} />

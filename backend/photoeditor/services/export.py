@@ -12,8 +12,9 @@ arquivos que o proprio editor escreveu, nunca um original.
 Base de merge sai como ``<base>_merge.jpg`` (o merge composto, com os
 ajustes da base) e as fotos que sao camada de um merge nao saem.
 
-O estado do job vive na memoria do processo: o uwsgi roda um processo so
-(com threads), entao todas as requisicoes enxergam o mesmo job.
+O estado do job vive na memoria do processo: o servidor local (waitress,
+desktop/server.py) e um processo so com threads, entao todas as requisicoes
+enxergam o mesmo job.
 """
 import hashlib
 import logging

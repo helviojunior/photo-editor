@@ -7,9 +7,9 @@ import logging
 
 from photoeditor.tools import ban
 
-# Handler e nivel vem do LOGGING das settings (console -> stdout). Nao montar
-# handler aqui: o codigo antigo caia em SysLogHandler('/dev/log') sempre que
-# stdin nao era um TTY — exatamente o caso do container, onde /dev/log nem
+# Handler e nivel vem do LOGGING das settings (arquivo de log + terminal). Nao
+# montar handler aqui: o codigo antigo caia em SysLogHandler('/dev/log') sempre
+# que stdin nao era um TTY — o caso do app sem terminal, onde /dev/log nem
 # existe e o import estourava dentro do proprio tratamento de erro.
 logger = logging.getLogger(__name__)
 

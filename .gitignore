@@ -3,9 +3,16 @@
 .env.*
 !.env.example
 
-# Dados dos containers (TLS, segredos gerados no boot)
+# Builder do app desktop (tools/build.py): runtimes embarcados, downloads,
+# modelo de segmentacao e pacotes gerados
+.runtime/
+.runtime-builder/
+.cache/
+models/
+dist/
+
+# Dados da antiga instalacao em Docker (TLS, segredos) — nao usados mais
 photoeditor_data/
-temp
 
 # Python
 __pycache__/

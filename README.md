@@ -11,8 +11,10 @@ Foi criado por **Helvio Junior** para agilizar o fluxo das coberturas
 fotográficas do [PhotoE](https://photoe.com.br/) — da triagem logo depois do
 evento até a pasta pronta para publicar.
 
-Editor no estilo Lightroom (Django REST + React), rodando localmente em Docker
-sobre a pasta de fotos do evento.
+Editor no estilo Lightroom (Django REST + React) empacotado como **app desktop
+nativo** para Windows, macOS e Linux: Python embarcado + Chromium embarcado
+(Qt WebEngine), sem Docker, sem navegador e sem nada instalado na máquina de
+quem usa. A janela não tem barra de endereço nem cara de navegador — é o app.
 
 O sistema é **100% público e não autenticado**: não há login, contas, empresas
 nem permissionamento. O Django admin também é aberto — quem acessa `/admin/`
@@ -108,100 +110,150 @@ devolve todas.
 
 ## Stack
 
-| Camada    | Tecnologia                                             |
-|-----------|--------------------------------------------------------|
-| Backend   | Django 5.2 + Django REST Framework, uWSGI              |
-| Frontend  | React 19 (CRA/craco), TailwindCSS, react-router        |
-| Banco     | SQLite na pasta do projeto (`/project/project_data`)   |
-| Proxy/TLS | nginx (nginx-extras) com certificado self-signed       |
+| Camada    | Tecnologia                                                        |
+|-----------|-------------------------------------------------------------------|
+| Janela    | PySide6 6.11 — Qt WebEngine (Chromium) endurecido, sem barra      |
+| Backend   | Django 5.2 + Django REST Framework, servido pelo waitress local   |
+| Frontend  | React 19 (CRA/craco), TailwindCSS, react-router                   |
+| Banco     | SQLite do evento (`<projeto>/project_data`) + `~/.photoe/photoe.db` |
+| Runtime   | CPython 3.12 do python-build-standalone, embarcado no pacote      |
 
 Estrutura:
 
 ```
-backend/    core/ (settings, wsgi/asgi) + photoeditor/ (app: models, views, services)
+backend/    core/ (settings, wsgi) + photoeditor/ (app: models, views, services)
+desktop/    shell nativo: janela, menus, navegador endurecido, servidor local
 frontend/   src/ (pages, components/ui, contexts, i18n, lib)
-nginx/      Dockerfile + nginx.conf + entrypoint (TLS, FORCE_TLS, real_ip)
-docker-compose.yml       # produção (backend + nginx)
-docker-compose.dev.yml   # desenvolvimento (backend + frontend hot-reload)
-.env.example             # template do .env ÚNICO (nunca versione o .env real)
+tools/      build.py (runtime, modelo, frontend, pacote) + Dockerfile do builder
 ```
+
+## Arquitetura
+
+```
+┌─ shell (desktop/app.py) ─────────────┐        ┌─ servidor (desktop/server.py) ─┐
+│ QMainWindow + menus nativos          │ spawn  │ Django + waitress              │
+│ QWebEngineView endurecido  ──────────┼──────► │ http://127.0.0.1:<porta>       │
+│  • só navega na origem do servidor   │ cookie │ AppTokenMiddleware (token)     │
+│  • /__desktop__/<ação> → SO          │ token  │ SQLite do projeto aberto       │
+└──────────────────────────────────────┘        └────────────────────────────────┘
+```
+
+- **Dois processos, o mesmo Python embarcado.** Trocar de projeto derruba o
+  servidor e sobe outro apontando para a nova pasta; sem projeto, ele sobe em
+  **modo Home** (só a tela inicial e os projetos recentes). Um crash nativo
+  (onnxruntime, OpenCV) derruba o servidor, não a janela.
+- **Navegador endurecido** (`desktop/browser.py`): sem barra de endereço,
+  abas, menu de contexto ou DevTools; link externo abre no navegador do SO;
+  permissões de página (câmera, localização, notificações…) negadas;
+  `file:`/`chrome:`/`javascript:` barrados.
+- **Servidor só para o app:** escuta em `127.0.0.1`, recusa Host diferente
+  (DNS rebinding) e exige o token sorteado a cada execução, entregue ao
+  navegador embarcado como cookie `HttpOnly`/`SameSite=Strict`. Um site
+  aberto no navegador comum da pessoa não consegue chamar a API.
+- **Ponte React → SO:** o React navega para `/__desktop__/<ação>` (abrir
+  pasta, novo projeto, voltar ao Início, mostrar no Finder/Explorer) e o
+  shell intercepta antes de a navegação sair (`frontend/src/lib/desktop.js`).
 
 ## Principais pontos
 
 ### 1. Acesso público
-- A API não tem classe de autenticação e libera tudo por padrão
-  (`REST_FRAMEWORK` em `core/settings.py`).
+- Sem login, contas ou permissões: a API não tem classe de autenticação e
+  libera tudo (`REST_FRAMEWORK` em `core/settings.py`). A única trava é a de
+  transporte (token do app, acima), que não identifica pessoa nenhuma.
 - Django admin público: `photoeditor/middleware.py` (`PublicAdminMiddleware`)
-  loga toda visita a `/admin/` como o usuário `admin` (senha inutilizável). O
-  usuário é criado no boot (`startup.py:ensure_admin_user`) ou na primeira visita.
-- Os estáticos do admin saem por `/django-static/` (o `/static/` é do React),
-  servidos pelo `dj_static.Cling` no `core/wsgi.py` e repassados pelo nginx.
+  loga toda visita a `/admin/` como o usuário `admin` (senha inutilizável).
+- Estáticos do admin (`/django-static/`) e o build do React saem pelo
+  WhiteNoise, direto das apps — sem `collectstatic`.
 
 ### 2. Internacionalização (EN + PT-BR)
 - **EN é o padrão e o fallback** de toda tradução.
 - Frontend: `useI18n()` (`t`/`tf`) + catálogos em `src/i18n/locales.js`.
 - Backend: `photoeditor/i18n.py` (`translate`, `tr`, `language_for_request`).
-- Idioma: cookie `photoeditor_ln` → navegador → padrão do sistema
-  (`/api/config/`). O cookie é escrito pelo frontend ao trocar o idioma.
+- Shell desktop (menus, diálogos nativos): `desktop/i18n.py`, que acompanha o
+  idioma escolhido no app observando o cookie `photoeditor_ln`.
 
 ### 3. E-mail e identidade visual
 - Template HTML de marca em `photoeditor/templates/email/`, renderizado por
   `services/mailer.py`.
-- Logo do PhotoE no próprio build (`frontend/public/assets/logo/`, versões
-  clara e escura); favicon servido de `media.sec4us.com.br`. Cache-busting
-  `?ts=<BUILD_TS>` em todo objeto estático (a cada build).
-- Marca configurável por env (`BRAND_*` / `REACT_APP_BRAND_*`).
+- Logo, favicon e a fonte Inter vão no próprio build — o app funciona offline.
+  Cache-busting `?ts=<BUILD_TS>` em todo objeto estático.
 
 ### 4. UI/UX (convenções)
 - Confirmações/alertas via **modais próprios** (nunca diálogos nativos do browser).
 - Telas e formulários ocupam **100%** da largura.
-- Detalhe de objeto abre em **janela/rota própria**, não em modal.
+- Detalhe de objeto abre em **janela/rota própria**, não em modal
+  (`window.open` vira uma janela do app, igualmente sem barra).
 
-### 5. Infra / nginx
-- Portas publicáveis via `HTTP_PORT`/`HTTPS_PORT`.
-- `FORCE_TLS` (redirect HTTP→HTTPS + HSTS) respeitando `X-Forwarded-Proto` de
-  proxy upstream (links saem em https mesmo recebendo na porta 80).
-- `USE_REAL_IP` + `real_ip` (`set_real_ip_from`, header `SC-Connecting-IP`).
+## Tela inicial e projetos
 
-### 6. Configuração
-- **Um único `.env` na raiz**, consumido pelos compose e pelo backend. Nunca
-  versione o `.env` — só o `.env.example`.
-- `DEBUG=False` por padrão; `PROJECT_DIR` obrigatória (pasta do projeto de fotos).
+A Home mostra **Abrir projeto**, **Novo projeto** (escolhe a pasta e copia os
+JPEGs para `raw/`) e os projetos recentes em cards — capa, nº de fotos,
+tamanho e data da última abertura. A lista mora no banco do app,
+`~/.photoe/photoe.db`; remover um card nunca toca na pasta.
 
-## Pasta do projeto
-
-Cada evento é uma pasta no host, apontada por `PROJECT_DIR` no `.env` e
-montada em `/project` no backend:
+Cada evento é uma pasta:
 
 ```
-<PROJECT_DIR>/
+<projeto>/
     raw/            fotos originais (somente JPEG, nunca alteradas)
     project_data/   db.sqlite3 + caches gerados + masks/ (camadas)
     deleted/        fotos excluídas (movidas, nunca apagadas)
     publicar/       saída do botão Exportar
 ```
 
-O backend cria `project_data/`, `deleted/` e `publicar/`; a `raw/` com as
-fotos é sua. A cada boot ele roda `makemigrations` + `migrate` no SQLite.
+O app cria `project_data/`, `deleted/` e `publicar/`; `raw/` só é criada
+depois de perguntar. Ao abrir o projeto, o servidor roda `migrate` no SQLite
+dele. Um projeto só abre em uma janela por vez (trava em `project_data/`).
 
-## Como rodar
+O que é da máquina, não do evento, fica em `~/.photoe/` (igual nos três SOs):
+`photoe.db`, segredos gerados, perfil do navegador (`webengine/`), capas dos
+cards e `logs/` (`desktop.log` e `server.log`).
 
-Pré-requisitos: Docker + Docker Compose.
+## Como rodar (desenvolvimento)
 
-```bash
-cp .env.example .env          # ajuste PROJECT_DIR (pasta com raw/), portas, etc.
-docker compose build
-docker compose up -d
-```
-
-- App: `https://localhost` (ou a `HTTPS_PORT` configurada; certificado self-signed).
-- Admin: `https://localhost/admin/` — entra direto como `admin`, sem senha.
-
-Desenvolvimento (frontend com hot-reload em `:3000`, backend em `:8000`):
+Pré-requisito: `python3` (qualquer 3.9+, só para o `tools/build.py`). Node não
+é necessário se o `frontend/build` já existir.
 
 ```bash
-docker compose -f docker-compose.dev.yml up
+python3 tools/build.py run                 # baixa o runtime, o modelo e abre o app
+python3 tools/build.py run -- --devtools   # com DevTools (F12) e menu de contexto
+python3 tools/build.py run -- ~/Fotos/evento   # já abrindo um projeto
 ```
+
+O runtime do host fica em `.runtime/<alvo>/` (CPython 3.12 + dependências). Com
+hot-reload do React: `yarn start` no `frontend/` e
+`tools/build.py run -- --port 47823 --frontend-url http://127.0.0.1:3000`.
+
+## Pacotes (builder em Docker)
+
+Um container Linux monta o pacote de **todas** as plataformas — nada é
+compilado: o Python de cada alvo é o CPython pronto do python-build-standalone
+e as dependências são wheels binárias baixadas com `pip --platform <alvo>`.
+
+```bash
+tools/docker-build.sh                              # todos os alvos
+tools/docker-build.sh dist --target windows-x64    # só um
+```
+
+Saída em `dist/PhotoEditor-<versão>-<alvo>.zip` (Windows) ou `.tar.gz` (demais),
+com `runtime/` (Python), `app/` (backend, desktop, frontend, modelo) e o
+lançador (`PhotoEditor.cmd`, `PhotoEditor.command`, `PhotoEditor`);
+`--keep-dirs` mantém também a pasta aberta, para testar o pacote no lugar.
+
+**Espaço em disco:** cada alvo ocupa ~1,5 GB de runtime em
+`.runtime-builder/` (reaproveitado entre builds) e ~0,5–0,7 GB de pacote. Os
+quatro alvos pedem ~15 GB livres — no macOS, também dentro do disco do Docker
+Desktop.
+
+| Alvo          | SO mínimo (ditado pelas wheels)                          |
+|---------------|----------------------------------------------------------|
+| `windows-x64` | Windows 10/11 64 bits                                    |
+| `macos-arm64` | macOS 14 (Apple Silicon)                                 |
+| `linux-x64`   | glibc 2.34 — Ubuntu 22.04, Debian 12, Fedora 35          |
+| `linux-arm64` | glibc 2.39 — Ubuntu 24.04                                |
+
+Instaladores (MSI/NSIS, `.app`/DMG com assinatura, AppImage/deb) são a
+próxima etapa e partem destas pastas.
 
 ## Banco e migrations
 
@@ -213,7 +265,9 @@ docker compose -f docker-compose.dev.yml up
 
 | Método/Rota          | Descrição                                          |
 |----------------------|----------------------------------------------------|
-| `GET  /api/config/`  | Idioma padrão, idiomas suportados, marca e versão  |
+| `GET  /api/config/`  | Idioma, marca, versão e o projeto aberto (ou Home) |
+| `GET/DELETE /api/projects/recent/` | Projetos recentes da Home / tirar da lista |
+| `GET  /api/projects/cover/?path=` | Capa do card (1ª foto de `raw/`)      |
 | `GET  /api/develop/` | Sliders, presets e camadas (`smart_select`)        |
 | `POST /api/photos/<id>/segment/` | Traço do pincel → máscara do objeto    |
 | `GET  /api/masks/<chave>.png` | Máscara de uma camada (overlay)           |

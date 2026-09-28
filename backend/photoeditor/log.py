@@ -19,9 +19,9 @@ class SystemLogger(object):
         self.set_filename(filename)
 
         # Sem handler proprio: quem define destino e formato e o LOGGING das
-        # settings, que sempre escreve no stdout (docker logs). O codigo antigo
-        # trocava para SysLogHandler('/dev/log') quando stdin nao era um TTY —
-        # dentro do container isso significava perder todo o log.
+        # settings (arquivo em ~/.photoe/logs + terminal, se houver). O codigo
+        # antigo trocava para SysLogHandler('/dev/log') quando stdin nao era um
+        # TTY — num app sem terminal isso significava perder todo o log.
 
     @property
     def base_logger(self):

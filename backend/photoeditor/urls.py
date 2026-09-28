@@ -1,7 +1,8 @@
-from django.urls import path, re_path
-from django.views.generic import RedirectView
+from django.conf import settings
+from django.urls import path
 
 from photoeditor.views.config import AppConfigView
+from photoeditor.views.projects import RecentProjectsView, ProjectCoverView
 from photoeditor.views.photos import (
     PhotoListView, PhotoDetailView, PhotoRescanView,
     PhotoThumbnailView, PhotoPreviewView, PhotoOriginalView,
@@ -16,16 +17,19 @@ from photoeditor.views.merges import (
 
 app_name = 'photoeditor'
 
-favicon_view = RedirectView.as_view(url='/static/favicon.png', permanent=True)
+# Servem nos dois modos: a Home e o editor (que tambem lista os recentes).
+common_patterns = [
 
-urlpatterns = [
-
-    # General
-    re_path(r'^favicon\.ico', favicon_view),
-    re_path(r'^favicon\.png', favicon_view),
-
-    # Configuracao publica do frontend (idioma padrao, versao)
+    # Configuracao publica do frontend (idioma padrao, versao, projeto aberto)
     path('api/config/', AppConfigView.as_view(), name='app-config'),
+
+    # Tela Home: projetos recentes e a capa de cada card
+    path('api/projects/recent/', RecentProjectsView.as_view(), name='recent-projects'),
+    path('api/projects/cover/', ProjectCoverView.as_view(), name='project-cover'),
+]
+
+# So com um projeto aberto (fora do modo Home nao ha catalogo).
+project_patterns = [
 
     # Catalogo de fotos
     path('api/photos/', PhotoListView.as_view(), name='photo-list'),
@@ -63,3 +67,5 @@ urlpatterns = [
     path('api/history/undo/', UndoView.as_view(), name='history-undo'),
 
 ]
+
+urlpatterns = common_patterns + ([] if settings.HOME_MODE else project_patterns)

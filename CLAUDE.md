@@ -1,7 +1,10 @@
 # Instruções do Projeto
 
-Editor de fotos de eventos, no estilo Lightroom. As convenções abaixo são
-obrigatórias e devem ser replicadas em qualquer projeto derivado deste.
+Editor de fotos de eventos, no estilo Lightroom, distribuído como **app
+desktop** (Windows, macOS, Linux): Python embarcado + Chromium embarcado (Qt
+WebEngine) mostrando o frontend React servido por um Django local — sem Docker
+em tempo de execução (regra 18). As convenções abaixo são obrigatórias e devem
+ser replicadas em qualquer projeto derivado deste.
 
 O sistema é **100% público e não autenticado** (regra 5): não existe login,
 conta, Company nem permissionamento — nada de reintroduzir essas camadas sem
@@ -153,11 +156,18 @@ Nenhum texto visível ao usuário pode ser hard-coded. Idiomas suportados hoje:
 
 ### 5. Sistema público, sem autenticação
 Não há login, contas, Company, papéis nem capabilities. Toda tela e todo
-endpoint são abertos.
+endpoint são abertos **para quem usa o app**.
 
 - **API:** `REST_FRAMEWORK` sem classes de autenticação e com `AllowAny` como
   permissão padrão (`core/settings.py`). Sem `SessionAuthentication`, o DRF
   também não exige CSRF nas chamadas da SPA.
+- **Trava de transporte, não de usuário:** o servidor local escuta em
+  `127.0.0.1`, aceita só Host `127.0.0.1`/`localhost` (DNS rebinding) e o
+  `AppTokenMiddleware` (`photoeditor/middleware.py`) recusa com 403 toda
+  requisição sem o token sorteado pelo shell a cada execução — entregue ao
+  navegador embarcado como cookie `HttpOnly`/`SameSite=Strict`. Sem isso,
+  qualquer site aberto no navegador comum da pessoa chamaria a API. Não
+  confundir com autenticação: o token não identifica ninguém.
 - **Django admin público:** `photoeditor/middleware.py` —
   `PublicAdminMiddleware` loga toda visita a `/admin/` como o usuário padrão
   `admin`, que **não tem senha** (`set_unusable_password`). O usuário é
@@ -165,9 +175,11 @@ endpoint são abertos.
   primeira visita (`get_default_admin()`, que também reaplica `is_staff` /
   `is_superuser` caso alguém os desligue pelo próprio admin).
 - **Usuário:** o `auth.User` padrão do Django — não há `AUTH_USER_MODEL` próprio.
-- **Estáticos do admin:** `STATIC_URL = /django-static/` (o `/static/` é do
-  build do React), servidos pelo `dj_static.Cling` em `core/wsgi.py` e
-  repassados pelo nginx junto com `/admin/` (`nginx/app_locations.conf`).
+- **Estáticos:** `STATIC_URL = /django-static/` (o `/static/` é do build do
+  React). O WhiteNoise serve os dois: os do admin direto das apps
+  (`WHITENOISE_USE_FINDERS`, sem `collectstatic`) e o build do React na raiz
+  (`WHITENOISE_ROOT`); rota que não é arquivo nem API cai no `index.html`
+  (`views/spa.py`).
 
 ### 6. Idioma: cookie → navegador → padrão do sistema
 Sem conta onde guardar preferência, o idioma é resolvido em três degraus
@@ -186,6 +198,9 @@ cookie  ->  navegador  ->  padrão do sistema (DEFAULT_LANGUAGE)
   (`default_language`), depois de a tela já estar desenhada. Por isso o estado
   guarda a **origem** do idioma e só o adota quando nada respondeu antes —
   aplicá-lo sempre atropelaria uma preferência real.
+- **Shell desktop:** menus e diálogos nativos (`desktop/i18n.py`) seguem o
+  idioma escolhido no app observando o cookie no perfil do navegador
+  embarcado; antes da primeira escolha, o idioma do SO.
 - **Backend:** respostas seguem a mesma ordem
   (`i18n.language_for_request`: cookie → `Accept-Language` → EN); e-mails saem
   no idioma que quem envia informar ao `mailer`. **Sem idioma ou idioma não
@@ -215,19 +230,20 @@ preheader, rodapé, logo.
 - Cor, site e logo saem das settings `BRAND_*`; o idioma é o informado por
   quem envia (regra 6).
 
-### 11. Favicon remoto, logo no build
-O favicon é servido remotamente de `media.sec4us.com.br` (padrão do
-`../sec_face`); o logo do PhotoE foi baixado de lá e vai no próprio build:
+### 11. Favicon, logo e fonte no build — o app funciona offline
+Nada da interface depende de rede: favicon (`public/favicon.ico|.png`), logo e
+a fonte Inter (`@fontsource/inter`, importada em `src/index.js` — nada de
+Google Fonts) vão no próprio build. O logo do PhotoE foi baixado de
+`media.sec4us.com.br`:
 
-- `public/index.html` referencia
-  `https://media.sec4us.com.br/icon/favicon.ico|.png?ts=%REACT_APP_BUILD_TS%`.
+- `public/index.html` referencia `%PUBLIC_URL%/favicon.ico|.png?ts=%REACT_APP_BUILD_TS%`.
 - Logo: `public/assets/logo/photoe-light.png` (tema claro) e
   `photoe-dark.png` (tema escuro — texto branco), originais em
   `https://media.sec4us.com.br/logo/photoe-{light,dark}.png`. Para trocar,
   substitua os arquivos (mesmo nome) ou defina `REACT_APP_BRAND_LOGO` /
   `REACT_APP_BRAND_LOGO_DARK` no `.env`; vazias, valem os arquivos locais.
 - `src/lib/brand.js` resolve nome, logo, logo escuro, favicon e e-mail de
-  contato a partir de `REACT_APP_BRAND_*` / `REACT_APP_MEDIA_BASE`.
+  contato a partir de `REACT_APP_BRAND_*`.
 - O logo do rodapé dos e-mails vem da mesma origem (setting `BRAND_EMAIL_LOGO`).
 
 ### 11.1. Cache-busting `?ts=` em todo objeto estático
@@ -238,75 +254,79 @@ Todo asset estático carrega o carimbo do build: `?ts=<REACT_APP_BUILD_TS>`.
   emitidos (`manifest.json`, `asset-manifest.json`).
 - `src/lib/asset.js` expõe `BUILD_TS`, `withTs(url)` e `asset(path)` — use-os
   para **qualquer** URL de asset (imagens, sons, PDFs), local ou remota.
-- Os Dockerfiles carimbam `REACT_APP_BUILD_TS=$(date -u +%Y%m%d%H%M%S)` no
-  build; a CI pode sobrescrever exportando a variável.
+- O builder (`tools/build.py frontend`) carimba
+  `REACT_APP_BUILD_TS=<UTC %Y%m%d%H%M%S>` e `REACT_APP_VERSION`; a CI pode
+  sobrescrever exportando a variável.
 
 ## Configuração e banco
 
-### 12. `.env` único
-Existe **um único `.env` na raiz** do repositório, consumido pelos
-`docker-compose*.yml` (`env_file` + interpolação) e pelo backend Django
-(`core/settings.py` carrega a raiz; `backend/.env` só como fallback legado).
-As variáveis de build do frontend (`REACT_APP_*`) saem desse mesmo arquivo e
-chegam ao React como build args.
+### 12. `.env` só para desenvolvimento
+O app instalado **não lê `.env`**: o shell passa ao servidor local tudo o que
+ele precisa por variável de ambiente (`desktop/server.py`). Existe no máximo
+**um `.env` na raiz**, opcional, para sobrescrever defaults ao rodar em
+desenvolvimento (`core/settings.py` o carrega se existir).
 
-- **Proibido:** `.env` separado por serviço (não existe `frontend/.env`),
-  valores duplicados entre compose e backend, ou segredo direto no compose.
-- **Única exceção:** `<DATA_DIR>/.env`, gerado no primeiro boot com os segredos
-  do próprio processo (`SECRET_KEY`) — é estado, não configuração, e
-  também é carregado pelas settings.
-- **Nunca versionar o `.env`** (nem qualquer `.env` local com segredos). Só o
-  `.env.example` — template sem valores sensíveis — vai para o git; o `.env`
-  carrega segredos reais (banco, senha SMTP) e commitá-lo
-  vaza esses dados no histórico. Manter `.env` no `.gitignore` (já está); nunca
-  `git add .env` nem `git add -A` sem confirmar que o `.env` continua ignorado.
+- **Proibido:** `.env` separado por serviço, ou configuração que o app
+  instalado precise ler de um `.env` (ele não existe na máquina de quem usa).
+- **Única exceção:** `~/.photoe/.env`, gerado no primeiro uso com os segredos
+  da máquina (`SECRET_KEY`, `core/secret_key.py`) — é estado, não
+  configuração.
+- **Nunca versionar o `.env`.** Só o `.env.example` vai para o git; manter
+  `.env` no `.gitignore` (já está); nunca `git add .env` nem `git add -A` sem
+  confirmar que o `.env` continua ignorado.
 
-### 12.1. Banco: SQLite dentro da pasta do projeto, `DEBUG=False` por padrão
-Cada evento é uma pasta de projeto no host, montada em `/project` no backend
-(`PROJECT_DIR` no `.env` → volume nos `docker-compose*.yml`):
+### 12.1. Dois bancos SQLite: o do evento e o do app; `DEBUG=False` por padrão
+Cada evento é uma pasta de projeto que a pessoa escolhe no app (Home, menu
+Arquivo ou linha de comando); o shell a repassa ao servidor em `PROJECT_ROOT`:
 
 ```
-/project/raw/            originais (somente JPEG, nunca alterados)
-/project/project_data/   db.sqlite3 + caches gerados
-/project/deleted/        fotos excluídas (movidas, nunca apagadas)
-/project/publicar/       saída do Exportar
+<projeto>/raw/            originais (somente JPEG, nunca alterados)
+<projeto>/project_data/   db.sqlite3 + caches gerados + trava de "já aberto"
+<projeto>/deleted/        fotos excluídas (movidas, nunca apagadas)
+<projeto>/publicar/       saída do Exportar
 ```
 
-- O banco é **sempre** o SQLite em `project_data/db.sqlite3`: catálogo e
-  ajustes acompanham as fotos do evento. Não há PostgreSQL nem outro banco.
-- **Sem `/project` montado, `core/settings.py` levanta `ImproperlyConfigured`**
-  — nunca cai para um banco em outro lugar, o que "perderia" o catálogo na
-  execução seguinte. Os caminhos vêm das settings (`PROJECT_ROOT`, `RAW_DIR`,
-  `PROJECT_DATA_DIR`, `DELETED_DIR`, `PUBLISH_DIR`); nada de caminho montado à
-  mão no código.
-- `project_data/` nasce nas settings (o SQLite precisa dela antes do
-  `migrate`); `deleted/` e `publicar/` no init da app
-  (`startup.py:ensure_project_dirs`). `raw/` **não** é criada: sem ela o log
-  mostra um erro claro e a app continua de pé.
-- O entrypoint roda `makemigrations` + `migrate` a cada boot.
-- `DEBUG` tem default `False`; ligar exige `DEBUG=True` explícito no ambiente.
-- O entrypoint não cria conta nenhuma: o `admin` do Django admin público é
-  garantido pelo init da app (regra 5).
+- **Catálogo e ajustes** ficam **sempre** no SQLite do evento,
+  `project_data/db.sqlite3`: acompanham as fotos. Não há PostgreSQL.
+- **O que é da máquina** fica em `~/.photoe/` (igual nos três SOs, também no
+  Windows): `photoe.db` (lista de projetos da Home), `.env` gerado, perfil do
+  navegador (`webengine/`), capas dos cards (`covers/`) e `logs/`. O
+  `photoe.db` é acessado com `sqlite3` puro
+  (`photoeditor/services/recent_projects.py`), porque o shell (sem Django)
+  também o usa; o esquema migra por `PRAGMA user_version`, de forma
+  incremental como a regra 13.
+- **Sem `PROJECT_ROOT`, o servidor sobe em modo Home** (`HOME_MODE`): só as
+  rotas da tela inicial (`photoeditor/urls.py`) e banco em memória.
+  `PROJECT_ROOT` apontando para pasta inexistente levanta
+  `ImproperlyConfigured` — nunca cai para um banco em outro lugar. Os
+  caminhos vêm das settings (`PROJECT_ROOT`, `RAW_DIR`, `PROJECT_DATA_DIR`,
+  `DELETED_DIR`, `PUBLISH_DIR`, `APP_DB`); nada de caminho montado à mão.
+- `project_data/` nasce nas settings; `deleted/` e `publicar/` no boot
+  (`startup.py:ensure_project_dirs`). `raw/` só é criada pelo shell, **depois
+  de perguntar** — criada calada, esconderia a escolha da pasta errada.
+- Ao abrir o projeto o servidor roda **só `migrate`** (nunca
+  `makemigrations`: escreveria migration na instalação) e então o boot
+  (`on_startup(force=True)`).
+- `DEBUG` tem default `False`; ligar exige `DEBUG=True` (ou `--debug` no app).
 
-### 12.3. Log do backend sai no stdout do container
-Todo log do backend vai para o **stdout do processo** — é lá que o Docker
-coleta (`docker compose logs -f backend`). Log que não aparece no `docker logs`
-não existe.
+### 12.3. Log vai para `~/.photoe/logs/`
+O app instalado não tem terminal: log que não vai para arquivo não existe.
+Shell e servidor escrevem cada um no seu arquivo rotativo —
+`~/.photoe/logs/desktop.log` e `server.log` — e, quando há terminal (dev),
+também nele. O menu Ajuda → Abrir Pasta de Logs leva até lá.
 
-- **Proibido:** `SysLogHandler`, arquivo de log dentro do container, ou handler
-  montado à mão no módulo (`if os.isatty(0): ... else: ...`). Dentro do
-  container não há TTY nem `/dev/log`, e o syslog engole a mensagem.
-  Também proibido `print()` para diagnóstico — use `logging`.
-- **Como aplicar:** a configuração é única, em `core/settings.py` (`LOGGING`,
-  dictConfig) com um handler `console` para `sys.stdout` **sem** o filtro
-  `require_debug_true` — o padrão do Django silencia tudo com `DEBUG=False`,
-  que é o modo normal deste projeto. Nos módulos, apenas
-  `log = logging.getLogger(__name__)`; nada de `addHandler`/`basicConfig`.
-- **Níveis por ambiente:** `LOG_LEVEL` (aplicação + root, default `INFO`),
-  `DJANGO_LOG_LEVEL` (loggers do Django) e `SQL_LOG_LEVEL`
-  (`django.db.backends`, default `WARNING`).
-- **Sem buffer:** o `backend/Dockerfile` define `PYTHONUNBUFFERED=1`; sob uwsgi
-  o stdout fica em buffer de bloco e o log atrasa ou se perde no crash.
+- **Proibido:** `SysLogHandler`, handler montado à mão no módulo
+  (`if os.isatty(0): ... else: ...`) ou `print()` para diagnóstico — use
+  `logging`.
+- **Como aplicar:** a configuração do servidor é única, em
+  `core/settings.py` (`LOGGING`, dictConfig): handler de arquivo quando o
+  shell passa `LOG_FILE`, console só se houver `sys.stdout`, **sem** o filtro
+  `require_debug_true` (o padrão do Django silencia tudo com `DEBUG=False`).
+  O shell configura o dele em `desktop/app.py:setup_logging`. Nos módulos,
+  apenas `log = logging.getLogger(__name__)`.
+- **Níveis:** `LOG_LEVEL` (aplicação + root, default `INFO`),
+  `DJANGO_LOG_LEVEL` e `SQL_LOG_LEVEL` (`django.db.backends`, default
+  `WARNING`).
 
 ### 13. Migrations incrementais
 O banco de cada projeto de fotos (`project_data/db.sqlite3`) é dado real e
@@ -315,11 +335,12 @@ persiste entre versões. Por isso as migrations são **incrementais**
 
 - **Proibido:** apagar ou regenerar uma migration já commitada — um banco que
   já a aplicou nunca receberia as mudanças.
-- **Como aplicar:** ao mudar um modelo, rode `makemigrations photoeditor` (via
-  Docker, regra 15.1) e commite a migration nova no mesmo commit. O entrypoint
-  roda `makemigrations` + `migrate` no boot, mas a migration gerada ali vive só
-  no container — a versionada é a que vale. `makemigrations --check` deve
-  reportar "No changes detected".
+- **Como aplicar:** ao mudar um modelo, rode `makemigrations photoeditor` com o
+  Python embarcado (`.runtime/<alvo>/python/bin/python3 backend/manage.py
+  makemigrations photoeditor`, com `PROJECT_ROOT` apontando para uma pasta de
+  teste) e commite a migration nova no mesmo commit. O app só roda `migrate`:
+  migration que não estiver versionada nunca chega a quem usa.
+  `makemigrations --check` deve reportar "No changes detected".
 
 ## Convenções de código e versionamento
 
@@ -336,14 +357,17 @@ código, não.
   mantêm consistência e portabilidade entre forks.
 
 ### 15.1. Ferramenta não instalada na máquina? Use Docker
-A máquina do desenvolvedor não tem todos os runtimes instalados (Node/npm, por
+Docker é ferramenta de **desenvolvimento e build**, nunca de execução do app.
+A máquina do desenvolvedor não tem todos os runtimes instalados (yarn, por
 exemplo). Sempre que for preciso conferir um comando, uma sintaxe, uma versão de
 lib ou rodar um lint/build de um runtime ausente, **execute via Docker** em vez
-de instalar a ferramenta no host ou desistir da verificação.
+de instalar a ferramenta no host ou desistir da verificação. O Python do
+projeto é o embarcado (`python3 tools/build.py runtime` → `.runtime/`), não o
+do sistema.
 
 - **Como aplicar:** rode um container descartável montando o diretório do
-  projeto, na mesma imagem usada pelo build (`node:20-alpine` para o frontend,
-  conforme `frontend/Dockerfile`):
+  projeto (`node:20-alpine` para o frontend; o builder completo é o
+  `tools/Dockerfile`):
 
   ```bash
   docker run --rm -v "$PWD/frontend":/app -w /app node:20-alpine node -e '...'
@@ -351,8 +375,7 @@ de instalar a ferramenta no host ou desistir da verificação.
   ```
 
   O mesmo vale para qualquer outro runtime (Python, psql, etc.): imagem oficial,
-  `--rm`, volume no projeto. Com os serviços de pé, `docker compose exec` também
-  serve para checar algo dentro do container.
+  `--rm`, volume no projeto.
 
 ### 16. Commits vão direto na `main`
 O fluxo é trunk-based: o histórico de `git@gitlab.com:saas-sec4us/photo-editor.git`
@@ -378,7 +401,47 @@ até 999 antes de virar o de cima (`1.0.999` → `1.1.0` → … → `1.999.999`
 - **Como aplicar:** rode `./bump-version.sh` ANTES de commitar e inclua o
   `VERSION` no mesmo commit — a versão tem de apontar para o commit que a
   carrega, não para o anterior.
-- O valor chega ao frontend como `REACT_APP_VERSION` (build arg, via
-  `APP_VERSION` no compose) e ao backend por `core.settings.VERSION`, que lê a
-  mesma fonte. Uma string fixa no código envelhece no primeiro commit e passa a
+- O valor chega ao frontend como `REACT_APP_VERSION` (carimbado pelo
+  `tools/build.py frontend`), ao shell por `desktop/paths.version()` e ao
+  backend por `core.settings.VERSION` — os três leem o mesmo arquivo. Uma string fixa no código envelhece no primeiro commit e passa a
   mentir sobre o que está rodando.
+
+## App desktop
+
+### 18. Shell nativo, navegador endurecido, builder em Docker
+O app são dois processos do mesmo Python embarcado: o **shell**
+(`desktop/app.py`, `window.py`) — janela, menus, escolha de projeto — e o
+**servidor** (`desktop/server.py`) — Django + waitress em `127.0.0.1`, um por
+projeto aberto (trocar de projeto derruba um e sobe outro; sem projeto, modo
+Home).
+
+- **O navegador não pode parecer navegador** (`desktop/browser.py`): sem
+  barra de endereço, abas, menu de contexto, DevTools (só com `--devtools`),
+  página de erro do Chromium, plugins ou permissões de página. Navegação
+  fica presa à origem do servidor; link externo vai para o navegador do SO;
+  outros esquemas são barrados. Não afrouxe nada disso sem pedido explícito.
+- **O que só o SO faz, o React pede navegando para `/__desktop__/<ação>`**
+  (`frontend/src/lib/desktop.js`); o shell intercepta no
+  `acceptNavigationRequest`. A ação **tem de rodar fora desse callback**
+  (`QTimer.singleShot(0, …)`, já em `AppPage._dispatch`): `setHtml`/`setUrl`
+  ou parar o servidor lá dentro reentra no Chromium e **derruba o app**
+  (`EXC_BREAKPOINT` em `WebContentsAdapter::setContent`). Tela que usa essas
+  ações confere `config.desktop` antes de oferecê-las.
+- **Nada no shell é texto fixo** (regra 4): `desktop/i18n.py`. Diálogos do
+  shell são nativos do Qt (não do navegador) — a regra 1 vale para o
+  frontend.
+- **Toda escrita vai para `~/.photoe/` ou para a pasta do projeto**, nunca
+  para a instalação (`<instalação>/app` pode ser somente leitura).
+- **Dependência Python só com wheel binária para as quatro plataformas**
+  (Windows x64, macOS arm64, Linux x64/arm64). O builder
+  (`tools/docker-build.sh` → `tools/build.py dist`) monta todas num único
+  container Linux com `pip --platform … --only-binary=:all:` — um pacote só
+  com sdist quebra o build. Ao adicionar uma, confira as tags no PyPI: elas
+  definem o SO mínimo do pacote (tabela no README).
+- **Versões fixas no builder:** CPython (`PBS_RELEASE`/`PYTHON_VERSION`) e o
+  modelo SAM (revisão + sha256) em `tools/build.py`. Trocar é decisão
+  explícita, nunca efeito colateral de um build.
+- **Como validar:** `python3 tools/build.py run -- --screenshot /tmp/x.png`
+  abre o app, fotografa a primeira tela carregada e sai — serve de teste de
+  fumaça sem ninguém olhando a janela.
+

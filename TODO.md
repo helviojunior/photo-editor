@@ -10,29 +10,27 @@ Legenda: `[ ]` pendente · `[~]` em andamento · `[x]` concluído
 
 ## Contexto: a pasta do projeto
 
-Todo o backend roda em Docker. A pasta de trabalho do usuário é montada em
-`/project` dentro do container:
-
-```bash
--v ~/Storage/teste:/project
-```
-
-Layout esperado dentro de `/project`:
+O editor é um **app desktop** (Windows, macOS, Linux): Python e Chromium
+embarcados, sem Docker. Cada evento é uma pasta escolhida no próprio app
+(Home, menu Arquivo ou linha de comando):
 
 ```
-/project/
+<projeto>/
     raw/            fotos originais (somente leitura para o editor)
     project_data/   banco SQLite + caches gerados (thumbnails, previews)
     deleted/        fotos marcadas como excluídas (movidas, nunca apagadas)
     publicar/       saída do botão Exportar
 ```
 
+Itens antigos abaixo citam `/project` — era o ponto de montagem da pasta no
+container; hoje é a pasta do projeto aberto.
+
 ---
 
 ## Decisões tomadas
 
-- **Banco:** SQLite em `/project/project_data/db.sqlite3`; o PostgreSQL sai
-  dos compose e a regra 12.1 do CLAUDE.md é reescrita.
+- **Banco:** SQLite em `<projeto>/project_data/db.sqlite3` (o catálogo do
+  evento) + `~/.photoe/photoe.db` (a lista de projetos do app).
 - **Formato das fotos em `raw/`:** somente JPEG.
 - **Histórico do CTRL/CMD+Z:** persistido no banco (sobrevive a recarregar).
 - **Pasta de exportação:** `publicar/`.
@@ -176,3 +174,24 @@ original + ajustes.
       em `project_data/masks/`, gravadas no estado da foto (histórico,
       desfazer, render e exportação). `S` entra/conclui o modo seleção, `L`
       passa para a próxima camada.
+
+## 9. App desktop (sem Docker)
+
+- [x] **9.1** Python embarcado (CPython 3.12 do python-build-standalone) e
+      Chromium embarcado (Qt WebEngine/PySide6), endurecido: sem barra de
+      endereço, abas, menu de contexto ou DevTools; navegação presa à origem
+      do servidor local; link externo vai para o navegador do SO; permissões
+      de página negadas.
+- [x] **9.2** Backend servido pelo waitress em `127.0.0.1`, num processo por
+      projeto, protegido por token de sessão (cookie `HttpOnly`) e Host fixo.
+      Docker, nginx, uWSGI e os compose saem do projeto.
+- [x] **9.3** Tela **Home** no estilo da referência (CapCut): Abrir projeto,
+      Novo projeto (copia os JPEGs para `raw/`) e cards dos projetos recentes
+      com capa, nº de fotos, tamanho e data. Lista em `~/.photoe/photoe.db`.
+- [x] **9.4** Builder em Docker (`tools/docker-build.sh`) que monta o pacote
+      das quatro plataformas num só container, sem compilar nada.
+- [ ] **9.5** Instaladores: Windows (MSI/NSIS + atalho no Menu Iniciar,
+      `pythonw` sem console), macOS (`.app` + DMG, assinatura e notarização),
+      Linux (AppImage e/ou `.deb`). Enxugar o PySide6 (tirar módulos Qt que o
+      app não usa) — hoje o runtime tem ~1,5 GB.
+
