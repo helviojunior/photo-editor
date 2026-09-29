@@ -57,8 +57,8 @@ fundo:
 
 Quem acha o objeto sob o traço é o **SAM 2.1 tiny** (Segment Anything 2, Meta,
 Apache-2.0) em ONNX, rodando **localmente em CPU** — não precisa de GPU, de
-Ollama nem de internet. O modelo (~155 MB) é baixado no build da imagem do
-backend, com revisão e hashes fixos. Custo: ~1,5 s na primeira seleção de
+Ollama nem de internet. O modelo (~155 MB) vai no pacote do app (o builder o
+baixa com revisão e hashes fixos — `make model`). Custo: ~1,5 s na primeira seleção de
 cada foto e ~0,3 s por traço; pico de ~1,2 GB de RAM durante a análise.
 Com a opção **Detectar o objeto (IA)** desligada, o pincel seleciona
 exatamente a área pintada.
@@ -108,6 +108,28 @@ empilhado em camadas — a trajetória da bola sobre a cena parada.
    vem de uma foto seguinte, onde a bola já saiu dali.
 3. Ajuste a **opacidade** de cada camada. **Surgir** (o padrão) deixa a bola
    da base bem clara e cada foto seguinte mais forte, até 100% na última.
+
+Seleção da parte da imagem: com a camada **IMG_5794** ativa, a original dela
+aparece à esquerda com a área pintada em vermelho — a bola chegando à cesta.
+Só esse recorte vai para o merge; o resto da foto serve apenas para alinhá-la
+à base. À direita, o **Resultado** já mostra a bola no lugar:
+
+![Merge: a bola na cesta pintada como a área da camada IMG_5794](./images/screen7.png)
+
+Camadas e opacidade: cada foto mostra como foi **alinhada à base**
+(`Alinhada: -0.1, 1.8 px · 0.01° · 100.00%` = deslocamento, rotação e escala)
+e a própria opacidade. Com **Surgir**, a bola da base (IMG_5788) fica a 47% e
+as seguintes sobem — 57%, 75% e 100% — até a da cesta, inteira. **Esmaecer**
+faz o contrário e **Opacas** deixa todas a 100%:
+
+![Merge: camadas alinhadas à base, com opacidades 47%, 57%, 75% e 100%](./images/screen6.png)
+
+Efeito final: de volta ao editor, a base leva o selo **MERGE** na filmstrip e
+a **Editada** passa a ser o merge — a trajetória da bola, do arremesso até a
+cesta, numa foto só. Ajustes, recorte e Auto valem sobre ele, e o **Exportar**
+grava `publicar/IMG_5788_merge.jpg`:
+
+![Editor com o merge: a trajetória da bola em uma só foto](./images/screen5.png)
 
 Antes de extrair, cada foto é **alinhada à base pelo fundo**: pontos SIFT
 filtrados por RANSAC numa transformação de similaridade (deslocamento,
