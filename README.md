@@ -238,7 +238,8 @@ cards e `logs/` (`desktop.log` e `server.log`).
 
 ## Compilação: `make`
 
-O **`Makefile` é a base de compilação**; `make` sozinho lista os alvos.
+O **`Makefile` é a base de compilação**: `make` sozinho gera os instaladores
+(o mesmo que `make dist`) e `make help` lista os alvos.
 Pré-requisitos: `make`, `python3` (qualquer 3.9+) e Docker (para o frontend,
 os testes do React e os instaladores). Node não precisa estar instalado.
 

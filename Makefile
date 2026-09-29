@@ -1,8 +1,8 @@
 # PhotoEditor — base de compilacao do projeto.
 #
-#   make                 lista os alvos (o mesmo que `make help`)
+#   make                 instaladores de todas as plataformas (= `make dist`)
+#   make help            lista os alvos
 #   make run             abre o app desktop (runtime do host, dev)
-#   make dist            instaladores de todas as plataformas (builder Docker)
 #
 # O trabalho pesado mora no tools/build.py (so biblioteca padrao); aqui ficam
 # os atalhos e o builder em Docker (tools/Dockerfile), que monta os pacotes de
@@ -35,7 +35,8 @@ target_args  = $(foreach t,$(TARGETS),--target $(t))
 .PHONY: default help run dev runtime model frontend builder dist macos dmg windows msi \
         linux art test test-frontend test-backend migrations bump clean clean-all
 
-default: help
+# Padrao: os instaladores (TARGETS, por padrao todos) — ver `make help`.
+default: dist
 
 help:			## Mostra esta ajuda
 	@echo "PhotoEditor $(VERSION)"
@@ -71,7 +72,7 @@ frontend: builder	## Build do React em frontend/build (no container)
 builder:		## Cria/atualiza a imagem do builder (tools/Dockerfile)
 	docker build -t $(BUILDER) -f tools/Dockerfile tools
 
-dist: builder		## Instaladores de TARGETS (padrao: todos) em dist/
+dist: builder		## [padrao] Instaladores de TARGETS (padrao: todos) em dist/
 	$(BUILDER_RUN) dist $(call target_args)
 
 macos: builder		## macOS: PhotoEditor.app num .dmg

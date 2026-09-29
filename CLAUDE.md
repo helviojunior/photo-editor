@@ -448,7 +448,8 @@ Home).
 - **Nunca troque os GUIDs de `tools/packaging/windows.py`** (`UpgradeCode` e
   componentes dos atalhos) nem o `BUNDLE_ID` do `.app`: é por eles que o
   Windows e o macOS reconhecem a versão nova como o mesmo programa.
-- **O `Makefile` é a base de compilação** (`make` lista os alvos): novo
+- **O `Makefile` é a base de compilação** (`make` = `make dist`; `make help`
+  lista os alvos): novo
   passo de build, teste ou empacotamento entra como alvo nele, não como
   script solto em `tools/`.
 - **Como validar:** `make test`; e `make run ARGS="--screenshot /tmp/x.png"`
