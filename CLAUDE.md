@@ -446,8 +446,10 @@ Home).
 - **Instaladores saem do mesmo container** (`tools/packaging/`): `.dmg` no
   macOS, `.msi` no Windows, `.tar.gz` no Linux. Arte (ícones, fundo do DMG)
   é desenhada em código a partir do logo — não versione PNG/ICNS/ICO pronto.
-- **Release no GitHub:** publicar uma Release com a tag `v<VERSION>` dispara
-  `.github/workflows/release.yml`, que gera e anexa os instaladores. Passo novo
+- **Release no GitHub:** publicar uma Release dispara
+  `.github/workflows/release.yml`, que gera e anexa os instaladores. A
+  versão do build é a da TAG (`vX.Y.Z`), gravada no `VERSION` só na cópia do
+  pipeline — o `VERSION` versionado continua seguindo a regra 17. Passo novo
   de empacotamento entra no `Makefile` — o workflow só chama o `make`.
 - **Nunca troque os GUIDs de `tools/packaging/windows.py`** (`UpgradeCode` e
   componentes dos atalhos) nem o `BUNDLE_ID` do `.app`: é por eles que o

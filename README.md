@@ -347,8 +347,11 @@ emulação x64 do próprio Windows.
 gera os cinco instaladores (um job por alvo, em paralelo, no mesmo builder
 Docker do `make dist`) e os anexa à Release, cada um com o seu `.sha256`.
 
-- A tag tem de ser `v` + o `VERSION` do commit dela (ex.: `v1.0.39`); se não
-  bater, o workflow para antes de gerar qualquer coisa.
+- **A versão é a da tag** criada no GitHub (`v1.2.3` ou `1.2.3`): o pipeline
+  a grava no `VERSION` antes do build, e ela vira o nome dos instaladores, o
+  número no cabeçalho do app e a versão do `.app`/`.msi`. Formato `X.Y.Z`,
+  com X até 255 e Y, Z até 999 (limite do MSI); fora disso o workflow para
+  antes de gerar qualquer coisa. Nada é commitado de volta.
 - Para refazer os instaladores de uma Release: Actions → "Release installers"
   → *Run workflow*, informando a tag.
 - O repositório é público: os minutos do Actions são gratuitos. Na Release,
