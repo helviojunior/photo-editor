@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { cn } from "lib/utils";
 
 /**
@@ -12,8 +12,10 @@ import { cn } from "lib/utils";
  * Teclado (é um `role="separator"` focável): setas chamam `onStep(-1|+1)`,
  * Home/End e duplo clique chamam `onReset`.
  *
- * O alvo do mouse é mais largo que a linha visível (6px contra 1px): acertar
- * uma linha de 1px com o ponteiro é frustrante.
+ * Visual: uma faixa de 8px entre DUAS linhas paralelas, com a "pegada" no
+ * meio — três círculos pequenos, na direção da divisória. A faixa inteira é
+ * o alvo do ponteiro; linhas e pegada ganham a cor de acento ao passar o
+ * mouse, arrastar ou focar pelo teclado.
  */
 export function Splitter({
   orientation = "vertical",
@@ -25,12 +27,16 @@ export function Splitter({
   className,
 }) {
   const dragging = useRef(false);
+  // Estado (e nao so a ref) para a faixa ficar acesa enquanto arrasta, mesmo
+  // com o ponteiro fora dela.
+  const [active, setActive] = useState(false);
   const vertical = orientation === "vertical";
 
   const onPointerDown = (e) => {
     if (e.button !== 0) return;
     e.preventDefault();
     dragging.current = true;
+    setActive(true);
     e.currentTarget.setPointerCapture(e.pointerId);
     // Durante o arraste: nada de selecionar texto nem trocar o cursor ao
     // passar por cima de outro elemento.
@@ -41,6 +47,7 @@ export function Splitter({
   const stop = (e) => {
     if (!dragging.current) return;
     dragging.current = false;
+    setActive(false);
     e.currentTarget.releasePointerCapture?.(e.pointerId);
     document.body.style.userSelect = "";
     document.body.style.cursor = "";
@@ -77,21 +84,24 @@ export function Splitter({
       onPointerCancel={stop}
       onDoubleClick={() => onReset?.()}
       onKeyDown={onKeyDown}
+      data-active={active || undefined}
       className={cn(
-        "group relative z-20 flex shrink-0 touch-none items-center justify-center",
-        "bg-border focus-visible:outline-none",
-        vertical ? "w-px cursor-col-resize" : "h-px cursor-row-resize",
+        "group relative z-20 flex shrink-0 touch-none select-none items-center justify-center",
+        "bg-background text-muted-foreground/60 transition-colors focus-visible:outline-none",
+        "hover:text-brand-400 focus-visible:text-brand-400 data-[active]:text-brand-400",
+        vertical
+          ? "w-2 cursor-col-resize flex-col border-x border-border"
+          : "h-2 cursor-row-resize flex-row border-y border-border",
+        "hover:border-brand-400/50 focus-visible:border-brand-400 data-[active]:border-brand-400/70",
         className
       )}
     >
-      {/* Área de acerto maior que a linha, centrada nela. */}
-      <span
-        aria-hidden="true"
-        className={cn(
-          "absolute transition-colors group-hover:bg-brand-400/60 group-focus-visible:bg-brand-400",
-          vertical ? "inset-y-0 -left-[3px] w-[7px]" : "inset-x-0 -top-[3px] h-[7px]"
-        )}
-      />
+      {/* A pegada: três círculos na direção da divisória. */}
+      <span aria-hidden="true" className={cn("flex gap-[3px]", vertical ? "flex-col" : "flex-row")}>
+        {[0, 1, 2].map((i) => (
+          <span key={i} className="block h-[5px] w-[5px] rounded-full border border-current" />
+        ))}
+      </span>
     </div>
   );
 }

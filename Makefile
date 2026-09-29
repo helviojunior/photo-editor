@@ -24,7 +24,9 @@ ART_OUT     ?= .cache/art
 # repositorio montado em /src; o ENTRYPOINT e o tools/build.py.
 BUILDER_RUN  = docker run --rm --user "$$(id -u):$$(id -g)" -v "$(CURDIR)":/src $(BUILDER)
 # Node sem instalar nada no host (regra 15.1 do CLAUDE.md).
-NODE_RUN     = docker run --rm -v "$(CURDIR)/frontend":/app -w /app node:20-alpine
+# REACT_APP_VERSION: o build do teste vira o frontend/build que o `make run`
+# usa — sem ela o cabecalho do app mostraria v1.0.0.
+NODE_RUN     = docker run --rm -e REACT_APP_VERSION=$(VERSION) -v "$(CURDIR)/frontend":/app -w /app node:20-alpine
 # Python embarcado do host (criado pelo `make runtime`).
 HOST_PY      = $(shell $(PYTHON) -c "import sys; sys.path.insert(0, 'tools'); import build; print(build.python_exe(build.host_target()))")
 # Pasta de projeto descartavel para os comandos do Django que exigem uma.
