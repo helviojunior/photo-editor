@@ -439,8 +439,15 @@ Home).
   com sdist quebra o build. Ao adicionar uma, confira as tags no PyPI: elas
   definem o SO mínimo do pacote (tabela no README).
 - **Versões fixas no builder:** CPython (`PBS_RELEASE`/`PYTHON_VERSION`) e o
-  modelo SAM (revisão + sha256) em `tools/build.py`. Trocar é decisão
-  explícita, nunca efeito colateral de um build.
+  modelo SAM (revisão + sha256) em `tools/build.py`; imagem base
+  (`ubuntu:noble-<data>`) e revisão do libdmg-hfsplus no `tools/Dockerfile`.
+  Trocar é decisão explícita, nunca efeito colateral de um build.
+- **Instaladores saem do mesmo container** (`tools/packaging/`): `.dmg` no
+  macOS, `.msi` no Windows, `.tar.gz` no Linux. Arte (ícones, fundo do DMG)
+  é desenhada em código a partir do logo — não versione PNG/ICNS/ICO pronto.
+- **Nunca troque os GUIDs de `tools/packaging/windows.py`** (`UpgradeCode` e
+  componentes dos atalhos) nem o `BUNDLE_ID` do `.app`: é por eles que o
+  Windows e o macOS reconhecem a versão nova como o mesmo programa.
 - **Como validar:** `python3 tools/build.py run -- --screenshot /tmp/x.png`
   abre o app, fotografa a primeira tela carregada e sai — serve de teste de
   fumaça sem ninguém olhando a janela.

@@ -13,8 +13,8 @@ Comandos:
     model                     modelo SAM 2.1 (camadas) em models/
     frontend                  build do React em frontend/build/
     run       [-- args]       roda o app desktop no runtime do host (dev)
-    dist      [--target T...] dist/PhotoEditor-<versao>-<T>.zip|.tar.gz
-                              (--keep-dirs: mantem tambem a pasta aberta)
+    dist      [--target T...] instalador em dist/: .dmg (macOS), .msi (Windows),
+                              .tar.gz (Linux); --keep-dirs mantem a pasta aberta
 
 Alvos: macos-arm64, macos-x64, linux-x64, linux-arm64, windows-x64, host, all.
 """
@@ -33,6 +33,8 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+# `tools.packaging` (instaladores) importa a partir da raiz do repositorio.
+sys.path.insert(0, str(ROOT))
 CACHE = ROOT / '.cache'
 # Dentro do container (tools/Dockerfile) o "host" e Linux: os runtimes dele
 # ficam separados dos do desenvolvedor, que roda o app no proprio SO.
@@ -384,13 +386,51 @@ def cmd_dist(targets, skip_frontend=False, keep_dirs=False):
             launcher = out / (f'{APP_NAME}.command' if TARGETS[target]['os'] == 'macos' else APP_NAME)
             launcher.write_text(LAUNCHER_UNIX)
             launcher.chmod(0o755)
+        precompile(out)
 
-        archive = archive_dist(out, TARGETS[target]['os'])
-        # A pasta aberta pesa ~2-3 GB por alvo e o arquivo tem o mesmo
+        artifact = package(out, target, ver)
+        # A pasta aberta pesa ~2-3 GB por alvo e o instalador tem o mesmo
         # conteudo: fica so com --keep-dirs (para testar o pacote no lugar).
         if not keep_dirs:
-            shutil.rmtree(out)
-        log(f'Package ready: {archive.relative_to(ROOT)}')
+            shutil.rmtree(out, ignore_errors=True)
+        log(f'Package ready: {artifact.relative_to(ROOT)}')
+
+
+def precompile(folder: Path):
+    """``.pyc`` de tudo, ja no pacote.
+
+    Instalado, o app mora onde nao se escreve (``Program Files``, dentro do
+    ``.app``): sem ``.pyc`` pronto o Python recompilaria tudo a cada abertura.
+    ``unchecked-hash``: vale sem conferir a data do fonte, que o instalador
+    nao preserva. So com o mesmo Python do runtime (3.12, o do builder) — o
+    formato do ``.pyc`` muda entre versoes.
+    """
+    if sys.version_info[:2] != tuple(int(p) for p in PYTHON_VERSION.split('.')[:2]):
+        log(f'Skipping .pyc precompilation (builder Python is not {PYTHON_VERSION})')
+        return
+    import compileall
+    import py_compile
+    log('Precompiling .pyc')
+    for sub in ('runtime', 'app'):
+        compileall.compile_dir(
+            str(folder / sub), quiet=2, workers=0,
+            invalidation_mode=py_compile.PycInvalidationMode.UNCHECKED_HASH)
+
+
+def package(folder: Path, target: str, ver: str) -> Path:
+    """O instalador do SO: .dmg (macOS), .msi (Windows), .tar.gz (Linux)."""
+    os_name = TARGETS[target]['os']
+    if os_name == 'macos':
+        from tools.packaging import macos
+        log('Building PhotoEditor.app and the .dmg')
+        app = macos.build_app(folder, CACHE / 'pkg' / target, ver)
+        return macos.build_dmg(app, DIST / f'{folder.name}.dmg', CACHE / 'pkg' / f'{target}-dmg')
+    if os_name == 'windows':
+        from tools.packaging import windows
+        log('Building the .msi')
+        return windows.build_msi(folder, DIST / f'{folder.name}.msi', ver,
+                                 CACHE / 'pkg' / f'{target}-msi')
+    return archive_dist(folder, os_name)
 
 
 def archive_dist(folder: Path, os_name: str) -> Path:

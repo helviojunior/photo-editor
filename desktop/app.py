@@ -15,6 +15,10 @@ from desktop import paths
 
 log = logging.getLogger('desktop')
 
+# Windows: identidade na barra de tarefas (ver main). Nunca mude — atalhos
+# fixados pela pessoa apontam para ela.
+APP_USER_MODEL_ID = 'PhotoE.PhotoEditor'
+
 # Chromium sem os servicos de fundo de um navegador de verdade: nada de
 # telemetria, pings de auditoria ou atualizacao de componentes.
 CHROMIUM_FLAGS = (
@@ -55,7 +59,9 @@ def parse_args(argv):
 
 
 def main(argv=None):
-    args = parse_args(sys.argv[1:] if argv is None else argv)
+    argv = sys.argv[1:] if argv is None else argv
+    # O Finder ainda passa "-psn_0_12345" ao abrir o .app em alguns casos.
+    args = parse_args([a for a in argv if not a.startswith('-psn_')])
     setup_logging()
     log.info("%s %s starting (Python %s, %s)", paths.APP_NAME, paths.version(),
              sys.version.split()[0], sys.platform)
@@ -65,6 +71,12 @@ def main(argv=None):
     if not args.devtools:
         # Porta de depuracao remota = DevTools pela rede local. Nunca no app.
         os.environ.pop('QTWEBENGINE_REMOTE_DEBUGGING', None)
+
+    if os.name == 'nt':
+        # Identidade propria na barra de tarefas: sem isto o Windows agrupa (e
+        # fixa) a janela como "pythonw.exe", com o icone do Python.
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_USER_MODEL_ID)
 
     from PySide6.QtCore import QCoreApplication, QTimer
     from PySide6.QtWidgets import QApplication

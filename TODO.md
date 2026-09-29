@@ -190,8 +190,14 @@ original + ajustes.
       com capa, nº de fotos, tamanho e data. Lista em `~/.photoe/photoe.db`.
 - [x] **9.4** Builder em Docker (`tools/docker-build.sh`) que monta o pacote
       das quatro plataformas num só container, sem compilar nada.
-- [ ] **9.5** Instaladores: Windows (MSI/NSIS + atalho no Menu Iniciar,
-      `pythonw` sem console), macOS (`.app` + DMG, assinatura e notarização),
-      Linux (AppImage e/ou `.deb`). Enxugar o PySide6 (tirar módulos Qt que o
-      app não usa) — hoje o runtime tem ~1,5 GB.
+- [x] **9.5** Instaladores gerados no builder: macOS `PhotoEditor.app` num
+      `.dmg` com a janela "arraste para Aplicativos" (fundo, ícones e seta
+      desenhados a partir do logo); Windows `.msi` (Program Files, atalhos no
+      Menu Iniciar e na Área de Trabalho, upgrade/downgrade controlados).
+- [ ] **9.6** Assinatura: Developer ID + notarização no macOS; code-signing
+      do `.msi` no Windows (hoje o Gatekeeper e o SmartScreen avisam).
+- [ ] **9.7** Instalador Linux (AppImage e/ou `.deb`, com as libs do SO que o
+      Qt WebEngine exige) e teste do pacote num Ubuntu limpo.
+- [ ] **9.8** Enxugar o PySide6 (tirar módulos Qt que o app não usa) — o
+      runtime tem ~1,5 GB.
 

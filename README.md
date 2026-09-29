@@ -235,10 +235,31 @@ tools/docker-build.sh                              # todos os alvos
 tools/docker-build.sh dist --target windows-x64    # só um
 ```
 
-Saída em `dist/PhotoEditor-<versão>-<alvo>.zip` (Windows) ou `.tar.gz` (demais),
-com `runtime/` (Python), `app/` (backend, desktop, frontend, modelo) e o
-lançador (`PhotoEditor.cmd`, `PhotoEditor.command`, `PhotoEditor`);
-`--keep-dirs` mantém também a pasta aberta, para testar o pacote no lugar.
+Saída em `dist/`, um instalador por SO:
+
+| Alvo          | Arquivo                                   | O que é                              |
+|---------------|-------------------------------------------|--------------------------------------|
+| `macos-arm64` | `PhotoEditor-<versão>-macos-arm64.dmg`    | `PhotoEditor.app` + janela "arraste para Aplicativos" |
+| `windows-x64` | `PhotoEditor-<versão>-windows-x64.msi`    | instala em `Program Files`, atalhos no Menu Iniciar e na Área de Trabalho |
+| `linux-*`     | `PhotoEditor-<versão>-linux-*.tar.gz`     | pasta com `runtime/`, `app/` e o lançador `PhotoEditor` |
+
+`--keep-dirs` mantém também a pasta aberta do pacote, para testar no lugar.
+
+- **`.dmg`** — montado no Linux como o do Firefox: `mkfs.hfsplus` cria o volume
+  HFS+, o `hfsplus` do libdmg-hfsplus o preenche e o `dmg` comprime. A janela
+  que o Finder abre ao montar (fundo, tamanho, posição dos ícones) é o
+  `.DS_Store` escrito em `tools/packaging/macos.py`; o fundo e os ícones são
+  desenhados a partir do logo em `tools/packaging/art.py`
+  (`python -m tools.packaging.art <pasta>` gera uma prévia).
+- **`.msi`** — gerado pelo `wixl` (msitools). Instala por máquina; o
+  `UpgradeCode` fixo faz a versão nova substituir a anterior e recusa
+  downgrade. A `ProductVersion` é derivada do `VERSION` (o MSI só aceita
+  `255.255.65535`; ver `msi_version`).
+- **Sem assinatura, por enquanto:** no macOS o primeiro clique no app é
+  bloqueado pelo Gatekeeper (liberar em Ajustes do Sistema → Privacidade e
+  Segurança → "Abrir Mesmo Assim"); no Windows o SmartScreen avisa ao abrir
+  o `.msi`. Assinar e notarizar exige certificados (Apple Developer ID e um
+  code-signing do Windows) — próxima etapa.
 
 **Espaço em disco:** cada alvo ocupa ~1,5 GB de runtime em
 `.runtime-builder/` (reaproveitado entre builds) e ~0,5–0,7 GB de pacote. Os
