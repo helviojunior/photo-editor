@@ -12,8 +12,12 @@ import { cn } from "lib/utils";
  * Teclado (é um `role="separator"` focável): setas chamam `onStep(-1|+1)`,
  * Home/End e duplo clique chamam `onReset`.
  *
- * Visual: uma faixa de 8px entre DUAS linhas paralelas, com a "pegada" no
- * meio — três círculos pequenos, na direção da divisória. A faixa inteira é
+ * Visual: uma faixa de 5px NO TOTAL (as duas linhas paralelas de 1px + 3px
+ * entre elas), com a "pegada" no meio — três bolinhas SÓLIDAS de 3px, na
+ * direção da divisória, preenchidas na mesma cor das linhas da barra.
+ * Ao passar o mouse, arrastar ou focar pelo teclado a faixa INTEIRA fica num
+ * vermelho suavizado (acento a 60% sobre o fundo escuro), com as bolinhas
+ * num branco suave para continuarem visíveis. A faixa inteira é
  * o alvo do ponteiro; linhas e pegada ganham a cor de acento ao passar o
  * mouse, arrastar ou focar pelo teclado.
  */
@@ -87,19 +91,20 @@ export function Splitter({
       data-active={active || undefined}
       className={cn(
         "group relative z-20 flex shrink-0 touch-none select-none items-center justify-center",
-        "bg-background text-muted-foreground/60 transition-colors focus-visible:outline-none",
-        "hover:text-brand-400 focus-visible:text-brand-400 data-[active]:text-brand-400",
+        "bg-background text-border transition-colors focus-visible:outline-none",
+        "hover:border-brand-400/60 hover:bg-brand-400/60 hover:text-white/70",
+        "focus-visible:border-brand-400/60 focus-visible:bg-brand-400/60 focus-visible:text-white/70",
+        "data-[active]:border-brand-400/60 data-[active]:bg-brand-400/60 data-[active]:text-white/70",
         vertical
-          ? "w-2 cursor-col-resize flex-col border-x border-border"
-          : "h-2 cursor-row-resize flex-row border-y border-border",
-        "hover:border-brand-400/50 focus-visible:border-brand-400 data-[active]:border-brand-400/70",
+          ? "w-[5px] cursor-col-resize flex-col border-x border-border"
+          : "h-[5px] cursor-row-resize flex-row border-y border-border",
         className
       )}
     >
       {/* A pegada: três círculos na direção da divisória. */}
-      <span aria-hidden="true" className={cn("flex gap-[3px]", vertical ? "flex-col" : "flex-row")}>
+      <span aria-hidden="true" className={cn("flex gap-[2px]", vertical ? "flex-col" : "flex-row")}>
         {[0, 1, 2].map((i) => (
-          <span key={i} className="block h-[5px] w-[5px] rounded-full border border-current" />
+          <span key={i} className="block h-[3px] w-[3px] shrink-0 rounded-full bg-current" />
         ))}
       </span>
     </div>
