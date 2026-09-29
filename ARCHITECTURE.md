@@ -163,6 +163,7 @@ os testes do React e os instaladores). Node não precisa estar instalado.
 | `make migrations` | gera a migration depois de mudar um modelo |
 | `make art` | prévia da arte dos instaladores em `.cache/art` |
 | `make version` | mostra a versão do build (a última Release do GitHub + `-dev`) |
+| `make version-refresh` | consulta a última Release agora, sem esperar o cache de 24 h |
 | `make clean` / `make clean-all` | apaga o gerado / também runtimes, downloads e modelo |
 
 O runtime do host fica em `.runtime/<alvo>/` (CPython 3.12 + dependências). Com
@@ -235,6 +236,11 @@ publicada no GitHub**. Entre uma Release e outra, todo build usa o número da
 | Local (`make`) | `1.2.3-dev+<commit>` | `PhotoEditor-dev-v1.2.3-<alvo>` |
 
 Sem nenhuma Release publicada ainda, o número é `0.0.0`.
+
+No build local, a última Release vem da API do GitHub e fica em cache
+(`.cache/latest-release`) por **24 h** — por **1 h** enquanto não houver
+nenhuma. Depois de publicar uma Release, `make version-refresh` atualiza na
+hora. Sem internet, vale o último valor em cache.
 
 ## Release no GitHub
 

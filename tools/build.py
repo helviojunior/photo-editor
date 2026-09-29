@@ -118,7 +118,10 @@ def run(cmd, **kw):
 GITHUB_REPO = 'helviojunior/photo-editor'
 CHANNELS = ('release', 'dev')
 LATEST_RELEASE_CACHE = CACHE / 'latest-release'
+# Versao encontrada vale 24 h. "Nenhuma Release" (0.0.0) so 1 h: e o estado
+# que muda quando se publica a primeira, e 24 h presas em 0.0.0 atrapalham.
 LATEST_RELEASE_TTL = 24 * 3600
+NO_RELEASE_TTL = 3600
 _VERSION_RE = re.compile(r'^v?(\d{1,3})\.(\d{1,3})\.(\d{1,3})$')
 
 
@@ -130,15 +133,20 @@ def _parse_version(raw: str):
     return '.'.join(str(int(g)) for g in m.groups())
 
 
-def latest_release() -> str:
-    """Numero da ultima Release publicada no GitHub (cache de 24 h).
+def latest_release(refresh: bool = False) -> str:
+    """Numero da ultima Release publicada no GitHub.
 
-    Sem rede, usa o ultimo valor em cache; sem Release nenhuma, 0.0.0.
+    A consulta a API fica em cache (``.cache/latest-release``) por 24 h — 1 h
+    se ainda nao ha Release. ``refresh`` (ou PHOTOEDITOR_REFRESH_VERSION=1)
+    ignora o cache. Sem rede, usa o ultimo valor em cache; sem Release, 0.0.0.
     """
+    refresh = refresh or os.environ.get('PHOTOEDITOR_REFRESH_VERSION') == '1'
     cached = None
     if LATEST_RELEASE_CACHE.is_file():
         cached = _parse_version(LATEST_RELEASE_CACHE.read_text())
-        if cached and time.time() - LATEST_RELEASE_CACHE.stat().st_mtime < LATEST_RELEASE_TTL:
+        ttl = NO_RELEASE_TTL if cached == '0.0.0' else LATEST_RELEASE_TTL
+        age = time.time() - LATEST_RELEASE_CACHE.stat().st_mtime
+        if cached and not refresh and age < ttl:
             return cached
     headers = {'Accept': 'application/vnd.github+json'}
     if os.environ.get('GITHUB_TOKEN'):
@@ -588,7 +596,9 @@ def main():
     p.add_argument('--isolated', action='store_true')
     p = sub.add_parser('run')
     p.add_argument('args', nargs=argparse.REMAINDER)
-    sub.add_parser('version', help='print (and write to VERSION) the version label')
+    p = sub.add_parser('version', help='print (and write to VERSION) the version label')
+    p.add_argument('--refresh', action='store_true',
+                   help='ask the GitHub API now, ignoring the 24 h cache')
     p = sub.add_parser('dist')
     p.add_argument('--target', action='append')
     p.add_argument('--skip-frontend', action='store_true')
@@ -605,6 +615,8 @@ def main():
     elif args.command == 'run':
         cmd_run([a for a in args.args if a != '--'])
     elif args.command == 'version':
+        if args.refresh:
+            latest_release(refresh=True)
         print(write_version_file())
     elif args.command == 'dist':
         cmd_dist(resolve_targets(args.target), skip_frontend=args.skip_frontend,

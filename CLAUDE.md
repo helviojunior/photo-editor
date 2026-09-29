@@ -402,7 +402,8 @@ que cria uma versão; entre uma Release e outra, todo build é "a última Releas
 - **Proibido:** versionar o arquivo `VERSION`, subir número "na mão" num
   commit ou gravar versão fixa no código. Não existe mais bump por commit.
 - **Quem resolve:** `tools/build.py` (`version()`, `version_label()`) — a
-  última Release vem da API do GitHub (cache de 24 h; sem Release, `0.0.0`);
+  última Release vem da API do GitHub (cache de 24 h, 1 h se não há Release;
+  `make version-refresh` força; sem Release, `0.0.0`);
   `PHOTOEDITOR_VERSION` / `PHOTOEDITOR_CHANNEL` sobrescrevem (a CI usa). Ele
   gera o `VERSION` da raiz (ignorado pelo git), de onde leem o frontend
   (`REACT_APP_VERSION`), o shell (`desktop/paths.version()`) e o backend

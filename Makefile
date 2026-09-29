@@ -46,7 +46,7 @@ CHECK_PROJECT = .cache/check-project
 
 target_args  = $(foreach t,$(TARGETS),--target $(t))
 
-.PHONY: default help run dev version runtime model frontend builder dist local macos dmg windows msi \
+.PHONY: default help run dev version version-refresh runtime model frontend builder dist local macos dmg windows msi \
         linux art test test-frontend test-backend migrations clean clean-all
 
 # Padrao: os instaladores (TARGETS, por padrao todos) — ver `make help`.
@@ -70,8 +70,11 @@ run:			## Abre o app (baixa runtime/modelo e builda o frontend se faltar)
 dev:			## Abre o app com DevTools (F12) e menu de contexto
 	$(PYTHON) tools/build.py run -- --devtools $(ARGS)
 
-version:		## Versao do build (ultima Release do GitHub + canal; regra 17)
+version:		## Versao do build (ultima Release do GitHub, cache de 24 h; regra 17)
 	@$(PYTHON) tools/build.py version
+
+version-refresh:	## Consulta a ultima Release no GitHub agora (ignora o cache)
+	@$(PYTHON) tools/build.py version --refresh
 
 runtime:		## Python embarcado + dependencias do host em .runtime/
 	$(PYTHON) tools/build.py runtime
