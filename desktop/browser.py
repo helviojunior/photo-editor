@@ -16,8 +16,9 @@ de sair da pagina, e entregue ao ``handler`` (``window.py``).
 """
 import logging
 from pathlib import Path
+from urllib.parse import parse_qsl
 
-from PySide6.QtCore import Qt, QTimer, QUrl, QUrlQuery
+from PySide6.QtCore import Qt, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWebEngineCore import (
     QWebEnginePage, QWebEngineProfile, QWebEngineSettings,
@@ -94,6 +95,16 @@ def _on_download(request):
     request.accept()
 
 
+def action_params(url: QUrl) -> dict:
+    """Parametros de ``/__desktop__/<acao>?...`` com os valores decodificados.
+
+    ``parse_qsl`` aceita espaco como ``%20`` (o que o frontend manda) e como
+    ``+``; um ``+`` de verdade no nome da pasta chega como ``%2B``.
+    """
+    raw = url.query(QUrl.ComponentFormattingOption.FullyEncoded)
+    return dict(parse_qsl(raw, keep_blank_values=True))
+
+
 def same_origin(url: QUrl, origin: QUrl) -> bool:
     return (origin.isValid() and url.scheme() == origin.scheme()
             and url.host() == origin.host() and url.port() == origin.port())
@@ -128,7 +139,7 @@ class AppPage(QWebEnginePage):
         if same_origin(url, origin):
             if url.path().startswith(ACTION_PREFIX):
                 action = url.path()[len(ACTION_PREFIX):].strip('/')
-                params = dict(QUrlQuery(url).queryItems(QUrl.ComponentFormattingOption.FullyDecoded))
+                params = action_params(url)
                 self._dispatch(action, params)
                 return False
             return True

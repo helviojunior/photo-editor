@@ -13,7 +13,12 @@
 export const DESKTOP_ACTION_PREFIX = "/__desktop__/";
 
 export function desktopAction(action, params = {}) {
-  const query = new URLSearchParams(params).toString();
+  // encodeURIComponent, NÃO URLSearchParams: este codifica espaço como "+"
+  // (formato de formulário), e numa URL "+" é um "+" — a pasta
+  // "Evento - Sub14" chegava ao shell como "Evento+-+Sub14", inexistente.
+  const query = Object.entries(params)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join("&");
   window.location.assign(`${DESKTOP_ACTION_PREFIX}${action}${query ? `?${query}` : ""}`);
 }
 
