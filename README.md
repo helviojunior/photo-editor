@@ -202,9 +202,20 @@ tools/      build.py (runtime, modelo, frontend, pacote) + Dockerfile do builder
 
 ## Tela inicial e projetos
 
-A Home mostra **Abrir projeto**, **Novo projeto** (escolhe a pasta e copia os
-JPEGs para `raw/`) e os projetos recentes em cards — capa, nº de fotos,
-tamanho e data da última abertura. A lista mora no banco do app,
+A Home mostra **Abrir projeto**, **Novo projeto** e os projetos recentes em
+cards — capa, nº de fotos, tamanho e data da última abertura.
+
+**Novo projeto** conforme a pasta escolhida:
+
+- já é um projeto do editor (tem `project_data/db.sqlite3` ou `raw/`) → abre,
+  como o "Abrir projeto";
+- tem JPEGs soltos → cria `raw/` e **move** esses JPEGs para ela (só os da
+  raiz; subpastas, ocultos e outros arquivos ficam onde estão; nada é
+  sobrescrito) e abre;
+- vazia → cria `raw/` e oferece copiar fotos de outro lugar.
+
+O **Abrir projeto** numa pasta de JPEGs sem `raw/` oferece o mesmo: mover as
+fotos para `raw/` e continuar. A lista mora no banco do app,
 `~/.photoe/photoe.db`; remover um card nunca toca na pasta.
 
 Cada evento é uma pasta:

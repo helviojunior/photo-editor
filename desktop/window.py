@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
     QApplication, QFileDialog, QMainWindow, QMessageBox, QProgressDialog,
 )
 
-from desktop import pages, paths
+from desktop import pages, paths, projects
 from desktop.browser import AppPage, SHELL_BASE, create_profile
 from desktop.i18n import LANGUAGE_COOKIE, Translator, normalize, system_language
 from desktop.server import TOKEN_COOKIE, TOKEN_HEADER, ServerProcess
@@ -141,10 +141,7 @@ class MainWindow(QMainWindow):
             self.open_project(folder)
 
     def open_project(self, folder):
-        path = Path(folder).expanduser()
-        # Escolheu a propria raw/? O projeto e a pasta de cima.
-        if path.name.lower() == 'raw' and not (path / 'raw').is_dir():
-            path = path.parent
+        path = projects.project_root(folder)
         if not path.is_dir():
             QMessageBox.warning(self, tr('project.missing.title'),
                                 tr('project.missing.text', path=str(path)))
@@ -154,9 +151,14 @@ class MainWindow(QMainWindow):
             return
 
         if not (path / 'raw').is_dir():
+            # JPEGs soltos na pasta: a opcao e move-los para raw/ (sem isso o
+            # projeto abriria vazio); sem fotos, so criar a raw/.
+            loose = projects.loose_jpegs(path)
             box = QMessageBox(QMessageBox.Icon.Question, tr('project.noRaw.title'),
                               tr('project.noRaw.text', name=path.name), parent=self)
-            create = box.addButton(tr('project.noRaw.create'), QMessageBox.ButtonRole.AcceptRole)
+            create = box.addButton(
+                tr('project.noRaw.move', count=len(loose)) if loose else tr('project.noRaw.create'),
+                QMessageBox.ButtonRole.AcceptRole)
             other = box.addButton(tr('project.noRaw.other'), QMessageBox.ButtonRole.ActionRole)
             box.addButton(tr('common.cancel'), QMessageBox.ButtonRole.RejectRole)
             box.exec()
@@ -165,7 +167,10 @@ class MainWindow(QMainWindow):
                 return
             if box.clickedButton() is not create:
                 return
-            (path / 'raw').mkdir()
+            if loose:
+                self._adopt_photos(path)
+            else:
+                (path / 'raw').mkdir()
 
         # Um projeto, uma janela: duas instancias no mesmo banco e na mesma
         # exportacao se atropelariam. QLockFile limpa trava de processo morto.
@@ -187,12 +192,24 @@ class MainWindow(QMainWindow):
         self._start_server(path)
 
     def new_project(self):
+        """Novo projeto numa pasta escolhida (ou criada) no dialogo do SO.
+
+        * ja e um projeto do editor -> so abre, como "Abrir projeto";
+        * tem JPEGs soltos -> cria raw/, MOVE as fotos para ela e abre;
+        * vazia -> cria raw/ e oferece copiar fotos de outro lugar.
+        """
         folder = QFileDialog.getExistingDirectory(self, tr('dialog.new.title'), str(Path.home()))
         if not folder:
             return
-        path = Path(folder)
-        if not (path / 'raw').is_dir() and any(p for p in path.iterdir()
-                                                if not p.name.startswith('.')):
+        path = projects.project_root(folder)
+        if projects.is_project(path):
+            self.open_project(path)
+            return
+        if projects.loose_jpegs(path):
+            self._adopt_photos(path)
+            self.open_project(path)
+            return
+        if any(p for p in path.iterdir() if not p.name.startswith('.')):
             answer = QMessageBox.question(self, tr('project.nonEmpty.title'),
                                           tr('project.nonEmpty.text', name=path.name))
             if answer != QMessageBox.StandardButton.Yes:
@@ -204,6 +221,13 @@ class MainWindow(QMainWindow):
         if files:
             self._copy_photos(files, raw)
         self.open_project(path)
+
+    def _adopt_photos(self, path):
+        """Move os JPEGs soltos de ``path`` para raw/; avisa o que nao foi."""
+        _moved, failed = projects.adopt_loose_photos(path)
+        if failed:
+            QMessageBox.warning(self, paths.APP_NAME, tr('project.moveFailed') + '\n\n' + '\n'.join(
+                f'{name} — {reason}' for name, reason in failed[:20]))
 
     def _copy_photos(self, files, raw):
         """Copia (nunca move) os JPEGs escolhidos para raw/."""
