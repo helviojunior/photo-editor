@@ -38,11 +38,22 @@ HFSPLUS = os.environ.get('HFSPLUS', 'hfsplus')
 DMG = os.environ.get('DMG_TOOL', 'dmg')
 MKFS_HFSPLUS = os.environ.get('MKFS_HFSPLUS', 'mkfs.hfsplus')
 
-LAUNCHER = """#!/bin/sh
 # Lancador do bundle: exec (mesmo PID) para o Dock tratar o Python como o app.
 # -E/-s: nada do Python do sistema vaza para dentro do app.
+#
+# ``arch -arm64`` no Apple Silicon: o executavel do bundle e um SCRIPT, e sem
+# um Mach-O para olhar o LaunchServices pode abri-lo sob Rosetta. O Python
+# (so arm64) roda nativo mesmo assim, mas a preferencia x86_64 fica no
+# processo — e o QtWebEngineProcess, que e universal2, sobe emulado e nunca
+# desenha a pagina (janela branca). hw.optional.arm64 responde 1 mesmo de
+# dentro do Rosetta, ao contrario do ``uname -m``.
+LAUNCHER = """#!/bin/sh
 RES="$(cd "$(dirname "$0")/../Resources" && pwd)"
-exec "$RES/runtime/bin/python3" -E -s "$RES/app/desktop" "$@"
+PY="$RES/runtime/bin/python3"
+if [ "$(/usr/sbin/sysctl -n hw.optional.arm64 2>/dev/null)" = "1" ]; then
+    exec /usr/bin/arch -arm64 "$PY" -E -s "$RES/app/desktop" "$@"
+fi
+exec "$PY" -E -s "$RES/app/desktop" "$@"
 """
 
 # HFS+: o cabecalho do volume fica em 1024 bytes do inicio (e uma copia a
@@ -88,6 +99,9 @@ def build_app(package_dir: Path, out_dir: Path, version: str) -> Path:
             'CFBundleDevelopmentRegion': 'en',
             'CFBundleLocalizations': ['en', 'pt-BR'],
             'LSMinimumSystemVersion': MIN_MACOS,
+            # Nunca sob Rosetta (ver LAUNCHER): o runtime e so arm64.
+            'LSArchitecturePriority': ['arm64'],
+            'LSRequiresNativeExecution': True,
             'LSApplicationCategoryType': 'public.app-category.photography',
             'NSHighResolutionCapable': True,
             'NSSupportsAutomaticGraphicsSwitching': True,
