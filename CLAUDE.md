@@ -362,7 +362,7 @@ A máquina do desenvolvedor não tem todos os runtimes instalados (yarn, por
 exemplo). Sempre que for preciso conferir um comando, uma sintaxe, uma versão de
 lib ou rodar um lint/build de um runtime ausente, **execute via Docker** em vez
 de instalar a ferramenta no host ou desistir da verificação. O Python do
-projeto é o embarcado (`python3 tools/build.py runtime` → `.runtime/`), não o
+projeto é o embarcado (`make runtime` → `.runtime/`), não o
 do sistema.
 
 - **Como aplicar:** rode um container descartável montando o diretório do
@@ -434,7 +434,7 @@ Home).
   para a instalação (`<instalação>/app` pode ser somente leitura).
 - **Dependência Python só com wheel binária para as quatro plataformas**
   (Windows x64, macOS arm64, Linux x64/arm64). O builder
-  (`tools/docker-build.sh` → `tools/build.py dist`) monta todas num único
+  (`make dist` → `tools/build.py dist` no container) monta todas num único
   container Linux com `pip --platform … --only-binary=:all:` — um pacote só
   com sdist quebra o build. Ao adicionar uma, confira as tags no PyPI: elas
   definem o SO mínimo do pacote (tabela no README).
@@ -448,7 +448,10 @@ Home).
 - **Nunca troque os GUIDs de `tools/packaging/windows.py`** (`UpgradeCode` e
   componentes dos atalhos) nem o `BUNDLE_ID` do `.app`: é por eles que o
   Windows e o macOS reconhecem a versão nova como o mesmo programa.
-- **Como validar:** `python3 tools/build.py run -- --screenshot /tmp/x.png`
+- **O `Makefile` é a base de compilação** (`make` lista os alvos): novo
+  passo de build, teste ou empacotamento entra como alvo nele, não como
+  script solto em `tools/`.
+- **Como validar:** `make test`; e `make run ARGS="--screenshot /tmp/x.png"`
   abre o app, fotografa a primeira tela carregada e sai — serve de teste de
   fumaça sem ninguém olhando a janela.
 

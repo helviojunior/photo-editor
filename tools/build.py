@@ -5,7 +5,7 @@ So usa a biblioteca padrao (roda com qualquer python3 >= 3.9). Nada e
 compilado: o Python e o CPython pronto do python-build-standalone e toda
 dependencia e wheel binaria do PyPI. Por isso um unico container Linux monta o
 pacote de TODAS as plataformas — ``pip --platform`` baixa as wheels do alvo
-(ver tools/Dockerfile e tools/docker-build.sh).
+(ver tools/Dockerfile). Quem chama e o Makefile da raiz (`make help`).
 
 Comandos:
 
@@ -298,7 +298,7 @@ def cmd_frontend(isolated=False):
     yarn = shutil.which('yarn')
     if not yarn:
         sys.exit('yarn not found: run the build inside the builder container '
-                 '(tools/docker-build.sh) or install Node 20 + yarn.')
+                 '(`make frontend`) or install Node 20 + yarn.')
     env = dict(os.environ,
                REACT_APP_VERSION=version(),
                REACT_APP_BUILD_TS=os.environ.get('REACT_APP_BUILD_TS')

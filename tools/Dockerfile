@@ -9,7 +9,7 @@
 #                 Firefox; .DS_Store da janela com ds_store + mac_alias
 #   .msi (Windows) wixl (msitools)
 #
-# Uso: tools/docker-build.sh [comando do build.py]  (padrao: dist --target all)
+# Uso: pelo Makefile da raiz — `make dist`, `make macos`, `make windows`...
 
 # Ubuntu 24.04 (tag datada = mesma base sempre): o unico com mkfs.hfsplus
 # (hfsprogs saiu do Debian) e com Python 3.12, o mesmo do runtime embarcado —
@@ -50,7 +50,7 @@ RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
  && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
  && npm install -g yarn@1.22.22
 
-# Roda com o uid do host (docker-build.sh): HOME e caches em lugar gravavel,
+# Roda com o uid do host (Makefile): HOME e caches em lugar gravavel,
 # caches dentro do repositorio (.cache/, ignorado pelo git) para reaproveitar
 # downloads entre builds.
 ENV PHOTOEDITOR_BUILDER=1 \

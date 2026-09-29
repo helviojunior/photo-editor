@@ -236,20 +236,30 @@ O que é da máquina, não do evento, fica em `~/.photoe/` (igual nos três SOs)
 `photoe.db`, segredos gerados, perfil do navegador (`webengine/`), capas dos
 cards e `logs/` (`desktop.log` e `server.log`).
 
-## Como rodar (desenvolvimento)
+## Compilação: `make`
 
-Pré-requisito: `python3` (qualquer 3.9+, só para o `tools/build.py`). Node não
-é necessário se o `frontend/build` já existir.
+O **`Makefile` é a base de compilação**; `make` sozinho lista os alvos.
+Pré-requisitos: `make`, `python3` (qualquer 3.9+) e Docker (para o frontend,
+os testes do React e os instaladores). Node não precisa estar instalado.
 
-```bash
-python3 tools/build.py run                 # baixa o runtime, o modelo e abre o app
-python3 tools/build.py run -- --devtools   # com DevTools (F12) e menu de contexto
-python3 tools/build.py run -- ~/Fotos/evento   # já abrindo um projeto
-```
+| Comando | O que faz |
+|---|---|
+| `make run` | abre o app (baixa runtime e modelo e builda o frontend, se faltar) |
+| `make dev` | idem, com DevTools (F12) e menu de contexto |
+| `make run ARGS="~/Fotos/evento"` | já abrindo um projeto |
+| `make frontend` | build do React em `frontend/build` |
+| `make dist` | instaladores de todas as plataformas em `dist/` |
+| `make macos` / `make windows` / `make linux` | `.dmg` / `.msi` / `.tar.gz` |
+| `make dist TARGETS="macos-arm64 windows-x64"` | só os alvos escolhidos |
+| `make test` | `check` do Django, migrations em dia, build e testes do React |
+| `make migrations` | gera a migration depois de mudar um modelo |
+| `make art` | prévia da arte dos instaladores em `.cache/art` |
+| `make bump` | sobe o `VERSION` (antes de cada commit) |
+| `make clean` / `make clean-all` | apaga o gerado / também runtimes, downloads e modelo |
 
 O runtime do host fica em `.runtime/<alvo>/` (CPython 3.12 + dependências). Com
 hot-reload do React: `yarn start` no `frontend/` e
-`tools/build.py run -- --port 47823 --frontend-url http://127.0.0.1:3000`.
+`make run ARGS="--port 47823 --frontend-url http://127.0.0.1:3000"`.
 
 ## Pacotes (builder em Docker)
 
@@ -258,8 +268,9 @@ compilado: o Python de cada alvo é o CPython pronto do python-build-standalone
 e as dependências são wheels binárias baixadas com `pip --platform <alvo>`.
 
 ```bash
-tools/docker-build.sh                              # todos os alvos
-tools/docker-build.sh dist --target windows-x64    # só um
+make dist                                   # todos os alvos
+make windows                                # só o .msi
+make dist TARGETS="macos-arm64 linux-x64"   # alvos escolhidos
 ```
 
 Saída em `dist/`, um instalador por SO:

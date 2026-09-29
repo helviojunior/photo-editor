@@ -188,7 +188,7 @@ original + ajustes.
 - [x] **9.3** Tela **Home** no estilo da referência (CapCut): Abrir projeto,
       Novo projeto (copia os JPEGs para `raw/`) e cards dos projetos recentes
       com capa, nº de fotos, tamanho e data. Lista em `~/.photoe/photoe.db`.
-- [x] **9.4** Builder em Docker (`tools/docker-build.sh`) que monta o pacote
+- [x] **9.4** Builder em Docker (`make dist`) que monta o pacote
       das quatro plataformas num só container, sem compilar nada.
 - [x] **9.5** Instaladores gerados no builder: macOS `PhotoEditor.app` num
       `.dmg` com a janela "arraste para Aplicativos" (fundo, ícones e seta
