@@ -181,7 +181,8 @@ export default function Home() {
 function ProjectCard({ project, isCurrent, lang, t, tf, onOpen, onRemove, onReveal }) {
   const [coverFailed, setCoverFailed] = useState(false);
   const cover = `/api/projects/cover/?${new URLSearchParams({
-    path: project.path, v: `${project.photo_count}-${project.size_bytes}`,
+    // `cover` muda quando a capa troca: URL nova, sem a imagem velha do cache.
+    path: project.path, v: `${project.photo_count}-${project.size_bytes}-${project.cover}`,
   })}`;
   const openedAt = project.opened_at
     ? new Date(project.opened_at).toLocaleDateString(lang, { day: "2-digit", month: "short", year: "numeric" })

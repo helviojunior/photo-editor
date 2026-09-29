@@ -113,6 +113,39 @@ def raw_photos(project) -> list:
     return sorted(entries, key=lambda e: e.name.lower())
 
 
+def _catalog_cover(project):
+    """O arquivo em raw/ da foto marcada como capa no catalogo do projeto.
+
+    Le o ``project_data/db.sqlite3`` do evento SOMENTE LEITURA (``mode=ro``):
+    a Home nao abre o projeto e nao pode travar nem alterar o banco dele. Capa
+    que e copia virtual le o JPEG da original. Catalogo antigo (sem a coluna
+    ``is_cover``) ou ocupado demais: sem capa marcada.
+    """
+    db = Path(project) / 'project_data' / 'db.sqlite3'
+    if not db.is_file():
+        return None
+    try:
+        conn = sqlite3.connect(f'{db.as_uri()}?mode=ro', uri=True, timeout=2)
+        with closing(conn):
+            row = conn.execute(
+                "SELECT COALESCE(o.file_name, p.file_name) FROM photoeditor_photo p "
+                "LEFT JOIN photoeditor_photo o ON o.id = p.copy_of_id "
+                "WHERE p.is_cover = 1 AND p.status = 'active' LIMIT 1").fetchone()
+    except sqlite3.Error:
+        return None
+    return Path(project) / 'raw' / row[0] if row else None
+
+
+def cover_source(project):
+    """A foto do card da Home: a capa marcada no editor; sem ela, a primeira
+    de raw/ (pelo nome). None se nao ha foto nenhuma."""
+    chosen = _catalog_cover(project)
+    if chosen is not None and chosen.is_file():
+        return chosen
+    photos = raw_photos(project)
+    return Path(photos[0].path) if photos else None
+
+
 def summary(item: dict) -> dict:
     """O que o card da Home mostra: nome, se a pasta existe, fotos e tamanho."""
     path = Path(item['path'])
@@ -124,9 +157,17 @@ def summary(item: dict) -> dict:
             size += entry.stat().st_size
         except OSError:
             pass
+    cover = cover_source(path) if exists else None
+    try:
+        # Chave da capa (arquivo + mtime): entra na URL da imagem do card, para
+        # o navegador nao mostrar a capa antiga depois de trocada.
+        cover_key = f'{cover.name}:{cover.stat().st_mtime_ns}' if cover else ''
+    except OSError:
+        cover_key = ''
     return {
         'path': str(path),
         'name': path.name or str(path),
+        'cover': cover_key,
         'opened_at': item.get('opened_at'),
         'exists': exists,
         'has_raw': exists and (path / 'raw').is_dir(),

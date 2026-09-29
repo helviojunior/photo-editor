@@ -48,7 +48,8 @@ class RecentProjectsView(APIView):
 
 
 class ProjectCoverView(APIView):
-    """Capa do card: a primeira foto de ``raw/``, reduzida.
+    """Capa do card: a foto marcada como capa no editor (senao a primeira de
+    ``raw/``), reduzida.
 
     Fica em cache na pasta de dados do app (nao na do projeto: a Home nao
     escreve em pasta de evento que nao esta aberta). O nome carrega a foto e
@@ -57,20 +58,19 @@ class ProjectCoverView(APIView):
 
     def get(self, request):
         item = _listed(request)
-        photos = recent_projects.raw_photos(item['path'])
-        if not photos:
+        source = recent_projects.cover_source(item['path'])
+        if source is None:
             raise Http404
-        first = photos[0]
         tag = hashlib.sha1(
-            f"{item['path']}|{first.name}|{first.stat().st_mtime_ns}".encode()
+            f"{item['path']}|{source.name}|{source.stat().st_mtime_ns}".encode()
         ).hexdigest()[:20]
         path = settings.PROJECT_COVERS_DIR / f'{tag}.jpg'
         if not path.is_file():
             path.parent.mkdir(parents=True, exist_ok=True)
             try:
-                img = load_rgb(first.path, max_side=COVER_SIDE)
+                img = load_rgb(source, max_side=COVER_SIDE)
             except Exception:
-                log.warning("Could not read the cover photo %s.", first.path, exc_info=True)
+                log.warning("Could not read the cover photo %s.", source, exc_info=True)
                 raise Http404
             write_atomic(path, _encode(img, COVER_QUALITY))
         response = FileResponse(open(path, 'rb'), content_type='image/jpeg')
