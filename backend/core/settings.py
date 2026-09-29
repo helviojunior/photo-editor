@@ -367,6 +367,8 @@ REST_FRAMEWORK = {
 BRAND_NAME = os.environ.get('BRAND_NAME', 'PhotoEditor')
 BRAND_DOMAIN = os.environ.get('BRAND_DOMAIN', 'photoeditor.com.br')
 BRAND_CONTACT_EMAIL = os.environ.get('BRAND_CONTACT_EMAIL', f'contato@{BRAND_DOMAIN}')
+# Pagina do software: vai no EXIF (Software) das fotos exportadas.
+BRAND_URL = os.environ.get('BRAND_URL', 'https://github.com/helviojunior/photo-editor')
 
 # Email / SMTP
 EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')

@@ -39,7 +39,7 @@ from photoeditor.services.derivatives import write_atomic
 log = logging.getLogger(__name__)
 
 # Sobe quando o formato de saida muda (caixa, qualidade, EXIF...).
-EXPORT_VERSION = 1
+EXPORT_VERSION = 2      # 2: EXIF Software com nome, versao e URL do editor
 # Nome da capa em publicar/ (pedido do fluxo de publicacao, por isso em PT).
 COVER_FILE_NAME = 'capa.jpg'
 # Duas fotos por vez: numpy e o codec JPEG soltam o GIL, e cada render de
@@ -114,7 +114,7 @@ def _export_one(photo, merge=None):
         else:
             rgb, exif = publish.load(raw_path(photo), state['crop']['scale'])
         rendered = layers.develop_image(rgb, state, fit=publish.fit)
-        write_atomic(out, publish.encode(rendered, exif))
+        write_atomic(out, publish.encode(rendered, exif, publish.software_tag()))
         # Virou (ou deixou de ser) merge: a saida com o outro nome e velha.
         if merge_version:
             (settings.PUBLISH_DIR / photo.file_name).unlink(missing_ok=True)

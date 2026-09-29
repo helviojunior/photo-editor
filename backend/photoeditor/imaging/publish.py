@@ -10,6 +10,8 @@ deliberadas em relacao ao PhotoE, as mesmas do original:
 * a miniatura embutida sai (o PhotoE gera a propria) e ``Orientation`` vira 1,
   porque os pixels ja sao girados aqui.
 
+O ``Software`` do EXIF passa a identificar este editor: nome, versao e URL.
+
 O render acontece DEPOIS de reduzir para a caixa: os ajustes sao operacoes
 por pixel (e as de vizinhanca sao medidas numa miniatura de qualquer forma),
 entao revelar 24 MP para jogar fora 90 % dos pixels so custaria tempo.
@@ -68,28 +70,44 @@ def fit(rgb: np.ndarray) -> np.ndarray:
     return np.asarray(img)
 
 
-def _exif_for_publication(exif_bytes: bytes) -> bytes | None:
-    """EXIF com Orientation=1 e sem miniatura; ``None`` se nao der para ler
-    (sem EXIF e melhor que EXIF corrompido)."""
-    if not exif_bytes:
-        return None
+def software_tag() -> str:
+    """Valor do EXIF ``Software``: nome, versao e URL do editor
+    (ex.: ``PhotoEditor 1.2.3 (https://github.com/...)``)."""
+    from django.conf import settings
+    return f'{settings.BRAND_NAME} {settings.VERSION} ({settings.BRAND_URL})'
+
+
+def _exif_for_publication(exif_bytes: bytes, software: str = '') -> bytes | None:
+    """EXIF com Orientation=1, sem miniatura e com ``Software`` = este editor.
+
+    Foto sem EXIF ganha um so com o ``Software``. EXIF que nao da para ler
+    tambem vira so o ``Software`` (sem o original e melhor que corrompido)."""
+    import piexif
+    empty = {'0th': {}, 'Exif': {}, 'GPS': {}, 'Interop': {}, '1st': {}, 'thumbnail': None}
+    d = empty
+    if exif_bytes:
+        try:
+            d = piexif.load(exif_bytes)
+        except Exception:
+            log.warning("Could not read EXIF; exporting without the original.", exc_info=True)
+            d = empty
+    d['0th'][piexif.ImageIFD.Orientation] = 1
+    if software:
+        d['0th'][piexif.ImageIFD.Software] = software.encode('ascii', 'replace')
+    d['thumbnail'] = None
+    d['1st'] = {}
     try:
-        import piexif
-        d = piexif.load(exif_bytes)
-        d['0th'][piexif.ImageIFD.Orientation] = 1
-        d['thumbnail'] = None
-        d['1st'] = {}
         return piexif.dump(d)
     except Exception:
         log.warning("Could not rewrite EXIF; exporting without it.", exc_info=True)
         return None
 
 
-def encode(rgb: np.ndarray, exif_bytes: bytes = b'') -> bytes:
+def encode(rgb: np.ndarray, exif_bytes: bytes = b'', software: str = '') -> bytes:
     buf = io.BytesIO()
     kw = dict(format='JPEG', quality=JPEG_QUALITY, optimize=True, progressive=True,
               dpi=(TARGET_DPI, TARGET_DPI))
-    clean = _exif_for_publication(exif_bytes)
+    clean = _exif_for_publication(exif_bytes, software)
     if clean:
         kw['exif'] = clean
     Image.fromarray(rgb, mode='RGB').save(buf, **kw)
