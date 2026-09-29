@@ -215,5 +215,4 @@ original + ajustes.
       ARM64 aguarda wheel `win_arm64` do OpenCV.
 - [x] **9.10** O GitHub manda na versão: sem `VERSION` versionado nem bump
       por commit; a versão sai das Releases (tag na Release; última Release
-      + `-test`/`-dev` nos builds de teste e locais). Workflow `build-check`
-      gera instaladores de teste a cada push, como artefatos por 3 dias.
+      + `-dev` nos builds locais). Instaladores só na Release publicada.

@@ -107,7 +107,6 @@ def run(cmd, **kw):
 #
 #   canal    de onde vem o numero                  exibido / nome do pacote
 #   release  a tag da Release (CI)                 1.2.3 / PhotoEditor-1.2.3-<alvo>
-#   test     a ultima Release (CI de teste)        1.2.3-test+<commit> / PhotoEditor-test-v1.2.3-<alvo>
 #   dev      a ultima Release (build local)        1.2.3-dev+<commit>  / PhotoEditor-dev-v1.2.3-<alvo>
 #
 # PHOTOEDITOR_VERSION (X.Y.Z) e PHOTOEDITOR_CHANNEL sobrescrevem (a CI usa).
@@ -117,7 +116,7 @@ def run(cmd, **kw):
 # (settings, desktop/paths.py) le a versao exibida.
 
 GITHUB_REPO = 'helviojunior/photo-editor'
-CHANNELS = ('release', 'test', 'dev')
+CHANNELS = ('release', 'dev')
 LATEST_RELEASE_CACHE = CACHE / 'latest-release'
 LATEST_RELEASE_TTL = 24 * 3600
 _VERSION_RE = re.compile(r'^v?(\d{1,3})\.(\d{1,3})\.(\d{1,3})$')
@@ -201,7 +200,7 @@ def git_hash() -> str:
 
 
 def version_label() -> str:
-    """O que o app exibe: 1.2.3 na Release; 1.2.3-test+abc1234 / -dev+... fora."""
+    """O que o app exibe: 1.2.3 na Release; 1.2.3-dev+abc1234 fora dela."""
     ver, chan = version(), channel()
     if chan == 'release':
         return ver
@@ -210,7 +209,7 @@ def version_label() -> str:
 
 
 def package_prefix() -> str:
-    """Inicio do nome dos pacotes: PhotoEditor-1.2.3 / PhotoEditor-test-v1.2.3."""
+    """Inicio do nome dos pacotes: PhotoEditor-1.2.3 / PhotoEditor-dev-v1.2.3."""
     ver, chan = version(), channel()
     return f'{APP_NAME}-{ver}' if chan == 'release' else f'{APP_NAME}-{chan}-v{ver}'
 

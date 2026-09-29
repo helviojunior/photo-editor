@@ -397,7 +397,6 @@ que cria uma versão; entre uma Release e outra, todo build é "a última Releas
 | Canal | Onde | Número | O app exibe | Pacote |
 |---|---|---|---|---|
 | `release` | CI, ao publicar a Release | a tag | `1.2.3` | `PhotoEditor-1.2.3-<alvo>` |
-| `test` | CI a cada push/PR (`build-check.yml`) | última Release | `1.2.3-test+<commit>` | `PhotoEditor-test-v1.2.3-<alvo>` |
 | `dev` | máquina local (`make`) | última Release | `1.2.3-dev+<commit>` | `PhotoEditor-dev-v1.2.3-<alvo>` |
 
 - **Proibido:** versionar o arquivo `VERSION`, subir número "na mão" num
@@ -410,7 +409,7 @@ que cria uma versão; entre uma Release e outra, todo build é "a última Releas
   (`core.settings.VERSION`); `make version`/`tools/build.py version` mostra.
 - **Formato:** `X.Y.Z` com X até 255 e Y, Z até 999 — o limite do MSI
   (`msi_version`). O `.app` e o `.msi` recebem só o número; o sufixo
-  `-dev+<commit>` / `-test+<commit>` é para exibição e nome de arquivo.
+  `-dev+<commit>` é para exibição e nome de arquivo.
 
 ## App desktop
 
@@ -452,10 +451,9 @@ Home).
 - **Instaladores saem do mesmo container** (`tools/packaging/`): `.dmg` no
   macOS, `.msi` no Windows, `.tar.gz` no Linux. Arte (ícones, fundo do DMG)
   é desenhada em código a partir do logo — não versione PNG/ICNS/ICO pronto.
-- **CI no GitHub:** `release.yml` (ao publicar uma Release: instaladores
-  anexados a ela) e `build-check.yml` (a cada push/PR na main: instaladores
-  de teste como artefatos por 3 dias) chamam o mesmo `package.yml`. Versão
-  conforme a regra 17. Passo novo de empacotamento entra no `Makefile` — os
+- **CI no GitHub:** só o `release.yml` — ao publicar uma Release, gera os
+  instaladores (pelo `package.yml`) e os anexa a ela. Não há build a cada
+  push. Versão conforme a regra 17. Passo novo de empacotamento entra no `Makefile` — os
   workflows só chamam o `make`.
 - **Nunca troque os GUIDs de `tools/packaging/windows.py`** (`UpgradeCode` e
   componentes dos atalhos) nem o `BUNDLE_ID` do `.app`: é por eles que o

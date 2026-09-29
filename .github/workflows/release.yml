@@ -56,6 +56,5 @@ jobs:
     uses: ./.github/workflows/package.yml
     with:
       version: ${{ needs.version.outputs.version }}
-      channel: release
       ref: ${{ needs.version.outputs.tag }}
       release-tag: ${{ needs.version.outputs.tag }}

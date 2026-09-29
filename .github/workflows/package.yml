@@ -1,8 +1,6 @@
-# Workflow REUTILIZAVEL: gera os instaladores de todos os alvos.
-#
-# Chamado por release.yml (canal "release": anexa a Release) e por
-# build-check.yml (canal "test": artefatos do Actions por 3 dias). A versao
-# vem de quem chama — o GitHub manda nela (regra 17 do CLAUDE.md).
+# Workflow REUTILIZAVEL: gera os instaladores de todos os alvos e os anexa a
+# Release. Chamado pelo release.yml, que passa a versao (a tag) — o GitHub
+# manda nela (regra 17 do CLAUDE.md).
 #
 # Tudo roda no builder em Docker (tools/Dockerfile), o mesmo do `make dist`
 # local. Um job por alvo, em paralelo: cada alvo pede ~10 GB de disco no pico,
@@ -21,19 +19,14 @@ on:
         description: "Versao X.Y.Z do build"
         required: true
         type: string
-      channel:
-        description: "release | test"
-        required: true
-        type: string
       ref:
         description: "Commit/tag a compilar"
         required: true
         type: string
       release-tag:
-        description: "Tag da Release que recebe os instaladores (vazio = artefatos do Actions)"
-        required: false
+        description: "Tag da Release que recebe os instaladores"
+        required: true
         type: string
-        default: ""
 
 jobs:
   builder:
@@ -69,7 +62,7 @@ jobs:
         target: [macos-arm64, macos-x64, windows-x64, linux-x64, linux-arm64]
     env:
       PHOTOEDITOR_VERSION: ${{ inputs.version }}
-      PHOTOEDITOR_CHANNEL: ${{ inputs.channel }}
+      PHOTOEDITOR_CHANNEL: release
     steps:
       # O runner vem com ~14 GB livres; o pico de um alvo passa de 10 GB.
       - name: Free disk space
@@ -101,25 +94,13 @@ jobs:
         run: make dist TARGETS=${{ matrix.target }} SKIP_BUILDER=1
 
       - name: Checksums
-        id: files
         working-directory: dist
         run: |
           for f in PhotoEditor-*; do sha256sum "$f" > "$f.sha256"; done
           ls -la
-          for f in PhotoEditor-*; do
-            case "$f" in *.sha256) ;; *) echo "name=$f" >> "$GITHUB_OUTPUT" ;; esac
-          done
 
       - name: Attach to the release
-        if: inputs.release-tag != ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "${{ inputs.release-tag }}" dist/PhotoEditor-* --clobber --repo "$GITHUB_REPOSITORY"
 
-      - name: Upload the test build
-        if: inputs.release-tag == ''
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.files.outputs.name }}
-          path: dist/PhotoEditor-*
-          retention-days: 3
