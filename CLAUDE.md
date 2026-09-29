@@ -443,7 +443,7 @@ Home).
   (`make dist` → `tools/build.py dist` no container) monta todas num único
   container Linux com `pip --platform … --only-binary=:all:` — um pacote só
   com sdist quebra o build. Ao adicionar uma, confira as tags no PyPI: elas
-  definem o SO mínimo do pacote (tabela no README).
+  definem o SO mínimo do pacote (tabela no ARCHITECTURE.md).
 - **Versões fixas no builder:** CPython (`PBS_RELEASE`/`PYTHON_VERSION`) e o
   modelo SAM (revisão + sha256) em `tools/build.py`; imagem base
   (`ubuntu:noble-<data>`) e revisão do libdmg-hfsplus no `tools/Dockerfile`.

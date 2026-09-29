@@ -11,17 +11,71 @@ Foi criado por **Helvio Junior** para agilizar o fluxo das coberturas
 fotográficas do [PhotoE](https://photoe.com.br/) — da triagem logo depois do
 evento até a pasta pronta para publicar.
 
-Editor no estilo Lightroom (Django REST + React) empacotado como **app desktop
-nativo** para Windows, macOS e Linux: Python embarcado + Chromium embarcado
-(Qt WebEngine), sem Docker, sem navegador e sem nada instalado na máquina de
-quem usa. A janela não tem barra de endereço nem cara de navegador — é o app.
+Funciona como um **aplicativo normal** no Windows, no macOS e no Linux: é
+só instalar e abrir — não precisa de internet, de navegador nem de conta.
+Tudo roda no seu computador, e as fotos nunca saem da pasta do evento.
 
-O sistema é **100% público e não autenticado**: não há login, contas, empresas
-nem permissionamento. O Django admin também é aberto — quem acessa `/admin/`
-entra automaticamente como o usuário padrão `admin`, que não tem senha.
+## Instalação
 
-> As convenções obrigatórias do projeto estão em [`CLAUDE.md`](./CLAUDE.md).
-> Toda variável, valor padrão e identificador de código é escrito em **inglês**.
+Baixe o instalador do seu sistema na página de
+[**Releases**](https://github.com/helviojunior/photo-editor/releases) (a versão
+mais recente fica no topo):
+
+| Sistema | Arquivo | Como instalar |
+|---|---|---|
+| macOS (Apple Silicon — M1 ou mais novo) | `PhotoEditor-<versão>-macos-arm64.dmg` | abra o `.dmg` e arraste o **PhotoEditor** para **Aplicativos** |
+| macOS (Intel) | `PhotoEditor-<versão>-macos-x64.dmg` | idem |
+| Windows 10/11 (inclusive em ARM) | `PhotoEditor-<versão>-windows-x64.msi` | abra o `.msi`; o atalho aparece no Menu Iniciar e na Área de Trabalho |
+| Linux x64 / arm64 | `PhotoEditor-<versão>-linux-*.tar.gz` | descompacte e rode `PhotoEditor` |
+
+Requisitos mínimos: macOS 14, Windows 10/11 64 bits, ou Linux com glibc 2.34
+(Ubuntu 22.04; em arm64, Ubuntu 24.04).
+
+> **Primeira abertura:** os instaladores ainda não são assinados.
+> No **macOS**, se aparecer "não foi possível verificar o desenvolvedor", vá em
+> Ajustes do Sistema → Privacidade e Segurança → **Abrir Mesmo Assim**. No
+> **Windows**, na tela do SmartScreen, clique em **Mais informações** →
+> **Executar assim mesmo**. A primeira abertura também é mais lenta: o sistema
+> verifica o app uma vez.
+
+Para atualizar, instale a versão nova por cima — projetos e preferências são
+mantidos.
+
+## Primeiros passos
+
+A tela inicial mostra **Abrir projeto**, **Novo projeto** e os projetos
+recentes em cards — com a capa, o número de fotos, o tamanho e a data da
+última abertura.
+
+Um **projeto** é a pasta de um evento:
+
+```
+<pasta do evento>/
+    raw/            as fotos originais (JPEG) — o editor nunca as altera
+    publicar/       as fotos prontas, geradas pelo botão Exportar
+    deleted/        as fotos excluídas (movidas para cá, nunca apagadas)
+    project_data/   o catálogo e os ajustes do evento (não mexa)
+```
+
+- **Novo projeto:** escolha a pasta do evento. Se ela tiver fotos JPEG soltas,
+  o app cria a `raw/` e **move** as fotos para dentro; se já for um projeto,
+  só o abre; se estiver vazia, oferece copiar as fotos de outro lugar.
+- **Abrir projeto:** escolha uma pasta que já tenha a `raw/` (ou clique num
+  card dos recentes). Remover um card da lista nunca apaga a pasta.
+- O botão **Início** (a casinha no topo) volta para a tela inicial.
+
+## Atalhos
+
+| Tecla | Ação |
+|---|---|
+| `←` `→` | foto anterior / próxima |
+| `Del` | exclui a foto (vai para `deleted/`) |
+| `A` | Auto |
+| `C` | modo recorte |
+| `S` | modo seleção (camadas); `S` de novo conclui |
+| `L` | próxima camada |
+| `[` `]` | diminui / aumenta o pincel |
+| `Ctrl/Cmd+Z` | desfaz a última ação |
 
 ## Exemplos
 
@@ -55,16 +109,11 @@ fundo:
 
 ![Jogador em cor sobre o fundo em P&B, cada um na sua camada](./images/screen4.png)
 
-Quem acha o objeto sob o traço é o **SAM 2.1 tiny** (Segment Anything 2, Meta,
-Apache-2.0) em ONNX, rodando **localmente em CPU** — não precisa de GPU, de
-Ollama nem de internet. O modelo (~155 MB) vai no pacote do app (o builder o
-baixa com revisão e hashes fixos — `make model`). Custo: ~1,5 s na primeira seleção de
-cada foto e ~0,3 s por traço; pico de ~1,2 GB de RAM durante a análise.
-Com a opção **Detectar o objeto (IA)** desligada, o pincel seleciona
-exatamente a área pintada.
-
-As máscaras ficam em `project_data/masks/` (PNG, nome = hash do conteúdo) e
-entram no histórico, no desfazer e na exportação como qualquer ajuste.
+A IA que reconhece o objeto roda **no seu computador**, sem internet e sem
+placa de vídeo: a primeira seleção de cada foto leva ~1,5 s e cada traço
+seguinte, ~0,3 s. Com **Detectar o objeto (IA)** desligado, o pincel seleciona
+exatamente a área pintada. As camadas entram no histórico, no desfazer
+(`Ctrl/Cmd+Z`) e na exportação como qualquer ajuste.
 
 ## Duplicar (cópia virtual)
 
@@ -131,14 +180,12 @@ grava `publicar/IMG_5788_merge.jpg`:
 
 ![Editor com o merge: a trajetória da bola em uma só foto](./images/screen5.png)
 
-Antes de extrair, cada foto é **alinhada à base pelo fundo**: pontos SIFT
-filtrados por RANSAC numa transformação de similaridade (deslocamento,
-rotação e escala — a câmera na mão anda entre um clique e outro), com a área
-selecionada fora da análise. O ganho de exposição/cor também é medido no
-fundo. Nas fotos de teste: ~2.100 pontos de fundo por par e erro mediano de
-0,2 px no preview.
+Não precisa de tripé: cada foto é **alinhada automaticamente à base pelo
+fundo** — deslocamento, rotação e escala, já que a câmera na mão anda entre
+um clique e outro — e a exposição é igualada, para a bola de cada foto cair
+no lugar certo da cena.
 
-Nada é gravado em `raw/`. A base passa a representar o merge: no editor, a
+Os originais nunca mudam. A base passa a representar o merge: no editor, a
 **Editada** mostra o merge (ajustes, crop e Auto valem sobre ele) e o
 **Exportar** grava `publicar/<base>_merge.jpg`. As fotos das camadas saem da
 filmstrip e do Exportar enquanto o merge existir. A lixeira de uma camada
@@ -146,253 +193,20 @@ filmstrip e do Exportar enquanto o merge existir. A lixeira de uma camada
 filmstrip — na última camada, o merge inteiro é desfeito; **Desfazer merge**
 devolve todas.
 
-## Stack
+## Onde ficam seus arquivos
 
-| Camada    | Tecnologia                                                        |
-|-----------|-------------------------------------------------------------------|
-| Janela    | PySide6 6.11 — Qt WebEngine (Chromium) endurecido, sem barra      |
-| Backend   | Django 5.2 + Django REST Framework, servido pelo waitress local   |
-| Frontend  | React 19 (CRA/craco), TailwindCSS, react-router                   |
-| Banco     | SQLite do evento (`<projeto>/project_data`) + `~/.photoe/photoe.db` |
-| Runtime   | CPython 3.12 do python-build-standalone, embarcado no pacote      |
+- **As fotos e os ajustes** ficam na pasta de cada evento (acima). Levar a
+  pasta para outro computador leva o evento inteiro.
+- **As preferências do app** (lista de projetos recentes, idioma, tamanho dos
+  painéis) ficam em `~/.photoe/` — `C:\Users\<você>\.photoe` no Windows.
+- **Logs**, para relatar um problema: menu **Ajuda → Abrir Pasta de Logs**
+  (`~/.photoe/logs/`).
 
-Estrutura:
+## Para desenvolvedores
 
-```
-backend/    core/ (settings, wsgi) + photoeditor/ (app: models, views, services)
-desktop/    shell nativo: janela, menus, navegador endurecido, servidor local
-frontend/   src/ (pages, components/ui, contexts, i18n, lib)
-tools/      build.py (runtime, modelo, frontend, pacote) + Dockerfile do builder
-```
-
-## Arquitetura
-
-```
-┌─ shell (desktop/app.py) ─────────────┐        ┌─ servidor (desktop/server.py) ─┐
-│ QMainWindow + menus nativos          │ spawn  │ Django + waitress              │
-│ QWebEngineView endurecido  ──────────┼──────► │ http://127.0.0.1:<porta>       │
-│  • só navega na origem do servidor   │ cookie │ AppTokenMiddleware (token)     │
-│  • /__desktop__/<ação> → SO          │ token  │ SQLite do projeto aberto       │
-└──────────────────────────────────────┘        └────────────────────────────────┘
-```
-
-- **Dois processos, o mesmo Python embarcado.** Trocar de projeto derruba o
-  servidor e sobe outro apontando para a nova pasta; sem projeto, ele sobe em
-  **modo Home** (só a tela inicial e os projetos recentes). Um crash nativo
-  (onnxruntime, OpenCV) derruba o servidor, não a janela.
-- **Navegador endurecido** (`desktop/browser.py`): sem barra de endereço,
-  abas, menu de contexto ou DevTools; link externo abre no navegador do SO;
-  permissões de página (câmera, localização, notificações…) negadas;
-  `file:`/`chrome:`/`javascript:` barrados.
-- **Servidor só para o app:** escuta em `127.0.0.1`, recusa Host diferente
-  (DNS rebinding) e exige o token sorteado a cada execução, entregue ao
-  navegador embarcado como cookie `HttpOnly`/`SameSite=Strict`. Um site
-  aberto no navegador comum da pessoa não consegue chamar a API.
-- **Ponte React → SO:** o React navega para `/__desktop__/<ação>` (abrir
-  pasta, novo projeto, voltar ao Início, mostrar no Finder/Explorer) e o
-  shell intercepta antes de a navegação sair (`frontend/src/lib/desktop.js`).
-
-## Principais pontos
-
-### 1. Acesso público
-- Sem login, contas ou permissões: a API não tem classe de autenticação e
-  libera tudo (`REST_FRAMEWORK` em `core/settings.py`). A única trava é a de
-  transporte (token do app, acima), que não identifica pessoa nenhuma.
-- Django admin público: `photoeditor/middleware.py` (`PublicAdminMiddleware`)
-  loga toda visita a `/admin/` como o usuário `admin` (senha inutilizável).
-- Estáticos do admin (`/django-static/`) e o build do React saem pelo
-  WhiteNoise, direto das apps — sem `collectstatic`.
-
-### 2. Internacionalização (EN + PT-BR)
-- **EN é o padrão e o fallback** de toda tradução.
-- Frontend: `useI18n()` (`t`/`tf`) + catálogos em `src/i18n/locales.js`.
-- Backend: `photoeditor/i18n.py` (`translate`, `tr`, `language_for_request`).
-- Shell desktop (menus, diálogos nativos): `desktop/i18n.py`, que acompanha o
-  idioma escolhido no app observando o cookie `photoeditor_ln`.
-
-### 3. E-mail e identidade visual
-- Template HTML de marca em `photoeditor/templates/email/`, renderizado por
-  `services/mailer.py`.
-- Logo, favicon e a fonte Inter vão no próprio build — o app funciona offline.
-  Cache-busting `?ts=<BUILD_TS>` em todo objeto estático.
-
-### 4. UI/UX (convenções)
-- Confirmações/alertas via **modais próprios** (nunca diálogos nativos do browser).
-- Telas e formulários ocupam **100%** da largura.
-- Detalhe de objeto abre em **janela/rota própria**, não em modal
-  (`window.open` vira uma janela do app, igualmente sem barra).
-
-## Tela inicial e projetos
-
-A Home mostra **Abrir projeto**, **Novo projeto** e os projetos recentes em
-cards — capa, nº de fotos, tamanho e data da última abertura.
-
-**Novo projeto** conforme a pasta escolhida:
-
-- já é um projeto do editor (tem `project_data/db.sqlite3` ou `raw/`) → abre,
-  como o "Abrir projeto";
-- tem JPEGs soltos → cria `raw/` e **move** esses JPEGs para ela (só os da
-  raiz; subpastas, ocultos e outros arquivos ficam onde estão; nada é
-  sobrescrito) e abre;
-- vazia → cria `raw/` e oferece copiar fotos de outro lugar.
-
-O **Abrir projeto** numa pasta de JPEGs sem `raw/` oferece o mesmo: mover as
-fotos para `raw/` e continuar. A lista mora no banco do app,
-`~/.photoe/photoe.db`; remover um card nunca toca na pasta.
-
-Cada evento é uma pasta:
-
-```
-<projeto>/
-    raw/            fotos originais (somente JPEG, nunca alteradas)
-    project_data/   db.sqlite3 + caches gerados + masks/ (camadas)
-    deleted/        fotos excluídas (movidas, nunca apagadas)
-    publicar/       saída do botão Exportar
-```
-
-O app cria `project_data/`, `deleted/` e `publicar/`; `raw/` só é criada
-depois de perguntar. Ao abrir o projeto, o servidor roda `migrate` no SQLite
-dele. Um projeto só abre em uma janela por vez (trava em `project_data/`).
-
-O que é da máquina, não do evento, fica em `~/.photoe/` (igual nos três SOs):
-`photoe.db`, segredos gerados, perfil do navegador (`webengine/`), capas dos
-cards e `logs/` (`desktop.log` e `server.log`).
-
-## Compilação: `make`
-
-O **`Makefile` é a base de compilação**: `make` sozinho gera os instaladores
-(o mesmo que `make dist`) e `make help` lista os alvos.
-Pré-requisitos: `make`, `python3` (qualquer 3.9+) e Docker (para o frontend,
-os testes do React e os instaladores). Node não precisa estar instalado.
-
-| Comando | O que faz |
-|---|---|
-| `make run` | abre o app (baixa runtime e modelo e builda o frontend, se faltar) |
-| `make dev` | idem, com DevTools (F12) e menu de contexto |
-| `make run ARGS="~/Fotos/evento"` | já abrindo um projeto |
-| `make frontend` | build do React em `frontend/build` |
-| `make dist` (ou só `make`) | instaladores de todas as plataformas em `dist/` |
-| `make local` | só o instalador da plataforma e arquitetura desta máquina |
-| `make macos` / `make windows` / `make linux` | `.dmg` (arm64 + x64) / `.msi` / `.tar.gz` (x64 + arm64) |
-| `make dist TARGETS="macos-arm64 windows-x64"` | só os alvos escolhidos |
-| `make test` | `check` do Django, migrations em dia, build e testes do React |
-| `make migrations` | gera a migration depois de mudar um modelo |
-| `make art` | prévia da arte dos instaladores em `.cache/art` |
-| `make version` | mostra a versão do build (a última Release do GitHub + `-dev`) |
-| `make clean` / `make clean-all` | apaga o gerado / também runtimes, downloads e modelo |
-
-O runtime do host fica em `.runtime/<alvo>/` (CPython 3.12 + dependências). Com
-hot-reload do React: `yarn start` no `frontend/` e
-`make run ARGS="--port 47823 --frontend-url http://127.0.0.1:3000"`.
-
-## Pacotes (builder em Docker)
-
-Um container Linux monta o pacote de **todas** as plataformas — nada é
-compilado: o Python de cada alvo é o CPython pronto do python-build-standalone
-e as dependências são wheels binárias baixadas com `pip --platform <alvo>`.
-
-```bash
-make dist                                   # todos os alvos
-make windows                                # só o .msi
-make dist TARGETS="macos-arm64 linux-x64"   # alvos escolhidos
-```
-
-Saída em `dist/`, um instalador por SO:
-
-| Alvo          | Arquivo                                   | O que é                              |
-|---------------|-------------------------------------------|--------------------------------------|
-| `macos-arm64` | `PhotoEditor-<versão>-macos-arm64.dmg`    | `PhotoEditor.app` + janela "arraste para Aplicativos" |
-| `macos-x64`   | `PhotoEditor-<versão>-macos-x64.dmg`      | o mesmo, para Mac Intel |
-| `windows-x64` | `PhotoEditor-<versão>-windows-x64.msi`    | instala em `Program Files`, atalhos no Menu Iniciar e na Área de Trabalho |
-| `linux-*`     | `PhotoEditor-<versão>-linux-*.tar.gz`     | pasta com `runtime/`, `app/` e o lançador `PhotoEditor` |
-
-`--keep-dirs` mantém também a pasta aberta do pacote, para testar no lugar.
-
-- **`.dmg`** — montado no Linux como o do Firefox: `mkfs.hfsplus` cria o volume
-  HFS+, o `hfsplus` do libdmg-hfsplus o preenche e o `dmg` comprime. A janela
-  que o Finder abre ao montar (fundo, tamanho, posição dos ícones) é o
-  `.DS_Store` escrito em `tools/packaging/macos.py`; o fundo e os ícones são
-  desenhados a partir do logo em `tools/packaging/art.py`
-  (`python -m tools.packaging.art <pasta>` gera uma prévia).
-- **`.msi`** — gerado pelo `wixl` (msitools). Instala por máquina; o
-  `UpgradeCode` fixo faz a versão nova substituir a anterior e recusa
-  downgrade. A `ProductVersion` é derivada da versão (o MSI só aceita
-  `255.255.65535`; ver `msi_version`).
-- **Sem assinatura, por enquanto:** no macOS o primeiro clique no app é
-  bloqueado pelo Gatekeeper (liberar em Ajustes do Sistema → Privacidade e
-  Segurança → "Abrir Mesmo Assim"); no Windows o SmartScreen avisa ao abrir
-  o `.msi`. Assinar e notarizar exige certificados (Apple Developer ID e um
-  code-signing do Windows) — próxima etapa.
-
-**Espaço em disco:** cada alvo ocupa ~1,5 GB de runtime em
-`.runtime-builder/` (reaproveitado entre builds) e ~0,5–0,7 GB de pacote. Os
-quatro alvos pedem ~15 GB livres — no macOS, também dentro do disco do Docker
-Desktop.
-
-| Alvo          | SO mínimo (ditado pelas wheels)                          |
-|---------------|----------------------------------------------------------|
-| `windows-x64` | Windows 10/11 64 bits                                    |
-| `macos-arm64` | macOS 14 (Apple Silicon)                                 |
-| `macos-x64`   | macOS 14 (Intel) — usa o onnxruntime 1.23.x, o último com wheel Intel |
-| `linux-x64`   | glibc 2.34 — Ubuntu 22.04, Debian 12, Fedora 35          |
-| `linux-arm64` | glibc 2.39 — Ubuntu 24.04                                |
-
-**Windows ARM64 não é gerado:** o OpenCV (motor de revelação, merge, camadas)
-não publica wheel para `win_arm64`. O `.msi` x64 roda no Windows 11 ARM pela
-emulação x64 do próprio Windows.
-
-### Versão: quem manda é o GitHub
-
-A versão não fica no repositório: **só existe versão nova quando uma Release é
-publicada no GitHub**. Entre uma Release e outra, todo build usa o número da
-última Release e diz de onde veio:
-
-| Build | Versão exibida no app | Nome do pacote |
-|---|---|---|
-| Release publicada (CI) | `1.2.3` (a tag) | `PhotoEditor-1.2.3-<alvo>` |
-| Local (`make`) | `1.2.3-dev+<commit>` | `PhotoEditor-dev-v1.2.3-<alvo>` |
-
-Sem nenhuma Release publicada ainda, o número é `0.0.0`.
-
-### Release no GitHub
-
-`.github/workflows/release.yml`: ao **publicar uma Release**, o GitHub Actions
-gera os cinco instaladores (um job por alvo, em paralelo, no mesmo builder
-Docker do `make dist`) e os anexa à Release, cada um com o seu `.sha256`.
-
-- **A versão é a da tag** criada no GitHub (`v1.2.3` ou `1.2.3`): o pipeline
-  a grava no `VERSION` antes do build, e ela vira o nome dos instaladores, o
-  número no cabeçalho do app e a versão do `.app`/`.msi`. Formato `X.Y.Z`,
-  com X até 255 e Y, Z até 999 (limite do MSI); fora disso o workflow para
-  antes de gerar qualquer coisa. Nada é commitado de volta.
-- Para refazer os instaladores de uma Release: Actions → "Release installers"
-  → *Run workflow*, informando a tag.
-- O repositório é público: os minutos do Actions são gratuitos. Na Release,
-  cada arquivo pode ter até 2 GiB, sem limite de total nem de download.
-
-## Banco e migrations
-
-- Modelos em `photoeditor/dbmodels/` (herdam de `dbmodels.base.Base`); o único
-  usuário é o `admin` no `auth.User` do Django.
-- Migrations incrementais e versionadas (regra 13 do `CLAUDE.md`).
-
-## Principais endpoints (API)
-
-| Método/Rota          | Descrição                                          |
-|----------------------|----------------------------------------------------|
-| `GET  /api/config/`  | Idioma, marca, versão e o projeto aberto (ou Home) |
-| `GET/DELETE /api/projects/recent/` | Projetos recentes da Home / tirar da lista |
-| `GET  /api/projects/cover/?path=` | Capa do card (1ª foto de `raw/`)      |
-| `GET  /api/develop/` | Sliders, presets e camadas (`smart_select`)        |
-| `POST /api/photos/<id>/segment/` | Traço do pincel → máscara do objeto    |
-| `GET  /api/masks/<chave>.png` | Máscara de uma camada (overlay)           |
-| `POST /api/photos/<id>/duplicate/` | Cópia virtual da foto, com os ajustes dela |
-| `POST /api/photos/<id>/cover/` | Marca (`{"cover": true}`) ou desmarca a capa do evento |
-| `POST /api/merges/`  | Cria o merge (`{"photos": [...]}`, a 1ª é a base)  |
-| `GET/PUT/DELETE /api/merges/<id>/` | Lê, edita (área/opacidade) e desfaz o merge |
-| `DELETE /api/merges/<id>/layers/<foto>/` | Tira a foto da composição (volta à filmstrip) |
-| `GET  /api/merges/<id>/layers/<foto>.png?mask=` | Área alinhada sobre o preview da base |
-| `/admin/`            | Django admin público                               |
+Arquitetura, compilação (`make`), empacotamento, versão e API estão em
+[**ARCHITECTURE.md**](./ARCHITECTURE.md); as convenções obrigatórias do
+código, em [`CLAUDE.md`](./CLAUDE.md).
 
 ## Licença
 
