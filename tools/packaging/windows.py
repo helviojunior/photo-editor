@@ -47,6 +47,8 @@ def msi_version(version: str) -> str:
     return f'{major}.{counter // 65536}.{counter % 65536}'
 
 
+# Sem Platform no <Package>: o wixl nao le esse atributo (reclama e ignora);
+# a plataforma x64 vem do ``--arch x64`` na linha de comando.
 def _main_wxs(version: str, icon: Path) -> str:
     target = '[INSTALLDIR]runtime\\pythonw.exe'
     arguments = '-E -s "[INSTALLDIR]app\\desktop"'
@@ -67,11 +69,10 @@ def _main_wxs(version: str, icon: Path) -> str:
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
   <Product Id="*" Name="{APP_NAME}" Language="1033" Version="{msi_version(version)}"
            Manufacturer="{MANUFACTURER}" UpgradeCode="{UPGRADE_CODE}">
-    <!-- Plataforma x64 vem do `wixl --arch x64` (o wixl nao le Platform aqui). -->
     <Package InstallerVersion="500" Compressed="yes" InstallScope="perMachine"
              Description="{APP_NAME} {version}"
              Comments="Event photo editor" Manufacturer="{MANUFACTURER}" />
-    <Media Id="1" Cabinet="app.cab" EmbedCab="yes" CompressionLevel="high" />
+    <Media Id="1" Cabinet="app.cab" EmbedCab="yes" />
     <MajorUpgrade DowngradeErrorMessage="A newer version of {APP_NAME} is already installed." />
 
     <Icon Id="AppIcon.ico" SourceFile={quoteattr(str(icon))} />
