@@ -255,7 +255,7 @@ Todo asset estático carrega o carimbo do build: `?ts=<REACT_APP_BUILD_TS>`.
 - `src/lib/asset.js` expõe `BUILD_TS`, `withTs(url)` e `asset(path)` — use-os
   para **qualquer** URL de asset (imagens, sons, PDFs), local ou remota.
 - O builder (`tools/build.py frontend`) carimba
-  `REACT_APP_BUILD_TS=<UTC %Y%m%d%H%M%S>` e `REACT_APP_VERSION`; a CI pode
+  `REACT_APP_BUILD_TS=<UTC %Y%m%d%H%M%S>` e `REACT_APP_VERSION` (regra 17); a CI pode
   sobrescrever exportando a variável.
 
 ## Configuração e banco
@@ -388,23 +388,29 @@ O fluxo é trunk-based: o histórico de `git@gitlab.com:saas-sec4us/photo-editor
   quando o usuário pedir, usar a identidade configurada no git (sem `--author`)
   e manter as mensagens em português, como o resto do histórico.
 
-### 17. Versão sobe a cada commit
-O arquivo `VERSION` na raiz carrega a versão do deploy, no formato `X.Y.Z`
-começando em `1.0.0`. **Cada commit incrementa em um**, e cada numerador vai
-até 999 antes de virar o de cima (`1.0.999` → `1.1.0` → … → `1.999.999` →
-`2.0.0`).
+### 17. O GitHub manda na versão
+A versão **não mora no repositório**: releases e mudanças de numeração só
+acontecem no GitHub. Publicar uma Release com a tag `vX.Y.Z` (ou `X.Y.Z`) é o
+que cria uma versão; entre uma Release e outra, todo build é "a última Release
++ o canal".
 
-- **Não é semver:** o último número não significa "correção", significa "mais
-  um commit". O que a versão responde é *"qual commit está rodando no deploy"*,
-  e para isso um contador contínuo serve melhor do que decidir, a cada commit,
-  se aquilo foi feature ou fix.
-- **Como aplicar:** rode `./bump-version.sh` ANTES de commitar e inclua o
-  `VERSION` no mesmo commit — a versão tem de apontar para o commit que a
-  carrega, não para o anterior.
-- O valor chega ao frontend como `REACT_APP_VERSION` (carimbado pelo
-  `tools/build.py frontend`), ao shell por `desktop/paths.version()` e ao
-  backend por `core.settings.VERSION` — os três leem o mesmo arquivo. Uma string fixa no código envelhece no primeiro commit e passa a
-  mentir sobre o que está rodando.
+| Canal | Onde | Número | O app exibe | Pacote |
+|---|---|---|---|---|
+| `release` | CI, ao publicar a Release | a tag | `1.2.3` | `PhotoEditor-1.2.3-<alvo>` |
+| `test` | CI a cada push/PR (`build-check.yml`) | última Release | `1.2.3-test+<commit>` | `PhotoEditor-test-v1.2.3-<alvo>` |
+| `dev` | máquina local (`make`) | última Release | `1.2.3-dev+<commit>` | `PhotoEditor-dev-v1.2.3-<alvo>` |
+
+- **Proibido:** versionar o arquivo `VERSION`, subir número "na mão" num
+  commit ou gravar versão fixa no código. Não existe mais bump por commit.
+- **Quem resolve:** `tools/build.py` (`version()`, `version_label()`) — a
+  última Release vem da API do GitHub (cache de 24 h; sem Release, `0.0.0`);
+  `PHOTOEDITOR_VERSION` / `PHOTOEDITOR_CHANNEL` sobrescrevem (a CI usa). Ele
+  gera o `VERSION` da raiz (ignorado pelo git), de onde leem o frontend
+  (`REACT_APP_VERSION`), o shell (`desktop/paths.version()`) e o backend
+  (`core.settings.VERSION`); `make version`/`tools/build.py version` mostra.
+- **Formato:** `X.Y.Z` com X até 255 e Y, Z até 999 — o limite do MSI
+  (`msi_version`). O `.app` e o `.msi` recebem só o número; o sufixo
+  `-dev+<commit>` / `-test+<commit>` é para exibição e nome de arquivo.
 
 ## App desktop
 
@@ -446,11 +452,11 @@ Home).
 - **Instaladores saem do mesmo container** (`tools/packaging/`): `.dmg` no
   macOS, `.msi` no Windows, `.tar.gz` no Linux. Arte (ícones, fundo do DMG)
   é desenhada em código a partir do logo — não versione PNG/ICNS/ICO pronto.
-- **Release no GitHub:** publicar uma Release dispara
-  `.github/workflows/release.yml`, que gera e anexa os instaladores. A
-  versão do build é a da TAG (`vX.Y.Z`), gravada no `VERSION` só na cópia do
-  pipeline — o `VERSION` versionado continua seguindo a regra 17. Passo novo
-  de empacotamento entra no `Makefile` — o workflow só chama o `make`.
+- **CI no GitHub:** `release.yml` (ao publicar uma Release: instaladores
+  anexados a ela) e `build-check.yml` (a cada push/PR na main: instaladores
+  de teste como artefatos por 3 dias) chamam o mesmo `package.yml`. Versão
+  conforme a regra 17. Passo novo de empacotamento entra no `Makefile` — os
+  workflows só chamam o `make`.
 - **Nunca troque os GUIDs de `tools/packaging/windows.py`** (`UpgradeCode` e
   componentes dos atalhos) nem o `BUNDLE_ID` do `.app`: é por eles que o
   Windows e o macOS reconhecem a versão nova como o mesmo programa.

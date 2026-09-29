@@ -213,3 +213,7 @@ original + ajustes.
       Linux x64/arm64), `make local` (só a plataforma da máquina) e o
       workflow que anexa os instaladores a cada Release publicada. Windows
       ARM64 aguarda wheel `win_arm64` do OpenCV.
+- [x] **9.10** O GitHub manda na versão: sem `VERSION` versionado nem bump
+      por commit; a versão sai das Releases (tag na Release; última Release
+      + `-test`/`-dev` nos builds de teste e locais). Workflow `build-check`
+      gera instaladores de teste a cada push, como artefatos por 3 dias.

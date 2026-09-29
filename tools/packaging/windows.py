@@ -37,8 +37,9 @@ WIXL_HEAT = os.environ.get('WIXL_HEAT', 'wixl-heat')
 def msi_version(version: str) -> str:
     """X.Y.Z do projeto -> ProductVersion do MSI.
 
-    O MSI aceita no maximo 255.255.65535, e o VERSION do projeto vai ate
-    999.999.999 (regra 17). Os dois numeros de baixo viram um contador so
+    O MSI aceita no maximo 255.255.65535, e a versao do projeto (a tag da
+    Release, regra 17) vai ate 255.999.999. Os dois numeros de baixo viram um
+    contador so
     (Y*1000 + Z, ate 999999) repartido em 16 bits: a ordem se mantem, que e o
     que o MajorUpgrade compara.
     """

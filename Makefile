@@ -10,7 +10,9 @@
 # macOS.
 
 PYTHON      ?= python3
-VERSION     := $(shell cat VERSION)
+# Versao do build: quem manda e o GitHub (ultima Release; na CI, a tag) — ver
+# version() em tools/build.py. Local sai 1.2.3-dev+<commit>.
+VERSION     := $(shell $(PYTHON) tools/build.py version 2>/dev/null || echo 0.0.0-dev)
 BUILDER     ?= photoeditor-builder
 # Alvos do `make dist` (ver TARGETS em tools/build.py): all | macos-arm64 |
 # macos-x64 | windows-x64 | linux-x64 | linux-arm64 — varios separados por
@@ -26,7 +28,10 @@ ART_OUT     ?= .cache/art
 
 # Container descartavel com o uid do host (os arquivos gerados sao seus) e o
 # repositorio montado em /src; o ENTRYPOINT e o tools/build.py.
-BUILDER_RUN  = docker run --rm --user "$$(id -u):$$(id -g)" -v "$(CURDIR)":/src $(BUILDER)
+# As PHOTOEDITOR_* (versao/canal/commit, a CI define) passam para dentro.
+BUILDER_RUN  = docker run --rm --user "$$(id -u):$$(id -g)" \
+	-e PHOTOEDITOR_VERSION -e PHOTOEDITOR_CHANNEL -e PHOTOEDITOR_GIT_HASH -e GITHUB_TOKEN \
+	-v "$(CURDIR)":/src $(BUILDER)
 # Node sem instalar nada no host (regra 15.1 do CLAUDE.md).
 # REACT_APP_VERSION: o build do teste vira o frontend/build que o `make run`
 # usa — sem ela o cabecalho do app mostraria v1.0.0.
@@ -41,8 +46,8 @@ CHECK_PROJECT = .cache/check-project
 
 target_args  = $(foreach t,$(TARGETS),--target $(t))
 
-.PHONY: default help run dev runtime model frontend builder dist local macos dmg windows msi \
-        linux art test test-frontend test-backend migrations bump clean clean-all
+.PHONY: default help run dev version runtime model frontend builder dist local macos dmg windows msi \
+        linux art test test-frontend test-backend migrations clean clean-all
 
 # Padrao: os instaladores (TARGETS, por padrao todos) — ver `make help`.
 default: dist
@@ -64,6 +69,9 @@ run:			## Abre o app (baixa runtime/modelo e builda o frontend se faltar)
 
 dev:			## Abre o app com DevTools (F12) e menu de contexto
 	$(PYTHON) tools/build.py run -- --devtools $(ARGS)
+
+version:		## Versao do build (ultima Release do GitHub + canal; regra 17)
+	@$(PYTHON) tools/build.py version
 
 runtime:		## Python embarcado + dependencias do host em .runtime/
 	$(PYTHON) tools/build.py runtime
@@ -127,9 +135,6 @@ migrations: runtime	## Gera a migration de mudancas nos modelos (regra 13)
 	@mkdir -p $(CHECK_PROJECT)
 	cd backend && PROJECT_ROOT="$(CURDIR)/$(CHECK_PROJECT)" DATA_DIR="$(CURDIR)/.cache/check-data" \
 		"$(HOST_PY)" manage.py makemigrations photoeditor
-
-bump:			## Sobe a versao em VERSION (antes de cada commit, regra 17)
-	./bump-version.sh
 
 clean:			## Apaga dist/, o build do React e os temporarios dos instaladores
 	rm -rf dist frontend/build .cache/pkg .cache/frontend-work $(ART_OUT) $(CHECK_PROJECT) .cache/check-data

@@ -64,9 +64,9 @@ START_TIME = datetime.datetime.now()
 APP_STARTED = str(int(datetime.datetime.now().timestamp()))
 
 
-# Versao do app: APP_VERSION do ambiente, senao o arquivo VERSION da raiz
-# (ver bump-version.sh). Uma string fixa no codigo envelhece no primeiro commit
-# e passa a mentir sobre o que esta rodando.
+# Versao do app: APP_VERSION do ambiente, senao o arquivo VERSION da raiz, que
+# o tools/build.py gera a partir das Releases do GitHub (regra 17). Uma string
+# fixa no codigo envelhece e passa a mentir sobre o que esta rodando.
 def _version():
     env = (os.environ.get('APP_VERSION') or '').strip()
     if env:

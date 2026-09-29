@@ -3,6 +3,9 @@
 .env.*
 !.env.example
 
+# Versao GERADA pelo tools/build.py a partir das Releases do GitHub (regra 17)
+VERSION
+
 # Builder do app desktop (tools/build.py): runtimes embarcados, downloads,
 # modelo de segmentacao e pacotes gerados
 .runtime/

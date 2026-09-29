@@ -278,7 +278,7 @@ os testes do React e os instaladores). Node não precisa estar instalado.
 | `make test` | `check` do Django, migrations em dia, build e testes do React |
 | `make migrations` | gera a migration depois de mudar um modelo |
 | `make art` | prévia da arte dos instaladores em `.cache/art` |
-| `make bump` | sobe o `VERSION` (antes de cada commit) |
+| `make version` | mostra a versão do build (a última Release do GitHub + `-dev`) |
 | `make clean` / `make clean-all` | apaga o gerado / também runtimes, downloads e modelo |
 
 O runtime do host fica em `.runtime/<alvo>/` (CPython 3.12 + dependências). Com
@@ -316,7 +316,7 @@ Saída em `dist/`, um instalador por SO:
   (`python -m tools.packaging.art <pasta>` gera uma prévia).
 - **`.msi`** — gerado pelo `wixl` (msitools). Instala por máquina; o
   `UpgradeCode` fixo faz a versão nova substituir a anterior e recusa
-  downgrade. A `ProductVersion` é derivada do `VERSION` (o MSI só aceita
+  downgrade. A `ProductVersion` é derivada da versão (o MSI só aceita
   `255.255.65535`; ver `msi_version`).
 - **Sem assinatura, por enquanto:** no macOS o primeiro clique no app é
   bloqueado pelo Gatekeeper (liberar em Ajustes do Sistema → Privacidade e
@@ -340,6 +340,27 @@ Desktop.
 **Windows ARM64 não é gerado:** o OpenCV (motor de revelação, merge, camadas)
 não publica wheel para `win_arm64`. O `.msi` x64 roda no Windows 11 ARM pela
 emulação x64 do próprio Windows.
+
+### Versão: quem manda é o GitHub
+
+A versão não fica no repositório: **só existe versão nova quando uma Release é
+publicada no GitHub**. Entre uma Release e outra, todo build usa o número da
+última Release e diz de onde veio:
+
+| Build | Versão exibida no app | Nome do pacote |
+|---|---|---|
+| Release publicada (CI) | `1.2.3` (a tag) | `PhotoEditor-1.2.3-<alvo>` |
+| Teste a cada push (CI) | `1.2.3-test+<commit>` | `PhotoEditor-test-v1.2.3-<alvo>` |
+| Local (`make`) | `1.2.3-dev+<commit>` | `PhotoEditor-dev-v1.2.3-<alvo>` |
+
+Sem nenhuma Release publicada ainda, o número é `0.0.0`.
+
+### Build de teste no GitHub
+
+`.github/workflows/build-check.yml`: a cada push na `main` (mudanças só de
+documentação não disparam), em pull requests, toda segunda-feira e à mão, gera
+os cinco instaladores de teste e os deixa como **artefatos do Actions por 3
+dias** (aba Actions → a execução → *Artifacts*). Não publica Release.
 
 ### Release no GitHub
 

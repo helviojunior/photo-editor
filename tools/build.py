@@ -12,6 +12,7 @@ Comandos:
     runtime   [--target T]   Python embarcado + dependencias em .runtime/<T>/
     model                     modelo SAM 2.1 (camadas) em models/
     frontend                  build do React em frontend/build/
+    version                   versao do build (vem das Releases do GitHub)
     run       [-- args]       roda o app desktop no runtime do host (dev)
     dist      [--target T...] instalador em dist/: .dmg (macOS), .msi (Windows),
                               .tar.gz (Linux); --keep-dirs mantem a pasta aberta
@@ -23,11 +24,13 @@ import hashlib
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
 import tarfile
 import time
+import urllib.error
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -97,8 +100,126 @@ def run(cmd, **kw):
     subprocess.run([str(c) for c in cmd], check=True, **kw)
 
 
+# ---------------------------------------------------------------------------
+# Versao: quem manda e o GitHub
+# ---------------------------------------------------------------------------
+# A versao NAO e versionada no repositorio. Ela sai das Releases do GitHub:
+#
+#   canal    de onde vem o numero                  exibido / nome do pacote
+#   release  a tag da Release (CI)                 1.2.3 / PhotoEditor-1.2.3-<alvo>
+#   test     a ultima Release (CI de teste)        1.2.3-test+<commit> / PhotoEditor-test-v1.2.3-<alvo>
+#   dev      a ultima Release (build local)        1.2.3-dev+<commit>  / PhotoEditor-dev-v1.2.3-<alvo>
+#
+# PHOTOEDITOR_VERSION (X.Y.Z) e PHOTOEDITOR_CHANNEL sobrescrevem (a CI usa).
+# Sem Release publicada ainda, a versao e 0.0.0. O .app e o .msi recebem o
+# numero puro X.Y.Z (o MSI so aceita numeros); o sufixo e so para exibicao.
+# O arquivo VERSION da raiz e GERADO aqui (ignorado pelo git): e de onde o app
+# (settings, desktop/paths.py) le a versao exibida.
+
+GITHUB_REPO = 'helviojunior/photo-editor'
+CHANNELS = ('release', 'test', 'dev')
+LATEST_RELEASE_CACHE = CACHE / 'latest-release'
+LATEST_RELEASE_TTL = 24 * 3600
+_VERSION_RE = re.compile(r'^v?(\d{1,3})\.(\d{1,3})\.(\d{1,3})$')
+
+
+def _parse_version(raw: str):
+    """``v1.2.3``/``1.2.3`` -> ``1.2.3``, ou None fora do formato do MSI."""
+    m = _VERSION_RE.match((raw or '').strip())
+    if not m or int(m.group(1)) > 255:
+        return None
+    return '.'.join(str(int(g)) for g in m.groups())
+
+
+def latest_release() -> str:
+    """Numero da ultima Release publicada no GitHub (cache de 24 h).
+
+    Sem rede, usa o ultimo valor em cache; sem Release nenhuma, 0.0.0.
+    """
+    cached = None
+    if LATEST_RELEASE_CACHE.is_file():
+        cached = _parse_version(LATEST_RELEASE_CACHE.read_text())
+        if cached and time.time() - LATEST_RELEASE_CACHE.stat().st_mtime < LATEST_RELEASE_TTL:
+            return cached
+    headers = {'Accept': 'application/vnd.github+json'}
+    if os.environ.get('GITHUB_TOKEN'):
+        headers['Authorization'] = f'Bearer {os.environ["GITHUB_TOKEN"]}'
+    req = urllib.request.Request(
+        f'https://api.github.com/repos/{GITHUB_REPO}/releases/latest', headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            found = _parse_version(json.load(r).get('tag_name', '')) or '0.0.0'
+    except urllib.error.HTTPError as exc:
+        if exc.code != 404:            # 404 = nenhuma Release publicada ainda
+            return cached or '0.0.0'
+        found = '0.0.0'
+    except OSError:
+        return cached or '0.0.0'
+    LATEST_RELEASE_CACHE.parent.mkdir(parents=True, exist_ok=True)
+    LATEST_RELEASE_CACHE.write_text(found)
+    return found
+
+
 def version() -> str:
-    return (ROOT / 'VERSION').read_text().strip()
+    """Numero X.Y.Z do build (ver a tabela acima)."""
+    forced = os.environ.get('PHOTOEDITOR_VERSION', '').strip()
+    if forced:
+        parsed = _parse_version(forced)
+        if not parsed:
+            sys.exit(f'PHOTOEDITOR_VERSION={forced!r} is not X.Y.Z (X <= 255, Y and Z <= 999).')
+        return parsed
+    return latest_release()
+
+
+def channel() -> str:
+    value = os.environ.get('PHOTOEDITOR_CHANNEL', '').strip() or 'dev'
+    if value not in CHANNELS:
+        sys.exit(f'PHOTOEDITOR_CHANNEL={value!r}: choose from {", ".join(CHANNELS)}.')
+    return value
+
+
+def git_hash() -> str:
+    """Commit atual (7 caracteres), lido de .git sem precisar do git — o
+    container do builder nao o tem. PHOTOEDITOR_GIT_HASH sobrescreve."""
+    forced = os.environ.get('PHOTOEDITOR_GIT_HASH', '').strip()
+    if forced:
+        return forced[:7]
+    git = ROOT / '.git'
+    try:
+        head = (git / 'HEAD').read_text().strip()
+        if not head.startswith('ref: '):
+            return head[:7]
+        ref = head[5:]
+        if (git / ref).is_file():
+            return (git / ref).read_text().strip()[:7]
+        for line in (git / 'packed-refs').read_text().splitlines():
+            if line.endswith(' ' + ref):
+                return line.split()[0][:7]
+    except OSError:
+        pass
+    return ''
+
+
+def version_label() -> str:
+    """O que o app exibe: 1.2.3 na Release; 1.2.3-test+abc1234 / -dev+... fora."""
+    ver, chan = version(), channel()
+    if chan == 'release':
+        return ver
+    commit = git_hash()
+    return f'{ver}-{chan}' + (f'+{commit}' if commit else '')
+
+
+def package_prefix() -> str:
+    """Inicio do nome dos pacotes: PhotoEditor-1.2.3 / PhotoEditor-test-v1.2.3."""
+    ver, chan = version(), channel()
+    return f'{APP_NAME}-{ver}' if chan == 'release' else f'{APP_NAME}-{chan}-v{ver}'
+
+
+def write_version_file() -> str:
+    """Grava o VERSION da raiz (gerado, fora do git) e devolve o rotulo."""
+    label = version_label()
+    (ROOT / 'VERSION').write_text(label + '\n')
+    return label
 
 
 def host_target() -> str:
@@ -303,7 +424,7 @@ def cmd_frontend(isolated=False):
         sys.exit('yarn not found: run the build inside the builder container '
                  '(`make frontend`) or install Node 20 + yarn.')
     env = dict(os.environ,
-               REACT_APP_VERSION=version(),
+               REACT_APP_VERSION=write_version_file(),
                REACT_APP_BUILD_TS=os.environ.get('REACT_APP_BUILD_TS')
                or time.strftime('%Y%m%d%H%M%S', time.gmtime()),
                GENERATE_SOURCEMAP='false')
@@ -320,6 +441,7 @@ def cmd_frontend(isolated=False):
 # ---------------------------------------------------------------------------
 
 def cmd_run(args):
+    write_version_file()
     target = host_target()
     build_runtime(target)
     if not (MODELS / SEGMENT_MODEL['dir']).is_dir():
@@ -355,6 +477,8 @@ APP_IGNORE = shutil.ignore_patterns(
 
 def cmd_dist(targets, skip_frontend=False, keep_dirs=False):
     ver = version()
+    label = write_version_file()
+    log(f'Version {label} (channel {channel()})')
     if not skip_frontend:
         cmd_frontend(isolated=BUILDER)
     frontend_build = ROOT / 'frontend' / 'build'
@@ -364,7 +488,7 @@ def cmd_dist(targets, skip_frontend=False, keep_dirs=False):
 
     for target in targets:
         build_runtime(target)
-        name = f'{APP_NAME}-{ver}-{target}'
+        name = f'{package_prefix()}-{target}'
         out = DIST / name
         log(f'Assembling {out.relative_to(ROOT)}')
         shutil.rmtree(out, ignore_errors=True)
@@ -378,7 +502,8 @@ def cmd_dist(targets, skip_frontend=False, keep_dirs=False):
         shutil.copy2(ROOT / 'VERSION', app / 'VERSION')
         shutil.copy2(ROOT / 'LICENSE', out / 'LICENSE')
         (app / 'build-info.json').write_text(json.dumps({
-            'version': ver, 'target': target, 'python': PYTHON_VERSION,
+            'version': ver, 'label': label, 'channel': channel(), 'commit': git_hash(),
+            'target': target, 'python': PYTHON_VERSION,
             'pbs_release': PBS_RELEASE,
             'built_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
         }, indent=2))
@@ -464,6 +589,7 @@ def main():
     p.add_argument('--isolated', action='store_true')
     p = sub.add_parser('run')
     p.add_argument('args', nargs=argparse.REMAINDER)
+    sub.add_parser('version', help='print (and write to VERSION) the version label')
     p = sub.add_parser('dist')
     p.add_argument('--target', action='append')
     p.add_argument('--skip-frontend', action='store_true')
@@ -479,6 +605,8 @@ def main():
         cmd_frontend(isolated=args.isolated)
     elif args.command == 'run':
         cmd_run([a for a in args.args if a != '--'])
+    elif args.command == 'version':
+        print(write_version_file())
     elif args.command == 'dist':
         cmd_dist(resolve_targets(args.target), skip_frontend=args.skip_frontend,
                  keep_dirs=args.keep_dirs)

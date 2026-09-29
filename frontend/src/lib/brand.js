@@ -17,7 +17,8 @@ const brand = {
   favicon: asset(process.env.REACT_APP_BRAND_FAVICON || "/favicon.png"),
   contactEmail:
     process.env.REACT_APP_BRAND_CONTACT_EMAIL || "contato@photoeditor.com.br",
-  version: process.env.REACT_APP_VERSION || "1.0.0",
+  // Carimbada pelo tools/build.py (versao das Releases do GitHub).
+  version: process.env.REACT_APP_VERSION || "0.0.0-dev",
 };
 
 export default brand;

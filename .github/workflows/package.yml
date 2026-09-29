@@ -1,0 +1,125 @@
+# Workflow REUTILIZAVEL: gera os instaladores de todos os alvos.
+#
+# Chamado por release.yml (canal "release": anexa a Release) e por
+# build-check.yml (canal "test": artefatos do Actions por 3 dias). A versao
+# vem de quem chama — o GitHub manda nela (regra 17 do CLAUDE.md).
+#
+# Tudo roda no builder em Docker (tools/Dockerfile), o mesmo do `make dist`
+# local. Um job por alvo, em paralelo: cada alvo pede ~10 GB de disco no pico,
+# e o runner padrao nao tem espaco para os cinco de uma vez.
+#   macos-arm64 / macos-x64 -> .dmg      windows-x64 -> .msi
+#   linux-x64 / linux-arm64 -> .tar.gz
+# Windows ARM64 nao existe (sem wheel do OpenCV); o .msi x64 roda no Windows
+# 11 ARM pela emulacao do proprio Windows.
+
+name: Package
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: "Versao X.Y.Z do build"
+        required: true
+        type: string
+      channel:
+        description: "release | test"
+        required: true
+        type: string
+      ref:
+        description: "Commit/tag a compilar"
+        required: true
+        type: string
+      release-tag:
+        description: "Tag da Release que recebe os instaladores (vazio = artefatos do Actions)"
+        required: false
+        type: string
+        default: ""
+
+jobs:
+  builder:
+    name: Builder image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Constroi (ou restaura do cache do Actions) a imagem do builder uma vez;
+      # os jobs dos alvos a reusam pelo mesmo cache.
+      - name: Build the builder image
+        uses: docker/build-push-action@v6
+        with:
+          context: tools
+          file: tools/Dockerfile
+          tags: photoeditor-builder
+          cache-from: type=gha,scope=builder
+          cache-to: type=gha,scope=builder,mode=max
+
+  package:
+    name: ${{ matrix.target }}
+    needs: builder
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [macos-arm64, macos-x64, windows-x64, linux-x64, linux-arm64]
+    env:
+      PHOTOEDITOR_VERSION: ${{ inputs.version }}
+      PHOTOEDITOR_CHANNEL: ${{ inputs.channel }}
+    steps:
+      # O runner vem com ~14 GB livres; o pico de um alvo passa de 10 GB.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          sudo docker image prune --all --force
+          df -h /
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Commit of the build
+        run: echo "PHOTOEDITOR_GIT_HASH=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Load the builder image (cache)
+        uses: docker/build-push-action@v6
+        with:
+          context: tools
+          file: tools/Dockerfile
+          tags: photoeditor-builder
+          load: true
+          cache-from: type=gha,scope=builder
+
+      - name: Build the installer
+        run: make dist TARGETS=${{ matrix.target }} SKIP_BUILDER=1
+
+      - name: Checksums
+        id: files
+        working-directory: dist
+        run: |
+          for f in PhotoEditor-*; do sha256sum "$f" > "$f.sha256"; done
+          ls -la
+          for f in PhotoEditor-*; do
+            case "$f" in *.sha256) ;; *) echo "name=$f" >> "$GITHUB_OUTPUT" ;; esac
+          done
+
+      - name: Attach to the release
+        if: inputs.release-tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ inputs.release-tag }}" dist/PhotoEditor-* --clobber --repo "$GITHUB_REPOSITORY"
+
+      - name: Upload the test build
+        if: inputs.release-tag == ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.files.outputs.name }}
+          path: dist/PhotoEditor-*
+          retention-days: 3
