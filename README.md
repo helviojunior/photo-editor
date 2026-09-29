@@ -249,8 +249,9 @@ os testes do React e os instaladores). Node não precisa estar instalado.
 | `make dev` | idem, com DevTools (F12) e menu de contexto |
 | `make run ARGS="~/Fotos/evento"` | já abrindo um projeto |
 | `make frontend` | build do React em `frontend/build` |
-| `make dist` | instaladores de todas as plataformas em `dist/` |
-| `make macos` / `make windows` / `make linux` | `.dmg` / `.msi` / `.tar.gz` |
+| `make dist` (ou só `make`) | instaladores de todas as plataformas em `dist/` |
+| `make local` | só o instalador da plataforma e arquitetura desta máquina |
+| `make macos` / `make windows` / `make linux` | `.dmg` (arm64 + x64) / `.msi` / `.tar.gz` (x64 + arm64) |
 | `make dist TARGETS="macos-arm64 windows-x64"` | só os alvos escolhidos |
 | `make test` | `check` do Django, migrations em dia, build e testes do React |
 | `make migrations` | gera a migration depois de mudar um modelo |
@@ -279,6 +280,7 @@ Saída em `dist/`, um instalador por SO:
 | Alvo          | Arquivo                                   | O que é                              |
 |---------------|-------------------------------------------|--------------------------------------|
 | `macos-arm64` | `PhotoEditor-<versão>-macos-arm64.dmg`    | `PhotoEditor.app` + janela "arraste para Aplicativos" |
+| `macos-x64`   | `PhotoEditor-<versão>-macos-x64.dmg`      | o mesmo, para Mac Intel |
 | `windows-x64` | `PhotoEditor-<versão>-windows-x64.msi`    | instala em `Program Files`, atalhos no Menu Iniciar e na Área de Trabalho |
 | `linux-*`     | `PhotoEditor-<versão>-linux-*.tar.gz`     | pasta com `runtime/`, `app/` e o lançador `PhotoEditor` |
 
@@ -309,11 +311,26 @@ Desktop.
 |---------------|----------------------------------------------------------|
 | `windows-x64` | Windows 10/11 64 bits                                    |
 | `macos-arm64` | macOS 14 (Apple Silicon)                                 |
+| `macos-x64`   | macOS 14 (Intel) — usa o onnxruntime 1.23.x, o último com wheel Intel |
 | `linux-x64`   | glibc 2.34 — Ubuntu 22.04, Debian 12, Fedora 35          |
 | `linux-arm64` | glibc 2.39 — Ubuntu 24.04                                |
 
-Instaladores (MSI/NSIS, `.app`/DMG com assinatura, AppImage/deb) são a
-próxima etapa e partem destas pastas.
+**Windows ARM64 não é gerado:** o OpenCV (motor de revelação, merge, camadas)
+não publica wheel para `win_arm64`. O `.msi` x64 roda no Windows 11 ARM pela
+emulação x64 do próprio Windows.
+
+### Release no GitHub
+
+`.github/workflows/release.yml`: ao **publicar uma Release**, o GitHub Actions
+gera os cinco instaladores (um job por alvo, em paralelo, no mesmo builder
+Docker do `make dist`) e os anexa à Release, cada um com o seu `.sha256`.
+
+- A tag tem de ser `v` + o `VERSION` do commit dela (ex.: `v1.0.39`); se não
+  bater, o workflow para antes de gerar qualquer coisa.
+- Para refazer os instaladores de uma Release: Actions → "Release installers"
+  → *Run workflow*, informando a tag.
+- O repositório é público: os minutos do Actions são gratuitos. Na Release,
+  cada arquivo pode ter até 2 GiB, sem limite de total nem de download.
 
 ## Banco e migrations
 

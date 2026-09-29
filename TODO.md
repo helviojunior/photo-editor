@@ -209,3 +209,7 @@ original + ajustes.
 - [x] **10.2** Foto de capa: uma por projeto, desfazível, selo na
       filmstrip; o Exportar a grava com o nome original **e** como
       `publicar/capa.jpg`.
+- [x] **9.9** `make dist` com cinco alvos (macOS arm64/x64, Windows x64,
+      Linux x64/arm64), `make local` (só a plataforma da máquina) e o
+      workflow que anexa os instaladores a cada Release publicada. Windows
+      ARM64 aguarda wheel `win_arm64` do OpenCV.

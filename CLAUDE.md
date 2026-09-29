@@ -432,8 +432,9 @@ Home).
   frontend.
 - **Toda escrita vai para `~/.photoe/` ou para a pasta do projeto**, nunca
   para a instalação (`<instalação>/app` pode ser somente leitura).
-- **Dependência Python só com wheel binária para as quatro plataformas**
-  (Windows x64, macOS arm64, Linux x64/arm64). O builder
+- **Dependência Python só com wheel binária para os cinco alvos**
+  (macOS arm64/x64, Windows x64, Linux x64/arm64). Windows ARM64 fica de fora
+  enquanto o OpenCV não tiver wheel `win_arm64`. O builder
   (`make dist` → `tools/build.py dist` no container) monta todas num único
   container Linux com `pip --platform … --only-binary=:all:` — um pacote só
   com sdist quebra o build. Ao adicionar uma, confira as tags no PyPI: elas
@@ -445,6 +446,9 @@ Home).
 - **Instaladores saem do mesmo container** (`tools/packaging/`): `.dmg` no
   macOS, `.msi` no Windows, `.tar.gz` no Linux. Arte (ícones, fundo do DMG)
   é desenhada em código a partir do logo — não versione PNG/ICNS/ICO pronto.
+- **Release no GitHub:** publicar uma Release com a tag `v<VERSION>` dispara
+  `.github/workflows/release.yml`, que gera e anexa os instaladores. Passo novo
+  de empacotamento entra no `Makefile` — o workflow só chama o `make`.
 - **Nunca troque os GUIDs de `tools/packaging/windows.py`** (`UpgradeCode` e
   componentes dos atalhos) nem o `BUNDLE_ID` do `.app`: é por eles que o
   Windows e o macOS reconhecem a versão nova como o mesmo programa.

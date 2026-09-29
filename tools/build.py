@@ -64,9 +64,12 @@ TARGETS = {
     'linux-arm64': {'pbs': 'aarch64-unknown-linux-gnu', 'platform': 'manylinux_2_39_aarch64', 'os': 'linux'},
     'windows-x64': {'pbs': 'x86_64-pc-windows-msvc', 'platform': 'win_amd64', 'os': 'windows'},
 }
-# `all` = o que se distribui hoje. macOS Intel: o onnxruntime parou de publicar
-# wheel x86_64 para macOS; `--target macos-x64` continua disponivel para testar.
-ALL_TARGETS = ['macos-arm64', 'windows-x64', 'linux-x64', 'linux-arm64']
+# `all` = o que se distribui. macOS Intel: o onnxruntime parou de publicar
+# wheel x86_64 para macOS na 1.24, e o pip resolve sozinho a 1.23.x para esse
+# alvo. Windows ARM64 NAO existe: o OpenCV (motor de revelacao, merge,
+# camadas) nao publica wheel win_arm64, e compila-lo exige MSVC. O .msi x64
+# roda no Windows 11 ARM pela emulacao x64 do proprio Windows.
+ALL_TARGETS = ['macos-arm64', 'macos-x64', 'windows-x64', 'linux-x64', 'linux-arm64']
 
 REQUIREMENTS = [ROOT / 'backend' / 'requirements.txt', ROOT / 'desktop' / 'requirements.txt']
 
@@ -423,7 +426,7 @@ def package(folder: Path, target: str, ver: str) -> Path:
     if os_name == 'macos':
         from tools.packaging import macos
         log('Building PhotoEditor.app and the .dmg')
-        app = macos.build_app(folder, CACHE / 'pkg' / target, ver)
+        app = macos.build_app(folder, CACHE / 'pkg' / target, ver, arch=target.split('-')[1])
         return macos.build_dmg(app, DIST / f'{folder.name}.dmg', CACHE / 'pkg' / f'{target}-dmg')
     if os_name == 'windows':
         from tools.packaging import windows

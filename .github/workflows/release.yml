@@ -1,0 +1,116 @@
+# Instaladores da versao, anexados a Release do GitHub.
+#
+# Dispara ao PUBLICAR uma Release (ou a mao, informando a tag). A tag tem de
+# ser "v" + o conteudo do VERSION do commit dela (ex.: v1.0.39): e o VERSION
+# que da nome aos instaladores, e a divergencia e barrada no primeiro job.
+#
+# Tudo roda no builder em Docker (tools/Dockerfile), o mesmo do `make dist`
+# local: um runner Linux monta os pacotes de todas as plataformas. Um job por
+# alvo, em paralelo — cada alvo pede ~10 GB de disco no pico, e o runner
+# padrao nao tem espaco para os cinco de uma vez.
+#
+# Artefato de cada alvo na Release: o instalador + o .sha256 dele.
+#   macos-arm64 / macos-x64 -> .dmg      windows-x64 -> .msi
+#   linux-x64 / linux-arm64 -> .tar.gz
+# Windows ARM64 nao existe (sem wheel do OpenCV); o .msi x64 roda no Windows
+# 11 ARM pela emulacao do proprio Windows.
+
+name: Release installers
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag da Release que recebe os instaladores (ex.: v1.0.39)"
+        required: true
+
+permissions:
+  contents: write     # anexar arquivos a Release
+
+concurrency:
+  group: release-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+env:
+  TAG: ${{ github.event.release.tag_name || inputs.tag }}
+
+jobs:
+  builder:
+    name: Builder image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: Tag matches VERSION
+        run: |
+          version="$(cat VERSION)"
+          if [ "${TAG#v}" != "$version" ]; then
+            echo "::error::A tag $TAG nao corresponde ao VERSION ($version) do commit dela. Use v$version."
+            exit 1
+          fi
+          echo "Version $version"
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Constroi (ou restaura do cache do Actions) a imagem do builder uma vez;
+      # os jobs dos alvos a reusam pelo mesmo cache.
+      - name: Build the builder image
+        uses: docker/build-push-action@v6
+        with:
+          context: tools
+          file: tools/Dockerfile
+          tags: photoeditor-builder
+          cache-from: type=gha,scope=builder
+          cache-to: type=gha,scope=builder,mode=max
+
+  package:
+    name: ${{ matrix.target }}
+    needs: builder
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [macos-arm64, macos-x64, windows-x64, linux-x64, linux-arm64]
+    steps:
+      # O runner vem com ~14 GB livres; o pico de um alvo passa de 10 GB.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          sudo docker image prune --all --force
+          df -h /
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Load the builder image (cache)
+        uses: docker/build-push-action@v6
+        with:
+          context: tools
+          file: tools/Dockerfile
+          tags: photoeditor-builder
+          load: true
+          cache-from: type=gha,scope=builder
+
+      - name: Build the installer
+        run: make dist TARGETS=${{ matrix.target }} SKIP_BUILDER=1
+
+      - name: Checksums
+        working-directory: dist
+        run: |
+          for f in PhotoEditor-*; do sha256sum "$f" > "$f.sha256"; done
+          ls -la
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" dist/PhotoEditor-* --clobber --repo "$GITHUB_REPOSITORY"

@@ -13,8 +13,12 @@ PYTHON      ?= python3
 VERSION     := $(shell cat VERSION)
 BUILDER     ?= photoeditor-builder
 # Alvos do `make dist` (ver TARGETS em tools/build.py): all | macos-arm64 |
-# windows-x64 | linux-x64 | linux-arm64 | macos-x64 — varios separados por espaco.
+# macos-x64 | windows-x64 | linux-x64 | linux-arm64 — varios separados por
+# espaco. `all` = os cinco. Windows ARM64 nao existe (sem wheel do OpenCV); o
+# .msi x64 roda no Windows 11 ARM pela emulacao do Windows.
 TARGETS     ?= all
+# 1 = usa a imagem do builder que ja existe (a CI a cria antes, com cache).
+SKIP_BUILDER ?=
 # Argumentos extras para o app no `make run` (ex.: ARGS="--devtools ~/Fotos/evento").
 ARGS        ?=
 # Onde o `make art` grava a previa da arte dos instaladores.
@@ -29,12 +33,15 @@ BUILDER_RUN  = docker run --rm --user "$$(id -u):$$(id -g)" -v "$(CURDIR)":/src 
 NODE_RUN     = docker run --rm -e REACT_APP_VERSION=$(VERSION) -v "$(CURDIR)/frontend":/app -w /app node:20-alpine
 # Python embarcado do host (criado pelo `make runtime`).
 HOST_PY      = $(shell $(PYTHON) -c "import sys; sys.path.insert(0, 'tools'); import build; print(build.python_exe(build.host_target()))")
+# Plataforma/arquitetura DESTA maquina (ex.: macos-arm64). Calculada no host:
+# dentro do container do builder a maquina e sempre Linux.
+LOCAL_TARGET = $(shell $(PYTHON) -c "import sys; sys.path.insert(0, 'tools'); import build; print(build.host_target())")
 # Pasta de projeto descartavel para os comandos do Django que exigem uma.
 CHECK_PROJECT = .cache/check-project
 
 target_args  = $(foreach t,$(TARGETS),--target $(t))
 
-.PHONY: default help run dev runtime model frontend builder dist macos dmg windows msi \
+.PHONY: default help run dev runtime model frontend builder dist local macos dmg windows msi \
         linux art test test-frontend test-backend migrations bump clean clean-all
 
 # Padrao: os instaladores (TARGETS, por padrao todos) — ver `make help`.
@@ -72,13 +79,18 @@ frontend: builder	## Build do React em frontend/build (no container)
 # --------------------------------------------------------------------------
 
 builder:		## Cria/atualiza a imagem do builder (tools/Dockerfile)
-	docker build -t $(BUILDER) -f tools/Dockerfile tools
+	@if [ -n "$(SKIP_BUILDER)" ]; then echo "SKIP_BUILDER: usando a imagem $(BUILDER) existente"; \
+	else docker build -t $(BUILDER) -f tools/Dockerfile tools; fi
 
 dist: builder		## [padrao] Instaladores de TARGETS (padrao: todos) em dist/
 	$(BUILDER_RUN) dist $(call target_args)
 
-macos: builder		## macOS: PhotoEditor.app num .dmg
-	$(BUILDER_RUN) dist --target macos-arm64
+local: builder		## Instalador so da plataforma e arquitetura desta maquina
+	@echo "==> Plataforma local: $(LOCAL_TARGET)"
+	$(BUILDER_RUN) dist --target $(LOCAL_TARGET)
+
+macos: builder		## macOS arm64 e x64: PhotoEditor.app num .dmg
+	$(BUILDER_RUN) dist --target macos-arm64 --target macos-x64
 
 dmg: macos		## Alias de `make macos`
 

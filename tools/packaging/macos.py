@@ -41,20 +41,24 @@ MKFS_HFSPLUS = os.environ.get('MKFS_HFSPLUS', 'mkfs.hfsplus')
 # Lancador do bundle: exec (mesmo PID) para o Dock tratar o Python como o app.
 # -E/-s: nada do Python do sistema vaza para dentro do app.
 #
-# ``arch -arm64`` no Apple Silicon: o executavel do bundle e um SCRIPT, e sem
-# um Mach-O para olhar o LaunchServices pode abri-lo sob Rosetta. O Python
-# (so arm64) roda nativo mesmo assim, mas a preferencia x86_64 fica no
-# processo — e o QtWebEngineProcess, que e universal2, sobe emulado e nunca
-# desenha a pagina (janela branca). hw.optional.arm64 responde 1 mesmo de
-# dentro do Rosetta, ao contrario do ``uname -m``.
+# ``arch -<arquitetura do pacote>`` no Apple Silicon: o executavel do bundle
+# e um SCRIPT, e sem um Mach-O para olhar o LaunchServices escolhe a
+# arquitetura as cegas. O Python (de uma arquitetura so) roda na dele mesmo
+# assim, mas a preferencia errada fica no processo — e o QtWebEngineProcess,
+# que e universal2, sobe na outra e nunca desenha a pagina (janela branca).
+# O pacote arm64 forca arm64; o Intel forca x86_64 (Rosetta) de ponta a ponta.
+# hw.optional.arm64 responde 1 mesmo de dentro do Rosetta (o ``uname -m`` nao).
 LAUNCHER = """#!/bin/sh
 RES="$(cd "$(dirname "$0")/../Resources" && pwd)"
 PY="$RES/runtime/bin/python3"
 if [ "$(/usr/sbin/sysctl -n hw.optional.arm64 2>/dev/null)" = "1" ]; then
-    exec /usr/bin/arch -arm64 "$PY" -E -s "$RES/app/desktop" "$@"
+    exec /usr/bin/arch -{arch} "$PY" -E -s "$RES/app/desktop" "$@"
 fi
 exec "$PY" -E -s "$RES/app/desktop" "$@"
 """
+
+# Arquitetura do alvo (tools/build.py) -> nome que o macOS usa.
+MACHO_ARCH = {'arm64': 'arm64', 'x64': 'x86_64'}
 
 # HFS+: o cabecalho do volume fica em 1024 bytes do inicio (e uma copia a
 # 1024 bytes do fim). Campos usados — ver TN1150 (HFS Plus Volume Format).
@@ -68,8 +72,12 @@ _ROOT_CNID = 2
 _MAC_EPOCH = datetime.datetime(1904, 1, 1, tzinfo=datetime.timezone.utc)
 
 
-def build_app(package_dir: Path, out_dir: Path, version: str) -> Path:
-    """``out_dir/PhotoEditor.app`` a partir da pasta do pacote (runtime/ + app/)."""
+def build_app(package_dir: Path, out_dir: Path, version: str, arch: str = 'arm64') -> Path:
+    """``out_dir/PhotoEditor.app`` a partir da pasta do pacote (runtime/ + app/).
+
+    ``arch`` = arquitetura do runtime do pacote (``arm64`` | ``x64``).
+    """
+    macho = MACHO_ARCH[arch]
     app = out_dir / f'{APP_NAME}.app'
     shutil.rmtree(app, ignore_errors=True)
     contents = app / 'Contents'
@@ -82,7 +90,7 @@ def build_app(package_dir: Path, out_dir: Path, version: str) -> Path:
     art.write_icns(resources / f'{APP_NAME}.icns')
 
     launcher = contents / 'MacOS' / APP_NAME
-    launcher.write_text(LAUNCHER)
+    launcher.write_text(LAUNCHER.replace('{arch}', macho))
     launcher.chmod(0o755)
 
     with open(contents / 'Info.plist', 'wb') as f:
@@ -99,9 +107,10 @@ def build_app(package_dir: Path, out_dir: Path, version: str) -> Path:
             'CFBundleDevelopmentRegion': 'en',
             'CFBundleLocalizations': ['en', 'pt-BR'],
             'LSMinimumSystemVersion': MIN_MACOS,
-            # Nunca sob Rosetta (ver LAUNCHER): o runtime e so arm64.
-            'LSArchitecturePriority': ['arm64'],
-            'LSRequiresNativeExecution': True,
+            # So a arquitetura do runtime (ver LAUNCHER). O pacote arm64 nunca
+            # abre sob Rosetta; o Intel, no Apple Silicon, sempre.
+            'LSArchitecturePriority': [macho],
+            **({'LSRequiresNativeExecution': True} if arch == 'arm64' else {}),
             'LSApplicationCategoryType': 'public.app-category.photography',
             'NSHighResolutionCapable': True,
             'NSSupportsAutomaticGraphicsSwitching': True,
