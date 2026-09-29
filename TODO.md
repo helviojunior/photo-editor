@@ -201,3 +201,11 @@ original + ajustes.
 - [ ] **9.8** Enxugar o PySide6 (tirar módulos Qt que o app não usa) — o
       runtime tem ~1,5 GB.
 
+## 10. Edição — ajustes de uso
+
+- [x] **10.1** Painéis redimensionáveis no desktop (fotos × filmstrip,
+      Original × Editada, largura do painel), com tamanhos lembrados,
+      duplo clique para o padrão e setas do teclado.
+- [x] **10.2** Foto de capa: uma por projeto, desfazível, selo na
+      filmstrip; o Exportar a grava com o nome original **e** como
+      `publicar/capa.jpg`.

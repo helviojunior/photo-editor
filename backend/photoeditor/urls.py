@@ -8,7 +8,7 @@ from photoeditor.views.photos import (
     PhotoThumbnailView, PhotoPreviewView, PhotoOriginalView,
     PhotoHistoryView, UndoView, PhotoRenderView, DevelopConfigView,
     PhotoAdjustmentsView, PhotoAutoView, PhotoResetView, ExportView,
-    PhotoSegmentView, MaskView, PhotoDuplicateView,
+    PhotoSegmentView, MaskView, PhotoDuplicateView, PhotoCoverView,
 )
 from photoeditor.views.merges import (
     MergeListView, MergeDetailView, MergeLayerView, MergeCutoutView,
@@ -47,6 +47,7 @@ project_patterns = [
     path('api/photos/<uuid:pk>/reset/', PhotoResetView.as_view(), name='photo-reset'),
     path('api/photos/<uuid:pk>/history/', PhotoHistoryView.as_view(), name='photo-history'),
     path('api/photos/<uuid:pk>/duplicate/', PhotoDuplicateView.as_view(), name='photo-duplicate'),
+    path('api/photos/<uuid:pk>/cover/', PhotoCoverView.as_view(), name='photo-cover'),
 
     # Camadas: selecao por pincel (vira mascara) e o PNG da mascara
     path('api/photos/<uuid:pk>/segment/', PhotoSegmentView.as_view(), name='photo-segment'),

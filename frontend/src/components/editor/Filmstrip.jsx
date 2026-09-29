@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import { Star } from "lucide-react";
 import { cn } from "lib/utils";
 import { useI18n } from "i18n";
 import { SelectionCheck } from "components/ui/selection-check";
@@ -15,6 +16,9 @@ import { SelectionCheck } from "components/ui/selection-check";
  * merge): clicar marca/desmarca em vez de abrir, cada foto ganha o círculo
  * de seleção (regra 2.3) e a primeira marcada, na ordem da faixa, leva o
  * selo de base.
+ *
+ * A capa do evento (sai também como publicar/capa.jpg) leva o selo com a
+ * estrela no canto de cima.
  */
 export default function Filmstrip({ photos, currentId, onSelect, picked = null, onPick }) {
   const { t } = useI18n();
@@ -66,6 +70,12 @@ export default function Filmstrip({ photos, currentId, onSelect, picked = null, 
             {!picking && (photo.merge_id || photo.copy_of) && (
               <span className="absolute bottom-1 left-1 z-10 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white">
                 {photo.merge_id ? t("merge.badge", "Merge") : t("editor.copyBadge", "Copy")}
+              </span>
+            )}
+            {photo.is_cover && (
+              <span className="absolute right-1 top-1 z-10 inline-flex items-center gap-0.5 rounded bg-brand-500 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white">
+                <Star className="h-2.5 w-2.5 fill-current" aria-hidden="true" />
+                {t("editor.cover.badge", "Cover")}
               </span>
             )}
             {photo.id === baseId && (

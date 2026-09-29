@@ -23,6 +23,7 @@ class HistoryEntry(Base):
         CROP = 'crop', 'Crop'
         LAYER = 'layer', 'Layer'
         DUPLICATE = 'duplicate', 'Duplicate'
+        COVER = 'cover', 'Cover'
 
     photo = models.ForeignKey('photoeditor.Photo', on_delete=models.CASCADE,
                               related_name='history')

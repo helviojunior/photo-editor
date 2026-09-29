@@ -12,6 +12,10 @@ arquivos que o proprio editor escreveu, nunca um original.
 Base de merge sai como ``<base>_merge.jpg`` (o merge composto, com os
 ajustes da base) e as fotos que sao camada de um merge nao saem.
 
+A capa do evento (``services/cover.py``) sai tambem como ``capa.jpg``: copia
+exata do que foi exportado para aquela foto. Sem capa (ou com a capa fora da
+filmstrip), um ``capa.jpg`` antigo sai de publicar/.
+
 O estado do job vive na memoria do processo: o servidor local (waitress,
 desktop/server.py) e um processo so com threads, entao todas as requisicoes
 enxergam o mesmo job.
@@ -29,20 +33,23 @@ from django.utils import timezone
 from photoeditor.imaging import develop, publish
 from photoeditor.imaging.io import raw_path
 from photoeditor.models import Photo
-from photoeditor.services import catalog, editing, layers, merges
+from photoeditor.services import catalog, cover, editing, layers, merges
 from photoeditor.services.derivatives import write_atomic
 
 log = logging.getLogger(__name__)
 
 # Sobe quando o formato de saida muda (caixa, qualidade, EXIF...).
 EXPORT_VERSION = 1
+# Nome da capa em publicar/ (pedido do fluxo de publicacao, por isso em PT).
+COVER_FILE_NAME = 'capa.jpg'
 # Duas fotos por vez: numpy e o codec JPEG soltam o GIL, e cada render de
 # 1080p segura ~150 MB — mais workers so disputariam memoria.
 WORKERS = 2
 
 _lock = threading.Lock()
 _state = {'running': False, 'total': 0, 'done': 0, 'written': 0, 'skipped': 0,
-          'removed': 0, 'errors': [], 'started_at': None, 'finished_at': None}
+          'removed': 0, 'errors': [], 'started_at': None, 'finished_at': None,
+          'cover': None}
 
 
 def _snapshot() -> dict:
@@ -71,7 +78,7 @@ def start() -> dict:
             return _snapshot()
         _state.update(running=True, total=0, done=0, written=0, skipped=0,
                       removed=0, errors=[], started_at=timezone.now().isoformat(),
-                      finished_at=None)
+                      finished_at=None, cover=None)
         snapshot = _snapshot()
     threading.Thread(target=_run, name='export', daemon=True).start()
     return snapshot
@@ -137,6 +144,36 @@ def _remove_stale(hidden):
         _bump(removed=1)
 
 
+def _export_cover(visible_ids, index):
+    """``capa.jpg`` = copia do que a exportacao escreveu para a capa.
+
+    So regrava quando o conteudo mudou (o arquivo da foto ja passou pelo
+    pulo de ``exported_hash``). Capa ausente, excluida ou escondida num merge:
+    o ``capa.jpg`` antigo sai. Uma foto do catalogo chamada ``capa.jpg`` tem a
+    preferencia pelo nome — ai a capa nao e gravada (e o log avisa).
+    """
+    target = settings.PUBLISH_DIR / COVER_FILE_NAME
+    if Photo.objects.filter(file_name__iexact=COVER_FILE_NAME,
+                            status=Photo.Status.ACTIVE).exists():
+        log.warning("A photo is named %s: the cover file is not written.", COVER_FILE_NAME)
+        return
+    photo = cover.current()
+    if photo is None or photo.pk not in visible_ids:
+        target.unlink(missing_ok=True)
+        return
+    name = merges.export_name(photo) if merges.version(index.get(photo.pk)) else photo.file_name
+    source = settings.PUBLISH_DIR / name
+    if not source.is_file():
+        # A exportacao da propria foto falhou (ja esta nos erros).
+        return
+    data = source.read_bytes()
+    if not (target.is_file() and target.read_bytes() == data):
+        write_atomic(target, data)
+    with _lock:
+        _state['cover'] = COVER_FILE_NAME
+    log.info("Cover exported: %s -> %s", name, COVER_FILE_NAME)
+
+
 def _run():
     try:
         settings.PUBLISH_DIR.mkdir(parents=True, exist_ok=True)
@@ -150,6 +187,7 @@ def _run():
         with ThreadPoolExecutor(max_workers=WORKERS) as pool:
             list(pool.map(lambda p: _export_one(p, index.get(p.pk)), photos))
         _remove_stale(hidden)
+        _export_cover({p.pk for p in photos}, index)
     except Exception:
         log.exception("Export aborted")
         with _lock:

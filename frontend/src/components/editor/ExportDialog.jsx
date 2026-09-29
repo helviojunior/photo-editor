@@ -69,6 +69,12 @@ export default function ExportDialog({ open, status, onClose }) {
           </dl>
         )}
 
+        {!running && status.cover && (
+          <p className="text-xs text-muted-foreground">
+            {tf("export.cover", { file: `${status.output_dir}/${status.cover}` })}
+          </p>
+        )}
+
         {status.errors.length > 0 && (
           <FormErrors items={[
             t("export.errors", "Some photos could not be exported:"),

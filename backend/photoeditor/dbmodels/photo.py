@@ -47,8 +47,16 @@ class Photo(Base):
     # ajustes + versoes). Reexportar pula a foto quando ele nao mudou.
     exported_hash = models.CharField(max_length=32, blank=True, default='')
 
+    # A capa do evento: o Exportar a grava tambem como ``publicar/capa.jpg``.
+    # No maximo UMA foto do projeto (constraint abaixo); ver services/cover.py.
+    is_cover = models.BooleanField(default=False)
+
     class Meta:
         ordering = [models.F('captured_at').asc(nulls_last=True), 'file_name']
+        constraints = [
+            models.UniqueConstraint(fields=['is_cover'], condition=models.Q(is_cover=True),
+                                    name='photo_single_cover'),
+        ]
 
     def __str__(self):
         return self.file_name

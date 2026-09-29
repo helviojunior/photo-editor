@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Combine, Copy, ImageOff, RefreshCw, Trash2, Undo2, Upload, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Combine, Copy, ImageOff, RefreshCw, Star, Trash2, Undo2, Upload, X } from "lucide-react";
 import api from "lib/api";
 import { useI18n } from "i18n";
 import { useDialog } from "contexts/DialogContext";
 import { Button } from "components/ui/button";
 import { FormError } from "components/ui/form-error";
+import { Splitter } from "components/ui/splitter";
+import { useIsMobile } from "components/layout/Sidebar";
 import ImagePane from "components/editor/ImagePane";
 import CropEditor from "components/editor/CropEditor";
 import SelectEditor from "components/editor/SelectEditor";
@@ -17,6 +19,7 @@ import EditPanel from "components/editor/EditPanel";
 import ExportDialog from "components/editor/ExportDialog";
 import useShortcuts from "components/editor/useShortcuts";
 import useLoadedImage from "components/editor/useLoadedImage";
+import usePanelLayout from "components/editor/usePanelLayout";
 import renderUrl, { sameState } from "components/editor/renderUrl";
 import { normalizeCrop } from "components/editor/crop";
 import { SORT_OPTIONS, readSort, sortPhotos, writeSort } from "components/editor/sortPhotos";
@@ -26,6 +29,10 @@ import { SORT_OPTIONS, readSort, sortPhotos, writeSort } from "components/editor
  *
  *   70% superior: original | editada | painel de edição
  *   30% inferior: filmstrip com a foto atual ao centro
+ *
+ * No desktop as três divisões são arrastáveis (usePanelLayout): alto/baixo,
+ * original/editada e a largura do painel. No celular o layout é empilhado e
+ * as divisórias não aparecem.
  *
  * Abaixo de `lg:` as duas fotos ficam lado a lado numa faixa, o painel desce
  * para baixo delas e a página rola — no celular não há altura para 70/30.
@@ -57,6 +64,12 @@ export default function Editor() {
   const [status, setStatus] = useState("");
   // Sobe a cada acao: o historico da foto recarrega.
   const [historyVersion, setHistoryVersion] = useState(0);
+  // Divisórias arrastáveis (só no desktop: abaixo de lg o layout empilha).
+  const isMobile = useIsMobile();
+  const panels = usePanelLayout();
+  const rootRef = useRef(null);
+  const topRef = useRef(null);
+  const imagesRef = useRef(null);
   // Uma acao por vez: DEL segurado nao pode disparar varias exclusoes.
   const busyRef = useRef(false);
   const [busy, setBusy] = useState("");
@@ -423,6 +436,18 @@ export default function Editor() {
     goTo(res.data.id);
   }, "duplicate"), [runAction, current, loadPhotos, tf, goTo]);
 
+  // Capa do evento: sai também como publicar/capa.jpg no Exportar. Marcar
+  // tira a marca da anterior, então a lista inteira é recarregada.
+  const toggleCover = useCallback(() => runAction(async () => {
+    if (!current) return;
+    const on = !current.is_cover;
+    await api.post(`/api/photos/${current.id}/cover/`, { cover: on });
+    await loadPhotos();
+    setStatus(on
+      ? tf("editor.cover.done", { name: current.file_name })
+      : t("editor.cover.cleared", "The project has no cover now."));
+  }, "cover"), [runAction, current, loadPhotos, t, tf]);
+
   // CTRL/CMD+Z: desfaz a ultima acao de QUALQUER foto e abre a foto afetada.
   const undo = useCallback(() => runAction(async () => {
     const res = await api.post("/api/history/undo/");
@@ -487,10 +512,15 @@ export default function Editor() {
   }
 
   return (
-    <div className="flex w-full flex-col lg:h-full">
-      {/* Parte superior: 70% da altura no desktop */}
-      <section className="flex flex-col border-b border-border lg:h-[70%] lg:flex-row">
-        <div className="grid h-[42vh] min-h-0 grid-cols-2 gap-px bg-border lg:h-auto lg:flex-1">
+    <div ref={rootRef} className="flex w-full flex-col lg:h-full">
+      {/* Parte superior: 70% da altura no desktop (arrastável) */}
+      <section ref={topRef} className="flex flex-col lg:min-h-0 lg:flex-row"
+        style={isMobile ? undefined : { height: `${panels.layout.top * 100}%` }}>
+        <div ref={imagesRef}
+          className="grid h-[42vh] min-h-0 grid-cols-2 gap-px bg-border lg:h-auto lg:min-w-0 lg:flex-1 lg:gap-0"
+          style={isMobile ? undefined : {
+            gridTemplateColumns: `minmax(0, ${panels.layout.split}fr) auto minmax(0, ${1 - panels.layout.split}fr)`,
+          }}>
           {cropMode && current && draft ? (
             <CropEditor label={t("editor.original")} src={current.preview_url}
               photo={current} crop={draft.crop} onChange={updateCrop}
@@ -506,11 +536,27 @@ export default function Editor() {
             <ImagePane label={t("editor.original")} src={current?.preview_url}
               alt={current?.file_name} />
           )}
+          {!isMobile && (
+            <Splitter orientation="vertical" label={t("layout.splitImages", "Resize original and edited")}
+              value={panels.layout.split * 100}
+              onDrag={(e) => {
+                const r = imagesRef.current.getBoundingClientRect();
+                panels.set("split", (e.clientX - r.left) / r.width);
+              }}
+              onStep={(d) => panels.step("split", d)} onReset={() => panels.reset("split")} />
+          )}
           <ImagePane label={t("editor.edited")} src={edited.src}
             alt={current?.file_name} busy={edited.loading} />
         </div>
 
-        <aside className="w-full border-t border-border bg-card lg:w-72 lg:shrink-0 lg:overflow-y-auto lg:border-l lg:border-t-0 scrollbar-thin">
+        {!isMobile && (
+          <Splitter orientation="vertical" label={t("layout.splitPanel", "Resize the edit panel")}
+            value={panels.layout.panel}
+            onDrag={(e) => panels.set("panel", topRef.current.getBoundingClientRect().right - e.clientX)}
+            onStep={(d) => panels.step("panel", -d)} onReset={() => panels.reset("panel")} />
+        )}
+        <aside className="w-full border-t border-border bg-card lg:shrink-0 lg:overflow-y-auto lg:border-t-0 scrollbar-thin"
+          style={isMobile ? undefined : { width: panels.layout.panel }}>
           {current && (
             <div className="space-y-1 border-b border-border p-4 text-xs">
               <div className="truncate text-sm font-semibold" title={current.file_name}>
@@ -556,8 +602,18 @@ export default function Editor() {
         </aside>
       </section>
 
-      {/* Parte inferior: filmstrip (30%) */}
-      <section className="flex h-44 flex-col bg-card lg:h-[30%]">
+      {isMobile ? <div className="h-px bg-border" /> : (
+        <Splitter orientation="horizontal" label={t("layout.splitFilmstrip", "Resize the filmstrip")}
+          value={panels.layout.top * 100}
+          onDrag={(e) => {
+            const r = rootRef.current.getBoundingClientRect();
+            panels.set("top", (e.clientY - r.top) / r.height);
+          }}
+          onStep={(d) => panels.step("top", d)} onReset={() => panels.reset("top")} />
+      )}
+
+      {/* Parte inferior: filmstrip (o que sobra da altura) */}
+      <section className="flex h-44 flex-col bg-card lg:h-auto lg:min-h-0 lg:flex-1">
         <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-1 border-b border-border px-3 py-1 text-xs">
           <span className="font-medium">
             {photos && index >= 0
@@ -608,6 +664,13 @@ export default function Editor() {
               onClick={() => step(1)} disabled={!photos || index >= photos.length - 1} />
             <IconButton icon={Copy} label={t("editor.duplicate", "Duplicate photo (virtual copy)")}
               onClick={duplicateCurrent} disabled={!current || !!picked} />
+            <IconButton icon={Star}
+              label={current?.is_cover
+                ? t("editor.cover.unset", "Cover photo — click to unset")
+                : t("editor.cover.set", "Set as cover (exported as capa.jpg)")}
+              aria-pressed={!!current?.is_cover}
+              className={current?.is_cover ? "text-brand-400 [&_svg]:fill-current" : undefined}
+              onClick={toggleCover} disabled={!current || !!picked} />
             <IconButton icon={Trash2} label={t("editor.delete", "Delete photo (Del)")}
               onClick={deleteCurrent} disabled={!current} />
             <IconButton icon={Undo2} label={t("editor.undo", "Undo (Ctrl/Cmd+Z)")}

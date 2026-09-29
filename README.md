@@ -79,6 +79,22 @@ O **Exportar** grava a cópia como `publicar/<nome>_copy.jpg` (`_copy2`,
 as cópias da filmstrip junto (desfazer traz tudo de volta). `Ctrl/Cmd+Z`
 desfaz a duplicação.
 
+## Capa do evento
+
+A estrela na barra da filmstrip marca a foto atual como **capa** (selo
+"Capa" no thumbnail; só uma por projeto — marcar outra tira a anterior; é
+desfazível com `Ctrl/Cmd+Z`). No **Exportar** a capa sai duas vezes em
+`publicar/`: com o nome original, como toda foto, e como **`capa.jpg`** —
+cópia idêntica (se a capa for base de um merge, a cópia é a do merge). Sem
+capa, um `capa.jpg` antigo é removido.
+
+## Painéis redimensionáveis
+
+No desktop, as divisões do editor são arrastáveis: fotos × filmstrip,
+Original × Editada e a largura do painel de edição. Os tamanhos ficam salvos
+no app; duplo clique numa divisória volta ao padrão, e as setas do teclado
+também a movem (com ela em foco).
+
 ## Merge (trajetória da bola)
 
 Várias fotos da mesma jogada viram uma só, com o objeto de cada clique
@@ -293,6 +309,7 @@ próxima etapa e partem destas pastas.
 | `POST /api/photos/<id>/segment/` | Traço do pincel → máscara do objeto    |
 | `GET  /api/masks/<chave>.png` | Máscara de uma camada (overlay)           |
 | `POST /api/photos/<id>/duplicate/` | Cópia virtual da foto, com os ajustes dela |
+| `POST /api/photos/<id>/cover/` | Marca (`{"cover": true}`) ou desmarca a capa do evento |
 | `POST /api/merges/`  | Cria o merge (`{"photos": [...]}`, a 1ª é a base)  |
 | `GET/PUT/DELETE /api/merges/<id>/` | Lê, edita (área/opacidade) e desfaz o merge |
 | `DELETE /api/merges/<id>/layers/<foto>/` | Tira a foto da composição (volta à filmstrip) |

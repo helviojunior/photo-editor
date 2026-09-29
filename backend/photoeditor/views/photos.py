@@ -11,7 +11,7 @@ from photoeditor.imaging import develop, segment
 from photoeditor.imaging.io import raw_path
 from photoeditor.models import Photo
 from photoeditor.services import (
-    catalog, copies, derivatives, editing, export, history, layers, merges, trash,
+    catalog, copies, cover, derivatives, editing, export, history, layers, merges, trash,
 )
 
 # URLs de imagem carregam a versao (mtime / hash dos ajustes): o conteudo de
@@ -77,6 +77,8 @@ def photo_json(photo, merge_index=None):
         'copy_of': str(photo.copy_of_id) if photo.copy_of_id else None,
         # A foto e a base de um merge: a "Editada" parte dele.
         'merge_id': str(merge.pk) if merge else None,
+        # Capa do evento: sai tambem como publicar/capa.jpg.
+        'is_cover': photo.is_cover,
     }
 
 
@@ -124,6 +126,15 @@ class PhotoDuplicateView(APIView):
 
     def post(self, request, pk):
         return Response(photo_json(copies.duplicate(active_photo(pk))), status=201)
+
+
+class PhotoCoverView(APIView):
+    """``{"cover": true|false}``: marca a foto como capa do evento (tirando a
+    marca da anterior) ou desmarca. Desfazivel."""
+
+    def post(self, request, pk):
+        on = bool((request.data or {}).get('cover', True))
+        return Response(photo_json(cover.set_cover(active_photo(pk), on)))
 
 
 class PhotoHistoryView(APIView):
