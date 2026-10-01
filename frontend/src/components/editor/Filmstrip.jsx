@@ -18,8 +18,8 @@ import { SelectionCheck } from "components/ui/selection-check";
  * selo de base.
  *
  * A capa do evento (sai também como publicar/capa.jpg) leva o selo com a
- * estrela no canto de cima. A versão Instagram leva o selo dela embaixo, e a
- * foto que tem uma, o ícone no canto de cima.
+ * estrela no canto de cima. A foto que tem versão Instagram leva o ícone do
+ * Instagram no canto de cima (a versão em si não entra na faixa: abre com I).
  */
 export default function Filmstrip({ photos, currentId, onSelect, picked = null, onPick }) {
   const { t } = useI18n();
@@ -68,14 +68,7 @@ export default function Filmstrip({ photos, currentId, onSelect, picked = null, 
               <SelectionCheck checked={checked}
                 className="absolute left-1.5 top-1.5 z-10 bg-black/50 text-white" />
             )}
-            {!picking && photo.instagram_of && (
-              // Só o ícone: o nome não cabe na miniatura de uma foto em pé.
-              <span className="absolute bottom-1 left-1 z-10 rounded bg-brand-500 p-0.5 text-white"
-                title={t("instagram.badge", "Instagram version")}>
-                <Instagram className="h-3 w-3" aria-hidden="true" />
-              </span>
-            )}
-            {!picking && !photo.instagram_of && (photo.merge_id || photo.copy_of) && (
+            {!picking && (photo.merge_id || photo.copy_of) && (
               <span className="absolute bottom-1 left-1 z-10 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white">
                 {photo.merge_id ? t("merge.badge", "Merge") : t("editor.copyBadge", "Copy")}
               </span>

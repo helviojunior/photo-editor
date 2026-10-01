@@ -150,8 +150,10 @@ virtual com todos os ajustes, camadas e o merge que a foto já tem — e a abre
 no modo recorte, com o quadro preso aos formatos que o feed aceita:
 **4:5** (retrato), **1:1** ou **1,91:1** (paisagem). Escolha o formato no
 painel; o resto do painel funciona como sempre. `I` de novo volta à foto;
-na foto, `I` abre a versão que já existe. A versão fica na filmstrip ao lado
-da original, com o selo do Instagram; excluí-la (`Del`) a tira da seleção.
+na foto, `I` abre a versão que já existe. A versão não aparece na filmstrip
+— clicar numa foto ou andar com as setas abre sempre a foto, nunca o editor do
+Instagram; a foto que tem versão leva o ícone do Instagram no canto. Dentro da
+versão, `Del` a exclui (tira a foto da seleção do Instagram).
 
 **Exportar** grava as versões em `publicar/instagram/` com 1080 px de
 largura (1080×1350, 1080×1080 ou 1080×566), e não na raiz de `publicar/`.

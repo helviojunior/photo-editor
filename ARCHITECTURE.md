@@ -117,7 +117,8 @@ fundo. Nas fotos de teste: ~2.100 pontos de fundo por par e erro mediano de
 - **Versão Instagram** (`services/instagram.py`): cópia virtual da foto
   (`Photo.copy_of` = quem tem o JPEG) com `Photo.instagram_of` = a foto de
   origem. Nasce com os ajustes e camadas dela; o merge da origem vale para
-  ela (`merges.for_photo`). Uma ativa por foto.
+  ela (`merges.for_photo`). Uma ativa por foto. A API a lista em
+  `/api/photos/`, mas a filmstrip não a mostra: só se abre pelo `I`/botão.
 - **Crop com proporção:** o quadro tem `ratio` (altura/largura; 0 = a da
   foto, `Adjustment.crop_ratio`). Na versão Instagram, `editing.crop_ratios`
   o prende a `develop.INSTAGRAM_RATIOS` (4:5, 1:1, 1,91:1) e o giro a ±45°.

@@ -52,7 +52,8 @@ import { SORT_OPTIONS, readSort, sortPhotos, writeSort } from "components/editor
  *
  * Instagram: `I` (ou o botão) cria a versão Instagram da foto — uma cópia
  * virtual com tudo o que ela já tem — e a abre já no modo crop, com o quadro
- * preso às proporções do feed. Na versão, `I` volta à foto de origem. O
+ * preso às proporções do feed. Na versão, `I` volta à foto de origem. A
+ * versão não entra na filmstrip: só se chega a ela pedindo (`I`/botão). O
  * Exportar grava as versões em publicar/instagram/ e "Publicar" as envia.
  */
 const newLayerId = () => Math.random().toString(36).slice(2, 10) || "layer";
@@ -66,7 +67,11 @@ export default function Editor() {
   // Catálogo como veio da API; `photos` é ele na ordem escolhida na barra.
   const [catalog, setPhotos] = useState(null);
   const [sort, setSort] = useState(readSort);
-  const photos = useMemo(() => sortPhotos(catalog, sort), [catalog, sort]);
+  // `sorted` tem tudo; a FILMSTRIP (`photos`) não tem as versões Instagram:
+  // clicar ou andar com as setas nunca cai numa delas — a versão só abre
+  // pelo I (ou o botão), e a foto de origem leva o marcador.
+  const sorted = useMemo(() => sortPhotos(catalog, sort), [catalog, sort]);
+  const photos = useMemo(() => sorted && sorted.filter((p) => !p.instagram_of), [sorted]);
   const changeSort = (value) => { setSort(value); writeSort(value); };
   const [loadError, setLoadError] = useState(false);
   const [rescanning, setRescanning] = useState(false);
@@ -141,18 +146,21 @@ export default function Editor() {
     }
   };
 
+  // Na versão Instagram, a posição na filmstrip é a da foto de origem.
+  const current = useMemo(() => (sorted ? sorted.find((p) => p.id === id) || null : null),
+    [sorted, id]);
+  const stripId = current?.instagram_of || current?.id;
   const index = useMemo(
-    () => (photos ? photos.findIndex((p) => p.id === id) : -1),
-    [photos, id]
+    () => (photos && stripId ? photos.findIndex((p) => p.id === stripId) : -1),
+    [photos, stripId]
   );
-  const current = index >= 0 ? photos[index] : null;
   // Versão Instagram: o quadro do crop só pode ter as proporções do feed.
   const isInstagram = !!current?.instagram_of;
   const instagramConfig = develop?.crop?.instagram || null;
   const cropRatios = isInstagram && instagramConfig
     ? instagramConfig.ratios.map((r) => r.ratio) : null;
   const instagramVersions = useMemo(
-    () => (photos || []).filter((p) => p.instagram_of), [photos]);
+    () => (sorted || []).filter((p) => p.instagram_of), [sorted]);
 
   const goTo = useCallback(
     (photoId, replace = false) => navigate(`/photos/${photoId}`, { replace }),
@@ -418,12 +426,8 @@ export default function Editor() {
   // Fotos marcadas para o merge (null = fora do modo). Guardadas na ordem do
   // clique; quem manda na ordem do merge é a filmstrip.
   const [picked, setPicked] = useState(null);
-  // A versão Instagram já parte do merge da origem: não entra em outro.
-  const togglePick = useCallback((photoId) => {
-    if (photos?.find((p) => p.id === photoId)?.instagram_of) return;
-    setPicked((list) => (
-      list.includes(photoId) ? list.filter((x) => x !== photoId) : [...list, photoId]));
-  }, [photos]);
+  const togglePick = useCallback((photoId) => setPicked((list) => (
+    list.includes(photoId) ? list.filter((x) => x !== photoId) : [...list, photoId])), []);
   const pickedInOrder = useMemo(
     () => (picked && photos ? photos.filter((p) => picked.includes(p.id)).map((p) => p.id) : []),
     [picked, photos]);
@@ -756,7 +760,7 @@ export default function Editor() {
         </div>
         <div className="min-h-0 flex-1 px-2">
           {photos && (
-            <Filmstrip photos={photos} currentId={current?.id} onSelect={goTo}
+            <Filmstrip photos={photos} currentId={stripId} onSelect={goTo}
               picked={picked} onPick={togglePick} />
           )}
         </div>
