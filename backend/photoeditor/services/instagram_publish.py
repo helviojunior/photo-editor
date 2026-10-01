@@ -15,8 +15,9 @@ from django.conf import settings
 from django.db import connection
 from django.utils import timezone
 
+from photoeditor.imaging import develop
 from photoeditor.models import InstagramPost, Photo
-from photoeditor.services import catalog, export, instagram_account, merges
+from photoeditor.services import catalog, editing, export, instagram_account, merges
 from photoeditor.services.history import ActionError
 
 log = logging.getLogger(__name__)
@@ -65,6 +66,11 @@ def start(photo_ids, caption) -> dict:
     photos = [found[i] for i in ids if i in found]
     if not photos:
         raise ActionError('instagram.noPhotos')
+    outside = [p.file_name for p in photos
+               if not develop.instagram_feed_ok(editing.get_state(p)['crop'], editing.aspect(p))]
+    if outside:
+        # 1,91:1 girado alem de 45° sai vertical (1:1,91): o feed recusa.
+        raise ActionError('instagram.outOfFeed', name=', '.join(outside))
     caption = (caption or '').strip()
     if len(caption) > CAPTION_MAX:
         raise ActionError('instagram.captionTooLong', max=CAPTION_MAX)

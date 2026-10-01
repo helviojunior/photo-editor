@@ -43,6 +43,7 @@ CATALOGS = {
         'instagram.publishFailed': 'The post could not be published.',
         'instagram.publishRunning': 'A post is already being published.',
         'instagram.noPhotos': 'Choose at least one Instagram version to publish.',
+        'instagram.outOfFeed': 'Outside the formats the feed accepts (a 1.91:1 frame turned past 45° becomes vertical 1:1.91): {name}. Turn the frame back or choose another format.',
         'instagram.tooMany': 'An Instagram post takes at most {max} photos.',
         'instagram.captionTooLong': 'The caption is longer than the {max} characters Instagram accepts.',
 
@@ -78,6 +79,7 @@ CATALOGS = {
         'instagram.publishFailed': 'Não foi possível publicar o post.',
         'instagram.publishRunning': 'Já há um post sendo publicado.',
         'instagram.noPhotos': 'Escolha pelo menos uma versão Instagram para publicar.',
+        'instagram.outOfFeed': 'Fora dos formatos que o feed aceita (o quadro 1,91:1 girado além de 45° fica vertical, 1:1,91): {name}. Volte o giro ou escolha outro formato.',
         'instagram.tooMany': 'Um post do Instagram aceita no máximo {max} fotos.',
         'instagram.captionTooLong': 'A legenda passa dos {max} caracteres que o Instagram aceita.',
 

@@ -149,7 +149,11 @@ filmstrip) numa foto. O app cria a **versão Instagram** dela — uma cópia
 virtual com todos os ajustes, camadas e o merge que a foto já tem — e a abre
 no modo recorte, com o quadro preso aos formatos que o feed aceita:
 **4:5** (retrato), **1:1** ou **1,91:1** (paisagem). Escolha o formato no
-painel; o resto do painel funciona como sempre. `I` de novo volta à foto;
+painel; o resto do painel funciona como sempre. Em 4:5 e 1:1 o quadro gira
+até 45° (só endireita); no 1,91:1 gira até 90°, como no recorte normal —
+passando de 45° ele deita e o recorte fica vertical (1:1,91). Esse formato
+é exportado, mas o feed não aceita: o painel avisa e o Publicar não deixa
+enviá-lo. `I` de novo volta à foto;
 na foto, `I` abre a versão que já existe. A versão não aparece na filmstrip
 — clicar numa foto ou andar com as setas abre sempre a foto, nunca o editor do
 Instagram; a foto que tem versão leva o ícone do Instagram no canto. Dentro da

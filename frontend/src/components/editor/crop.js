@@ -12,7 +12,9 @@
 export const CROP_IDENTITY = { scale: 1, cx: 0.5, cy: 0.5, angle: 0, ratio: 0 };
 export const CROP_MIN_SCALE = 0.1;
 export const CROP_MAX_ANGLE = 90;
-// Versão Instagram: o giro só endireita; a orientação vem da proporção.
+// Versão Instagram: em 4:5 e 1:1 o giro só endireita (±45°); o 1,91:1 vem
+// do backend com ±90°, a regra do crop normal (passando de 45° ele deita e o
+// recorte sai vertical, 1:1,91 — fora do feed).
 export const INSTAGRAM_MAX_ANGLE = 45;
 
 const rad = (deg) => (deg * Math.PI) / 180;
@@ -55,14 +57,18 @@ export function isCropIdentity(crop) {
 }
 
 /**
- * Sem `ratios`, o quadro tem a proporção da foto. Com elas (lista de números,
- * a versão Instagram), `ratio` é sempre uma delas e o giro fica em ±45°.
+ * Sem `ratios`, o quadro tem a proporção da foto. Com elas (a versão
+ * Instagram: `[{ratio, max_angle}]`, de /api/develop/), `ratio` é sempre uma
+ * delas e o giro fica no limite dela.
  */
 export function normalizeCrop(crop, aspect, ratios = null) {
   const c = { ...CROP_IDENTITY, ...(crop || {}) };
   const a = aspect > 0 ? aspect : 1;
-  const ratio = ratios?.length ? round(closestRatio(c.ratio || a, ratios), 4) : 0;
-  const maxAngle = ratios?.length ? INSTAGRAM_MAX_ANGLE : CROP_MAX_ANGLE;
+  const values = ratios?.length ? ratios.map((r) => r.ratio) : null;
+  const ratio = values ? round(closestRatio(c.ratio || a, values), 4) : 0;
+  const maxAngle = values
+    ? ratios.find((r) => r.ratio === ratio)?.max_angle ?? INSTAGRAM_MAX_ANGLE
+    : CROP_MAX_ANGLE;
   const angle = round(clamp(c.angle, -maxAngle, maxAngle), 1);
   const scale = clamp(c.scale, CROP_MIN_SCALE, cropMaxScale(angle, a, ratio));
   const [ex, ey] = cropExtents({ scale, angle, ratio }, a);
@@ -74,6 +80,26 @@ export function normalizeCrop(crop, aspect, ratios = null) {
     ratio,
   };
   return isCropIdentity(out) ? { ...CROP_IDENTITY } : out;
+}
+
+// Quartos de volta e resto (em [-45, 45)) de um ângulo do quadro.
+function splitAngle(angle) {
+  const quarters = Math.floor((angle + 45) / 90);
+  return [quarters, angle - 90 * quarters];
+}
+
+// Altura/largura do recorte que sai (a 90° o quadro deita e a troca).
+export function cropOutputAspect(crop, aspect) {
+  const [bw, bh] = cropFrame(crop?.ratio, aspect);
+  const out = (bh * aspect) / bw;
+  return splitAngle(crop?.angle || 0)[0] % 2 ? 1 / out : out;
+}
+
+// O recorte cabe no que o feed aceita? (`feedAspect` = [min, max] do backend)
+export function feedOk(crop, aspect, feedAspect) {
+  if (!feedAspect) return true;
+  const out = cropOutputAspect(crop, aspect);
+  return out >= feedAspect[0] && out <= feedAspect[1];
 }
 
 export function sameCrop(a, b) {

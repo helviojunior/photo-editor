@@ -227,7 +227,9 @@ original + ajustes.
       com todos os ajustes, camadas e o merge já feitos —, aberta no modo
       recorte; `I` na versão volta à foto.
 - [x] **11.3** Na versão Instagram o crop é forçado nas proporções do feed
-      (4:5, 1:1, 1,91:1), com o mesmo painel de edição.
+      (4:5, 1:1, 1,91:1), com o mesmo painel de edição. Giro até 45° em
+      4:5/1:1 e até 90° no 1,91:1 (regra do crop normal; vertical passando
+      de 45° é exportado, mas o Publicar recusa).
 - [x] **11.4** Exportar grava as versões em `publicar/instagram/` (1080 px de
       largura, tamanho exato do formato); a raiz de `publicar/` não muda.
 - [x] **11.5** Publicar no Instagram: modal com as versões (até 10, carrossel

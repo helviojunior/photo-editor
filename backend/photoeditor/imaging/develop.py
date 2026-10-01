@@ -175,11 +175,27 @@ CROP_MIN_SCALE = 0.1
 CROP_MAX_ANGLE = 90.0
 
 # Proporcoes que o feed do Instagram aceita (altura/largura): de 4:5 (retrato)
-# a 1,91:1 (paisagem). Fora disso o Instagram recorta sozinho. Na versao
-# Instagram o giro fica em ±45°: virar o quadro trocaria 4:5 por 5:4 e 1,91:1
-# por 1:1,91 — a orientacao e escolhida pela proporcao, nao pelo giro.
+# a 1,91:1 (paisagem). Fora disso o Instagram recusa ou recorta sozinho.
 INSTAGRAM_RATIOS = {'4:5': 1.25, '1:1': 1.0, '1.91:1': round(1 / 1.91, 4)}
+# Giro maximo por proporcao. Em 4:5 e 1:1 so endireita (±45°): virar o quadro
+# trocaria 4:5 por 5:4. O 1,91:1 segue a regra do crop normal (±90°): passando
+# de 45° o quadro deita e o recorte sai 1:1,91 VERTICAL — fora do feed, entao
+# exporta, mas o Publicar recusa (``instagram_feed_ok``).
 INSTAGRAM_MAX_ANGLE = 45.0
+INSTAGRAM_MAX_ANGLES = {INSTAGRAM_RATIOS['1.91:1']: CROP_MAX_ANGLE}
+# Limites do feed para o recorte que sai (altura/largura), com folga de
+# arredondamento.
+INSTAGRAM_FEED_ASPECT = (INSTAGRAM_RATIOS['1.91:1'] - 1e-3, INSTAGRAM_RATIOS['4:5'] + 1e-3)
+
+
+def instagram_max_angle(ratio) -> float:
+    return INSTAGRAM_MAX_ANGLES.get(ratio, INSTAGRAM_MAX_ANGLE)
+
+
+def instagram_feed_ok(crop, aspect) -> bool:
+    """O recorte cabe no que o feed aceita (de 1,91:1 a 4:5)?"""
+    lo, hi = INSTAGRAM_FEED_ASPECT
+    return lo <= crop_output_aspect(crop, aspect) <= hi
 
 
 def crop_frame(ratio, aspect) -> tuple[float, float]:
@@ -218,7 +234,7 @@ def normalize_crop(crop, aspect, ratios=None) -> dict:
 
     Sem ``ratios``, o quadro tem a proporcao da foto (``ratio`` 0). Com elas
     (a versao Instagram), ``ratio`` e sempre uma delas — a mais proxima do
-    pedido, ou da foto — e o giro fica em ±``INSTAGRAM_MAX_ANGLE``."""
+    pedido, ou da foto — e o giro fica no limite dela (``instagram_max_angle``)."""
     crop = crop or {}
 
     def num(key):
@@ -231,7 +247,7 @@ def normalize_crop(crop, aspect, ratios=None) -> dict:
     aspect = aspect if aspect and aspect > 0 else 1.0
     if ratios:
         ratio = round(closest_ratio(num('ratio') or aspect, ratios), 4)
-        max_angle = INSTAGRAM_MAX_ANGLE
+        max_angle = instagram_max_angle(ratio)
     else:
         ratio, max_angle = 0.0, CROP_MAX_ANGLE
     angle = round(min(max(num('angle'), -max_angle), max_angle), 1)
@@ -510,7 +526,8 @@ def describe() -> dict:
                     for n, (lo, hi, st, g) in SLIDERS.items()],
         'presets': [{'id': k, 'values': v} for k, v in PRESETS.items()],
         'crop': {'min_scale': CROP_MIN_SCALE, 'max_angle': CROP_MAX_ANGLE,
-                 'instagram': {'ratios': [{'id': k, 'ratio': v}
+                 'instagram': {'ratios': [{'id': k, 'ratio': v,
+                                           'max_angle': instagram_max_angle(v)}
                                           for k, v in INSTAGRAM_RATIOS.items()],
-                               'max_angle': INSTAGRAM_MAX_ANGLE}},
+                               'feed_aspect': list(INSTAGRAM_FEED_ASPECT)}},
     }

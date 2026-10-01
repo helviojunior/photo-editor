@@ -157,8 +157,7 @@ export default function Editor() {
   // Versão Instagram: o quadro do crop só pode ter as proporções do feed.
   const isInstagram = !!current?.instagram_of;
   const instagramConfig = develop?.crop?.instagram || null;
-  const cropRatios = isInstagram && instagramConfig
-    ? instagramConfig.ratios.map((r) => r.ratio) : null;
+  const cropRatios = isInstagram && instagramConfig ? instagramConfig.ratios : null;
   const instagramVersions = useMemo(
     () => (sorted || []).filter((p) => p.instagram_of), [sorted]);
 
@@ -769,6 +768,7 @@ export default function Editor() {
       <ExportDialog open={exportOpen} status={exportStatus}
         onClose={() => setExportOpen(false)} />
       <InstagramPublishDialog open={publishOpen} versions={instagramVersions}
+        feedAspect={instagramConfig?.feed_aspect}
         onClose={() => setPublishOpen(false)} />
     </div>
   );

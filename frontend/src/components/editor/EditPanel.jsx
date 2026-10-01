@@ -3,7 +3,8 @@ import { Check, Crop as CropIcon, RotateCcw, Wand2 } from "lucide-react";
 import { useI18n } from "i18n";
 import { cn } from "lib/utils";
 import { Button } from "components/ui/button";
-import { CROP_IDENTITY, isCropIdentity, normalizeCrop } from "./crop";
+import { FormError } from "components/ui/form-error";
+import { CROP_IDENTITY, feedOk, isCropIdentity, normalizeCrop } from "./crop";
 
 const GROUPS = ["light", "color"];
 
@@ -64,8 +65,12 @@ export default function EditPanel({
     onCommit(next);
   };
 
-  const ratioValues = instagram ? instagram.ratios.map((r) => r.ratio) : null;
-  const maxAngle = instagram ? instagram.max_angle : config.crop.max_angle;
+  const ratioValues = instagram ? instagram.ratios : null;
+  const maxAngle = instagram
+    ? instagram.ratios.find((r) => r.ratio === draft.crop.ratio)?.max_angle ?? 45
+    : config.crop.max_angle;
+  // 1,91:1 girado além de 45°: o recorte sai vertical, fora do feed.
+  const outOfFeed = !!instagram && !feedOk(draft.crop, aspect, instagram.feed_aspect);
   // Trocar a proporção recomeça o quadro no maior tamanho que cabe, no mesmo
   // centro e com o mesmo endireitamento.
   const chooseRatio = (ratio) => {
@@ -130,7 +135,7 @@ export default function EditPanel({
             <p className="text-[11px] text-muted-foreground">
               {instagram
                 ? t("instagram.cropHint",
-                  "Drag the frame to move it, the corners to resize, outside it to straighten (up to 45°; ← → 15° at a time). The frame keeps the Instagram format chosen above. C or Esc exits.")
+                  "Drag the frame to move it, the corners to resize, outside it to rotate (up to 45°; 90° in 1.91:1, like the normal crop; ← → 15° at a time). The frame keeps the Instagram format chosen above. C or Esc exits.")
                 : t("edit.cropHint", "Drag the frame to move it, the corners to resize, outside it to rotate.")}
             </p>
             <div>
@@ -156,6 +161,12 @@ export default function EditPanel({
                 className="touch-target w-full cursor-pointer accent-brand-500"
               />
             </div>
+            {outOfFeed && (
+              <FormError>
+                {t("instagram.outOfFeed",
+                  "Past 45° the 1.91:1 frame becomes vertical (1:1.91), outside the formats the feed accepts: it is exported, but cannot be published.")}
+              </FormError>
+            )}
             <Button variant="ghost" size="sm" className="w-full"
               disabled={instagram
                 ? draft.crop.scale >= 0.9999 && draft.crop.angle === 0

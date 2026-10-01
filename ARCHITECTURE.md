@@ -121,7 +121,10 @@ fundo. Nas fotos de teste: ~2.100 pontos de fundo por par e erro mediano de
   `/api/photos/`, mas a filmstrip não a mostra: só se abre pelo `I`/botão.
 - **Crop com proporção:** o quadro tem `ratio` (altura/largura; 0 = a da
   foto, `Adjustment.crop_ratio`). Na versão Instagram, `editing.crop_ratios`
-  o prende a `develop.INSTAGRAM_RATIOS` (4:5, 1:1, 1,91:1) e o giro a ±45°.
+  o prende a `develop.INSTAGRAM_RATIOS` (4:5, 1:1, 1,91:1). O giro vai a
+  ±45° em 4:5 e 1:1 e a ±90° no 1,91:1 (regra do crop normal: passando de
+  45° o recorte sai 1:1,91 vertical — exporta, mas `instagram_feed_ok` o
+  barra no Publicar).
   O frontend espelha a regra em `components/editor/crop.js`.
 - **Exportar:** as versões saem em `publicar/instagram/` com tamanho exato
   (`publish.instagram_size`: 1080 de largura, altura arredondada para cima

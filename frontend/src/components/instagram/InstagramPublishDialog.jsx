@@ -8,6 +8,7 @@ import { Modal } from "components/ui/modal";
 import { Button } from "components/ui/button";
 import { FormErrors } from "components/ui/form-error";
 import { SelectionCheck } from "components/ui/selection-check";
+import { feedOk } from "components/editor/crop";
 import { fillCaption } from "./caption";
 
 export const DEFAULT_CAPTION_TEMPLATE = "{event}\n{date}\n\n{hashtag}";
@@ -22,7 +23,7 @@ export const DEFAULT_CAPTION_TEMPLATE = "{event}\n{date}\n\n{hashtag}";
  * Fechar durante o envio não o cancela: ele segue no backend e, ao reabrir, o
  * modal volta a mostrar o andamento.
  */
-export default function InstagramPublishDialog({ open, onClose, versions }) {
+export default function InstagramPublishDialog({ open, onClose, versions, feedAspect }) {
   const { t, tf, lang } = useI18n();
   const navigate = useNavigate();
   const [info, setInfo] = useState(null);
@@ -60,13 +61,20 @@ export default function InstagramPublishDialog({ open, onClose, versions }) {
     if (info && account && caption === null) refill();
   }, [info, account, caption, refill]);
   useEffect(() => {
-    if (open && info && selected === null) setSelected(versions.slice(0, max).map((p) => p.id));
-  }, [open, info, versions, max, selected]);
+    if (open && info && selected === null) {
+      setSelected(versions.filter(publishable).slice(0, max).map((p) => p.id));
+    }
+  }, [open, info, versions, max, selected]); // eslint-disable-line react-hooks/exhaustive-deps
   // Versão que saiu da filmstrip (excluída) sai da seleção.
   const picked = useMemo(
-    () => versions.filter((p) => (selected || []).includes(p.id)), [versions, selected]);
+    () => versions.filter((p) => (selected || []).includes(p.id) && publishable(p)),
+    [versions, selected]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const running = !!job?.running;
+  // 1,91:1 girado além de 45° sai vertical: o feed recusa, então nem entra.
+  function publishable(p) {
+    return feedOk(p.adjustments?.crop, p.width && p.height ? p.height / p.width : 1, feedAspect);
+  }
   useEffect(() => {
     if (!running) return undefined;
     const timer = setInterval(() => {
@@ -76,7 +84,7 @@ export default function InstagramPublishDialog({ open, onClose, versions }) {
   }, [running]);
 
   const toggle = (id) => {
-    if (running) return;
+    if (running || !publishable(versions.find((p) => p.id === id) || {})) return;
     setSelected((list) => {
       const cur = list || [];
       if (cur.includes(id)) return cur.filter((x) => x !== id);
@@ -174,7 +182,8 @@ export default function InstagramPublishDialog({ open, onClose, versions }) {
               {versions.map((p) => {
                 const checked = picked.some((x) => x.id === p.id);
                 const order = picked.findIndex((x) => x.id === p.id);
-                const full = !checked && picked.length >= max;
+                const outside = !publishable(p);
+                const full = !checked && (picked.length >= max || outside);
                 return (
                   <div key={p.id} role="checkbox" aria-checked={checked} tabIndex={0}
                     aria-disabled={full || running || undefined}
@@ -192,6 +201,11 @@ export default function InstagramPublishDialog({ open, onClose, versions }) {
                       className="h-full w-full object-contain" />
                     <SelectionCheck checked={checked}
                       className="absolute left-1.5 top-1.5 bg-black/50 text-white" />
+                    {outside && (
+                      <span className="absolute inset-x-1 bottom-1 rounded bg-black/75 px-1 py-0.5 text-center text-[10px] leading-tight text-white">
+                        {t("instagram.publish.outside", "Vertical 1:1.91 — outside the feed")}
+                      </span>
+                    )}
                     {checked && (
                       <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 text-[10px] font-semibold tabular-nums text-white">
                         {order + 1}
