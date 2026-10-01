@@ -153,41 +153,72 @@ def normalize_layers(layers) -> list:
 # --------------------------------------------------------------------------- #
 # Crop
 #
-# Sempre na PROPORCAO da foto: o recorte e a propria foto reduzida por `scale`
-# (0,1..1), centrada em (cx, cy) — fracoes da largura e da altura — e girada
-# `angle` graus (positivo = horario, como o `rotate()` do CSS). A foto fica
-# parada; quem gira e o quadro. A saida e o que esta sob ele, com o conteudo
-# em pe: 90 graus so troca retrato/paisagem (ver `apply_crop`).
+# O quadro tem uma PROPORCAO (``ratio``, altura/largura): 0 = a da propria foto
+# (o crop normal do editor); as versoes Instagram usam uma das
+# ``INSTAGRAM_RATIOS``. Com ``scale`` 1 e sem giro, o quadro e o maior dessa
+# proporcao que cabe na foto (``crop_frame``); ``scale`` (0,1..1) o reduz, o
+# centro fica em (cx, cy) — fracoes da largura e da altura — e ``angle`` o
+# gira (positivo = horario, como o ``rotate()`` do CSS). A foto fica parada;
+# quem gira e o quadro. A saida e o que esta sob ele, com o conteudo em pe:
+# 90 graus so troca retrato/paisagem (ver ``apply_crop``).
 #
 # O quadro girado tem de caber inteiro na foto. Ele cabe se, e so se, a caixa
 # que o envolve cabe (os extremos da caixa sao os cantos do quadro), entao a
-# restricao e fechada: `crop_max_scale` limita o tamanho pelo angulo e o
+# restricao e fechada: ``crop_max_scale`` limita o tamanho pelo angulo e o
 # centro fica a meia caixa das bordas. Girar mais encolhe o quadro sozinho.
 # --------------------------------------------------------------------------- #
 
-CROP_IDENTITY = {'scale': 1.0, 'cx': 0.5, 'cy': 0.5, 'angle': 0.0}
+CROP_IDENTITY = {'scale': 1.0, 'cx': 0.5, 'cy': 0.5, 'angle': 0.0, 'ratio': 0.0}
 CROP_MIN_SCALE = 0.1
 # ±90°: a 90° o quadro fica "deitado" sobre a foto e o recorte sai na
 # orientacao trocada (retrato numa foto paisagem), com o conteudo em pe.
 CROP_MAX_ANGLE = 90.0
 
+# Proporcoes que o feed do Instagram aceita (altura/largura): de 4:5 (retrato)
+# a 1,91:1 (paisagem). Fora disso o Instagram recorta sozinho. Na versao
+# Instagram o giro fica em ±45°: virar o quadro trocaria 4:5 por 5:4 e 1,91:1
+# por 1:1,91 — a orientacao e escolhida pela proporcao, nao pelo giro.
+INSTAGRAM_RATIOS = {'4:5': 1.25, '1:1': 1.0, '1.91:1': round(1 / 1.91, 4)}
+INSTAGRAM_MAX_ANGLE = 45.0
 
-def crop_max_scale(angle, aspect) -> float:
+
+def crop_frame(ratio, aspect) -> tuple[float, float]:
+    """Quadro com ``scale`` 1, em fracao da largura e da altura da foto: o
+    maior da proporcao ``ratio`` que cabe nela (0 = a foto inteira)."""
+    if not ratio or ratio <= 0:
+        return 1.0, 1.0
+    return min(1.0, aspect / ratio), min(1.0, ratio / aspect)
+
+
+def crop_max_scale(angle, aspect, ratio=0.0) -> float:
     """Maior escala em que o quadro girado ainda cabe (aspect = altura/largura)."""
     c, s = abs(math.cos(math.radians(angle))), abs(math.sin(math.radians(angle)))
-    return min(1.0, 1.0 / (c + aspect * s), 1.0 / (s / aspect + c))
+    bw, bh = crop_frame(ratio, aspect)
+    return min(1.0, 1.0 / (bw * c + bh * aspect * s), 1.0 / (bw * s / aspect + bh * c))
 
 
 def _crop_extents(crop, aspect):
     """Meia caixa envolvente do quadro, em fracao da largura e da altura."""
     c = abs(math.cos(math.radians(crop['angle'])))
     s = abs(math.sin(math.radians(crop['angle'])))
-    return (crop['scale'] / 2 * (c + aspect * s),
-            crop['scale'] / 2 * (s / aspect + c))
+    bw, bh = crop_frame(crop.get('ratio'), aspect)
+    return (crop['scale'] / 2 * (bw * c + bh * aspect * s),
+            crop['scale'] / 2 * (bw * s / aspect + bh * c))
 
 
-def normalize_crop(crop, aspect) -> dict:
-    """Crop valido para uma foto de proporcao ``aspect`` (altura/largura)."""
+def closest_ratio(target, ratios) -> float:
+    """A proporcao de ``ratios`` mais perto de ``target`` (em escala log: 4:5
+    e 5:4 ficam a mesma distancia de 1:1)."""
+    target = target if target and target > 0 else 1.0
+    return min(ratios, key=lambda r: abs(math.log(r / target)))
+
+
+def normalize_crop(crop, aspect, ratios=None) -> dict:
+    """Crop valido para uma foto de proporcao ``aspect`` (altura/largura).
+
+    Sem ``ratios``, o quadro tem a proporcao da foto (``ratio`` 0). Com elas
+    (a versao Instagram), ``ratio`` e sempre uma delas — a mais proxima do
+    pedido, ou da foto — e o giro fica em ±``INSTAGRAM_MAX_ANGLE``."""
     crop = crop or {}
 
     def num(key):
@@ -198,9 +229,14 @@ def normalize_crop(crop, aspect) -> dict:
         return value if math.isfinite(value) else CROP_IDENTITY[key]
 
     aspect = aspect if aspect and aspect > 0 else 1.0
-    angle = round(min(max(num('angle'), -CROP_MAX_ANGLE), CROP_MAX_ANGLE), 1)
-    scale = min(max(num('scale'), CROP_MIN_SCALE), crop_max_scale(angle, aspect))
-    out = {'scale': scale, 'angle': angle}
+    if ratios:
+        ratio = round(closest_ratio(num('ratio') or aspect, ratios), 4)
+        max_angle = INSTAGRAM_MAX_ANGLE
+    else:
+        ratio, max_angle = 0.0, CROP_MAX_ANGLE
+    angle = round(min(max(num('angle'), -max_angle), max_angle), 1)
+    scale = min(max(num('scale'), CROP_MIN_SCALE), crop_max_scale(angle, aspect, ratio))
+    out = {'scale': scale, 'angle': angle, 'ratio': ratio}
     ex, ey = _crop_extents(out, aspect)
     out['cx'] = min(max(num('cx'), ex), 1.0 - ex)
     out['cy'] = min(max(num('cy'), ey), 1.0 - ey)
@@ -210,8 +246,16 @@ def normalize_crop(crop, aspect) -> dict:
 
 def is_crop_identity(crop) -> bool:
     crop = crop or CROP_IDENTITY
-    return (crop['angle'] == 0 and crop['scale'] >= 0.9999
+    return (crop['angle'] == 0 and crop['scale'] >= 0.9999 and not crop.get('ratio')
             and abs(crop['cx'] - 0.5) < 1e-4 and abs(crop['cy'] - 0.5) < 1e-4)
+
+
+def crop_output_aspect(crop, aspect) -> float:
+    """Altura/largura do recorte que sai de ``apply_crop``."""
+    bw, bh = crop_frame((crop or {}).get('ratio'), aspect)
+    out = bh * aspect / bw
+    quarters, _ = split_angle((crop or {}).get('angle') or 0.0)
+    return 1.0 / out if quarters % 2 else out
 
 
 def split_angle(angle) -> tuple[int, float]:
@@ -232,7 +276,8 @@ def apply_crop(img: np.ndarray, crop) -> np.ndarray:
         return img
     h, w = img.shape[:2]
     quarters, rest = split_angle(crop['angle'])
-    fw, fh = crop['scale'] * w, crop['scale'] * h        # quadro, nos eixos dele
+    bw, bh = crop_frame(crop.get('ratio'), h / w)
+    fw, fh = crop['scale'] * bw * w, crop['scale'] * bh * h   # quadro, nos eixos dele
     if quarters % 2:                                     # deitado: troca os lados
         fw, fh = fh, fw
     ow, oh = max(int(round(fw)), 1), max(int(round(fh)), 1)
@@ -255,7 +300,9 @@ def settings_hash(values, preset='', crop=None, layers=None) -> str:
     # renderizado ou exportado fica "sujo" so por causa desta versao. O mesmo
     # vale para as camadas.
     if crop and not is_crop_identity(crop):
-        parts.append(crop)
+        # ``ratio`` 0 fica de fora pelo mesmo motivo: o crop normal continua
+        # com o hash de antes de o quadro ganhar proporcao propria.
+        parts.append({k: v for k, v in crop.items() if k != 'ratio' or v})
     if layers:
         parts.append({'layers': [[layer['mask'], effective(layer['values'], layer['preset'])]
                                  for layer in layers]})
@@ -462,5 +509,8 @@ def describe() -> dict:
         'sliders': [{'name': n, 'min': lo, 'max': hi, 'step': st, 'group': g}
                     for n, (lo, hi, st, g) in SLIDERS.items()],
         'presets': [{'id': k, 'values': v} for k, v in PRESETS.items()],
-        'crop': {'min_scale': CROP_MIN_SCALE, 'max_angle': CROP_MAX_ANGLE},
+        'crop': {'min_scale': CROP_MIN_SCALE, 'max_angle': CROP_MAX_ANGLE,
+                 'instagram': {'ratios': [{'id': k, 'ratio': v}
+                                          for k, v in INSTAGRAM_RATIOS.items()],
+                               'max_angle': INSTAGRAM_MAX_ANGLE}},
     }

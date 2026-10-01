@@ -63,6 +63,10 @@ def delete_photo(photo):
 
 def _undo_delete(entry):
     photo = entry.photo
+    if photo.instagram_of_id and Photo.objects.filter(
+            instagram_of_id=photo.instagram_of_id, status=Photo.Status.ACTIVE).exists():
+        # A foto ganhou outra versao Instagram depois: uma por foto.
+        raise history.ActionError('instagram.versionExists')
     if photo.copy_of_id:
         photo.status = Photo.Status.ACTIVE
         photo.save(update_fields=['status', 'updated'])

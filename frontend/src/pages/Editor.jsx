@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Combine, Copy, ImageOff, RefreshCw, Star, Trash2, Undo2, Upload, X } from "lucide-react";
+import {
+  ChevronLeft, ChevronRight, Combine, Copy, ImageOff, Instagram, RefreshCw, Star, Trash2, Undo2,
+  Upload, X,
+} from "lucide-react";
 import api from "lib/api";
 import { useI18n } from "i18n";
 import { useDialog } from "contexts/DialogContext";
@@ -17,6 +20,7 @@ import Filmstrip from "components/editor/Filmstrip";
 import PhotoHistory from "components/editor/PhotoHistory";
 import EditPanel from "components/editor/EditPanel";
 import ExportDialog from "components/editor/ExportDialog";
+import InstagramPublishDialog from "components/instagram/InstagramPublishDialog";
 import useShortcuts from "components/editor/useShortcuts";
 import useLoadedImage from "components/editor/useLoadedImage";
 import usePanelLayout from "components/editor/usePanelLayout";
@@ -45,6 +49,11 @@ import { SORT_OPTIONS, readSort, sortPhotos, writeSort } from "components/editor
  * Merge: o botão "Merge" liga o modo de marcar fotos na filmstrip; a primeira
  * marcada (na ordem da faixa) é a base e as outras viram camadas. "Criar
  * merge" abre a tela do merge (`/merges/:id`).
+ *
+ * Instagram: `I` (ou o botão) cria a versão Instagram da foto — uma cópia
+ * virtual com tudo o que ela já tem — e a abre já no modo crop, com o quadro
+ * preso às proporções do feed. Na versão, `I` volta à foto de origem. O
+ * Exportar grava as versões em publicar/instagram/ e "Publicar" as envia.
  */
 const newLayerId = () => Math.random().toString(36).slice(2, 10) || "layer";
 
@@ -85,6 +94,7 @@ export default function Editor() {
   // Exportacao: estado vindo do backend e se o modal esta aberto.
   const [exportStatus, setExportStatus] = useState(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
 
   const loadPhotos = useCallback(async () => {
     try {
@@ -136,6 +146,13 @@ export default function Editor() {
     [photos, id]
   );
   const current = index >= 0 ? photos[index] : null;
+  // Versão Instagram: o quadro do crop só pode ter as proporções do feed.
+  const isInstagram = !!current?.instagram_of;
+  const instagramConfig = develop?.crop?.instagram || null;
+  const cropRatios = isInstagram && instagramConfig
+    ? instagramConfig.ratios.map((r) => r.ratio) : null;
+  const instagramVersions = useMemo(
+    () => (photos || []).filter((p) => p.instagram_of), [photos]);
 
   const goTo = useCallback(
     (photoId, replace = false) => navigate(`/photos/${photoId}`, { replace }),
@@ -169,9 +186,10 @@ export default function Editor() {
   }, []);
 
   // Modo crop: o quadro vai sobre a ORIGINAL (esquerda) e a editada (direita)
-  // mostra o recorte ao vivo. Sai ao trocar de foto e com ESC.
+  // mostra o recorte ao vivo. Sai ao trocar de foto e com ESC. A versão
+  // Instagram ABRE nele: o recorte é o motivo de ela existir.
   const [cropMode, setCropMode] = useState(false);
-  useEffect(() => { setCropMode(false); }, [currentId]);
+  useEffect(() => { setCropMode(isInstagram); }, [currentId]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!cropMode) return undefined;
     const onKey = (e) => {
@@ -237,12 +255,12 @@ export default function Editor() {
   const updateCrop = useCallback((crop, mode) => {
     let next = crop;
     if (mode === "rotate") {
-      next = normalizeCrop({ ...crop, scale: baseScaleRef.current }, aspect);
+      next = normalizeCrop({ ...crop, scale: baseScaleRef.current }, aspect, cropRatios);
     } else {
       baseScaleRef.current = crop.scale;
     }
     updateDraft({ ...draftRef.current, crop: next });
-  }, [updateDraft, aspect]);
+  }, [updateDraft, aspect, cropRatios]);
 
   // ← / → no modo crop: gira o quadro para o próximo múltiplo de 15°.
   const CROP_STEP = 15;
@@ -400,8 +418,12 @@ export default function Editor() {
   // Fotos marcadas para o merge (null = fora do modo). Guardadas na ordem do
   // clique; quem manda na ordem do merge é a filmstrip.
   const [picked, setPicked] = useState(null);
-  const togglePick = useCallback((photoId) => setPicked((list) => (
-    list.includes(photoId) ? list.filter((x) => x !== photoId) : [...list, photoId])), []);
+  // A versão Instagram já parte do merge da origem: não entra em outro.
+  const togglePick = useCallback((photoId) => {
+    if (photos?.find((p) => p.id === photoId)?.instagram_of) return;
+    setPicked((list) => (
+      list.includes(photoId) ? list.filter((x) => x !== photoId) : [...list, photoId]));
+  }, [photos]);
   const pickedInOrder = useMemo(
     () => (picked && photos ? photos.filter((p) => picked.includes(p.id)).map((p) => p.id) : []),
     [picked, photos]);
@@ -448,6 +470,20 @@ export default function Editor() {
       : t("editor.cover.cleared", "The project has no cover now."));
   }, "cover"), [runAction, current, loadPhotos, t, tf]);
 
+  // I: abre a versão Instagram da foto (criando na primeira vez, com os
+  // ajustes que ela tem AGORA — por isso espera as gravações pendentes); na
+  // versão, volta à foto de origem.
+  const openInstagram = useCallback(() => runAction(async () => {
+    if (!current) return;
+    if (current.instagram_of) { goTo(current.instagram_of); return; }
+    if (current.instagram_id) { goTo(current.instagram_id); return; }
+    await saveQueue.current;
+    const res = await api.post(`/api/photos/${current.id}/instagram/`);
+    await loadPhotos();
+    setStatus(tf("instagram.created", { name: res.data.file_name }));
+    goTo(res.data.id);
+  }, "instagram"), [runAction, current, loadPhotos, tf, goTo]);
+
   // CTRL/CMD+Z: desfaz a ultima acao de QUALQUER foto e abre a foto afetada.
   const undo = useCallback(() => runAction(async () => {
     const res = await api.post("/api/history/undo/");
@@ -475,6 +511,7 @@ export default function Editor() {
     onAuto: () => (selecting ? null : autoOrReset("auto")),
     onSelect: () => (selecting ? applySelection() : startSelect(null)),
     onLayer: () => (selecting || cropMode ? null : nextLayer()),
+    onInstagram: () => (selecting || picked ? null : openInstagram()),
   });
 
   const rescan = async () => {
@@ -523,7 +560,7 @@ export default function Editor() {
           }}>
           {cropMode && current && draft ? (
             <CropEditor label={t("editor.original")} src={current.preview_url}
-              photo={current} crop={draft.crop} onChange={updateCrop}
+              photo={current} crop={draft.crop} ratios={cropRatios} onChange={updateCrop}
               onCommit={() => commitDraft()} />
           ) : selecting && current ? (
             <SelectEditor label={t("editor.original")} src={current.preview_url}
@@ -574,6 +611,19 @@ export default function Editor() {
                   <Combine className="h-4 w-4" /> {t("merge.edit", "Edit merge")}
                 </Button>
               )}
+              {isInstagram && (
+                <>
+                  <p className="mt-2 flex items-start gap-1.5 text-muted-foreground">
+                    <Instagram className="mt-px h-3.5 w-3.5 flex-shrink-0 text-brand-400" aria-hidden="true" />
+                    {t("instagram.versionHint",
+                      "Instagram version: exported to publicar/instagram/ in the feed format.")}
+                  </p>
+                  <Button variant="outline" size="sm" className="mt-2 w-full"
+                    onClick={openInstagram}>
+                    <ChevronLeft className="h-4 w-4" /> {t("instagram.backToPhoto", "Back to the photo (I)")}
+                  </Button>
+                </>
+              )}
             </div>
           )}
           {selecting ? (
@@ -587,7 +637,7 @@ export default function Editor() {
               onCommit={commitDraft} onAuto={() => autoOrReset("auto")}
               onReset={() => autoOrReset("reset")} busy={busy} disabled={!current}
               cropMode={cropMode} onToggleCrop={() => setCropMode((m) => !m)}
-              onCropChange={updateCrop}
+              onCropChange={updateCrop} instagram={isInstagram ? instagramConfig : null}
               aspect={aspect} layerId={activeLayerObj?.id || null}
               layersSection={draft && (
                 <LayersSection layers={draft.layers || []} activeId={activeLayerObj?.id || null}
@@ -662,15 +712,24 @@ export default function Editor() {
               onClick={() => step(-1)} disabled={index <= 0} />
             <IconButton icon={ChevronRight} label={t("editor.next", "Next photo (→)")}
               onClick={() => step(1)} disabled={!photos || index >= photos.length - 1} />
+            <IconButton icon={Instagram}
+              label={isInstagram
+                ? t("instagram.backToPhoto", "Back to the photo (I)")
+                : current?.instagram_id
+                  ? t("instagram.open", "Open the Instagram version (I)")
+                  : t("instagram.edit", "Edit for Instagram (I)")}
+              aria-pressed={isInstagram}
+              className={isInstagram || current?.instagram_id ? "text-brand-400" : undefined}
+              onClick={openInstagram} disabled={!current || !!picked} loading={busy === "instagram"} />
             <IconButton icon={Copy} label={t("editor.duplicate", "Duplicate photo (virtual copy)")}
-              onClick={duplicateCurrent} disabled={!current || !!picked} />
+              onClick={duplicateCurrent} disabled={!current || !!picked || isInstagram} />
             <IconButton icon={Star}
               label={current?.is_cover
                 ? t("editor.cover.unset", "Cover photo — click to unset")
                 : t("editor.cover.set", "Set as cover (exported as capa.jpg)")}
               aria-pressed={!!current?.is_cover}
               className={current?.is_cover ? "text-brand-400 [&_svg]:fill-current" : undefined}
-              onClick={toggleCover} disabled={!current || !!picked} />
+              onClick={toggleCover} disabled={!current || !!picked || isInstagram} />
             <IconButton icon={Trash2} label={t("editor.delete", "Delete photo (Del)")}
               onClick={deleteCurrent} disabled={!current} />
             <IconButton icon={Undo2} label={t("editor.undo", "Undo (Ctrl/Cmd+Z)")}
@@ -678,6 +737,14 @@ export default function Editor() {
             <Button variant="ghost" size="sm" onClick={rescan} loading={rescanning}>
               {!rescanning && <RefreshCw className="h-4 w-4" />}
               <span className="hidden sm:inline">{t("editor.rescan")}</span>
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setPublishOpen(true)}
+              disabled={!instagramVersions.length || !!picked}
+              title={instagramVersions.length
+                ? t("instagram.publish.title", "Publish on Instagram")
+                : t("instagram.publish.none", "No photo has an Instagram version. Press I on a photo to create one.")}>
+              <Instagram className="h-4 w-4" />
+              <span className="hidden sm:inline">{t("instagram.publish.button", "Publish")}</span>
             </Button>
             <Button size="sm" onClick={startExport} loading={exporting}>
               {!exporting && <Upload className="h-4 w-4" />}
@@ -697,14 +764,16 @@ export default function Editor() {
 
       <ExportDialog open={exportOpen} status={exportStatus}
         onClose={() => setExportOpen(false)} />
+      <InstagramPublishDialog open={publishOpen} versions={instagramVersions}
+        onClose={() => setPublishOpen(false)} />
     </div>
   );
 }
 
-function IconButton({ icon: Icon, label, ...props }) {
+function IconButton({ icon: Icon, label, loading, ...props }) {
   return (
-    <Button variant="ghost" size="sm" aria-label={label} title={label} {...props}>
-      <Icon className="h-4 w-4" />
+    <Button variant="ghost" size="sm" aria-label={label} title={label} loading={loading} {...props}>
+      {!loading && <Icon className="h-4 w-4" />}
     </Button>
   );
 }

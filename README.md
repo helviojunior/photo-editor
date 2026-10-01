@@ -53,6 +53,7 @@ Um **projeto** é a pasta de um evento:
 <pasta do evento>/
     raw/            as fotos originais (JPEG) — o editor nunca as altera
     publicar/       as fotos prontas, geradas pelo botão Exportar
+      instagram/    as versões Instagram (1080 px, no formato do feed)
     deleted/        as fotos excluídas (movidas para cá, nunca apagadas)
     project_data/   o catálogo e os ajustes do evento (não mexa)
 ```
@@ -74,6 +75,7 @@ Um **projeto** é a pasta de um evento:
 | `C` | modo recorte |
 | `S` | modo seleção (camadas); `S` de novo conclui |
 | `L` | próxima camada |
+| `I` | versão Instagram da foto (cria/abre); na versão, volta à foto |
 | `[` `]` | diminui / aumenta o pincel |
 | `Ctrl/Cmd+Z` | desfaz a última ação |
 
@@ -127,6 +129,38 @@ O **Exportar** grava a cópia como `publicar/<nome>_copy.jpg` (`_copy2`,
 `_copy3`...). Excluir a cópia só a tira do catálogo; excluir a original tira
 as cópias da filmstrip junto (desfazer traz tudo de volta). `Ctrl/Cmd+Z`
 desfaz a duplicação.
+
+## Instagram
+
+**Conectar a conta:** o ícone do Instagram no cabeçalho abre
+**Configurações → Instagram**. Entre com usuário e senha; se a conta tiver
+verificação em duas etapas, ou se o Instagram pedir para confirmar o acesso,
+a tela pede o código. O app guarda só a sessão em `~/.photoe/` — nunca a
+senha — e ela vale para todos os eventos. Na mesma tela fica o **modelo da
+legenda**, com os campos `{event}` (nome da pasta do evento, sem a data),
+`{date}`, `{photos}` e `{hashtag}`.
+
+> O login é o do app do celular, fora da API oficial da Meta (que só aceita
+> fotos hospedadas na internet). O Instagram pode pedir confirmação ou
+> limitar a conta por um tempo; publicar num ritmo normal evita isso.
+
+**Editar para o Instagram:** tecle `I` (ou o ícone do Instagram na barra da
+filmstrip) numa foto. O app cria a **versão Instagram** dela — uma cópia
+virtual com todos os ajustes, camadas e o merge que a foto já tem — e a abre
+no modo recorte, com o quadro preso aos formatos que o feed aceita:
+**4:5** (retrato), **1:1** ou **1,91:1** (paisagem). Escolha o formato no
+painel; o resto do painel funciona como sempre. `I` de novo volta à foto;
+na foto, `I` abre a versão que já existe. A versão fica na filmstrip ao lado
+da original, com o selo do Instagram; excluí-la (`Del`) a tira da seleção.
+
+**Exportar** grava as versões em `publicar/instagram/` com 1080 px de
+largura (1080×1350, 1080×1080 ou 1080×566), e não na raiz de `publicar/`.
+
+**Publicar:** o botão **Publicar** da barra da filmstrip abre o envio:
+escolha as versões (até 10 — mais de uma vira carrossel, na ordem da
+filmstrip), revise a legenda — já preenchida com os dados do evento — e
+publique. O que vai para o Instagram é exatamente o arquivo de
+`publicar/instagram/`.
 
 ## Capa do evento
 
@@ -198,7 +232,8 @@ devolve todas.
 - **As fotos e os ajustes** ficam na pasta de cada evento (acima). Levar a
   pasta para outro computador leva o evento inteiro.
 - **As preferências do app** (lista de projetos recentes, idioma, tamanho dos
-  painéis) ficam em `~/.photoe/` — `C:\Users\<você>\.photoe` no Windows.
+  painéis, a sessão do Instagram) ficam em `~/.photoe/` —
+  `C:\Users\<você>\.photoe` no Windows.
 - **Logs**, para relatar um problema: menu **Ajuda → Abrir Pasta de Logs**
   (`~/.photoe/logs/`).
 

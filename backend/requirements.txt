@@ -13,6 +13,10 @@ onnxruntime>=1.18,<2
 # EXIF da exportacao (DateTimeOriginal preservado, Orientation=1)
 piexif
 python-dotenv==1.1.1
+# Publicar no Instagram (services/instagram_account.py): API privada do app
+# do celular, com usuario e senha. Wheel pura; as dependencias (curl_cffi,
+# pydantic-core, pycryptodomex) tem wheel binaria nos cinco alvos.
+instagrapi>=3.0,<4
 
 # Servidor HTTP local do app desktop (desktop/server.py) e estaticos
 waitress>=3

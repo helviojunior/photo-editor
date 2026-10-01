@@ -24,13 +24,14 @@ COPY_SUFFIX = '_copy'
 FILE_FIELDS = ('size_bytes', 'mtime_ns', 'width', 'height', 'orientation', 'captured_at')
 
 
-def copy_name(root) -> str:
+def copy_name(root, suffix=COPY_SUFFIX) -> str:
     """``<nome>_copy.<ext>``, depois ``_copy2``, ``_copy3``... — livre no
-    catalogo (inclusive entre excluidas) e em raw/."""
+    catalogo (inclusive entre excluidas) e em raw/. A versao Instagram usa o
+    mesmo esquema com ``_instagram``."""
     name = Path(root.file_name)
     n = 1
     while True:
-        candidate = f'{name.stem}{COPY_SUFFIX}{"" if n == 1 else n}{name.suffix}'
+        candidate = f'{name.stem}{suffix}{"" if n == 1 else n}{name.suffix}'
         if not Photo.objects.filter(file_name=candidate).exists() \
                 and not (settings.RAW_DIR / candidate).exists():
             return candidate
@@ -38,6 +39,9 @@ def copy_name(root) -> str:
 
 
 def duplicate(photo) -> Photo:
+    if photo.instagram_of_id:
+        # O quadro dela so faz sentido no Instagram; duplica-se a origem.
+        raise history.ActionError('instagram.notForVersion')
     root = photo.copy_of or photo
     with transaction.atomic():
         copy = Photo.objects.create(

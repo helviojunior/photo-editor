@@ -21,7 +21,7 @@ log = logging.getLogger(__name__)
 
 SLIDER_FIELDS = tuple(develop.SLIDERS)
 CROP_FIELDS = {'scale': 'crop_scale', 'cx': 'crop_cx', 'cy': 'crop_cy',
-               'angle': 'crop_angle'}
+               'angle': 'crop_angle', 'ratio': 'crop_ratio'}
 
 
 def aspect(photo) -> float:
@@ -44,10 +44,20 @@ def get_state(photo) -> dict:
     )
 
 
+def crop_ratios(photo):
+    """Proporcoes que o quadro do crop pode ter: so as do Instagram na versao
+    Instagram; ``None`` (a da foto) nas demais."""
+    return list(develop.INSTAGRAM_RATIOS.values()) if photo.instagram_of_id else None
+
+
+def normalize_crop(photo, crop):
+    return develop.normalize_crop(crop, aspect(photo), crop_ratios(photo))
+
+
 def normalize_state(photo, values, preset, crop, layers):
     return {'values': develop.normalize(values),
             'preset': develop.normalize_preset(preset),
-            'crop': develop.normalize_crop(crop, aspect(photo)),
+            'crop': normalize_crop(photo, crop),
             'layers': develop.normalize_layers(layers)}
 
 
@@ -63,10 +73,14 @@ def _save_state(photo, state):
     photo.adjustment = adj
 
 
-def copy_state(src, dst):
-    """Grava em ``dst`` os ajustes de ``src`` (Duplicar), sem historico: a
-    acao registrada e a criacao da copia."""
-    _save_state(dst, get_state(src))
+def copy_state(src, dst, crop=None):
+    """Grava em ``dst`` os ajustes de ``src`` (Duplicar, versao Instagram),
+    sem historico: a acao registrada e a criacao da copia. ``crop`` troca o
+    quadro de ``src``; tudo passa pela normalizacao de ``dst``."""
+    state = get_state(src)
+    _save_state(dst, normalize_state(dst, state['values'], state['preset'],
+                                     state['crop'] if crop is None else crop,
+                                     state['layers']))
 
 
 def apply_state(photo, values, preset, crop, layers, kind):

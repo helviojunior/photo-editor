@@ -25,9 +25,12 @@ _scan_lock = threading.Lock()
 
 def visible():
     """Fotos da filmstrip: ativas e, se copia, com a original ativa (sem a
-    original em raw/, a copia nao tem o que ler)."""
+    original em raw/, a copia nao tem o que ler). A versao Instagram some
+    junto com a foto de origem (excluir a origem a leva; desfazer a traz)."""
     return (Photo.objects.filter(status=Photo.Status.ACTIVE)
-            .exclude(Q(copy_of__isnull=False) & ~Q(copy_of__status=Photo.Status.ACTIVE)))
+            .exclude(Q(copy_of__isnull=False) & ~Q(copy_of__status=Photo.Status.ACTIVE))
+            .exclude(Q(instagram_of__isnull=False)
+                     & ~Q(instagram_of__status=Photo.Status.ACTIVE)))
 
 
 def scan():

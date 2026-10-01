@@ -17,6 +17,8 @@ export default function renderUrl(photo, draft) {
   if (draft.preset) params.set("preset", draft.preset);
   if (draft.crop && !isCropIdentity(draft.crop)) {
     ["scale", "cx", "cy", "angle"].forEach((k) => params.set(`crop_${k}`, String(draft.crop[k])));
+    // Só quando o quadro tem proporção própria (versão Instagram).
+    if (draft.crop.ratio) params.set("crop_ratio", String(draft.crop.ratio));
   }
   if (draft.layers?.length) params.set("layers", layersParam(draft.layers));
   return `${base.pathname}?${params.toString()}`;

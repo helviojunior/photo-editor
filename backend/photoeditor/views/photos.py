@@ -11,7 +11,8 @@ from photoeditor.imaging import develop, segment
 from photoeditor.imaging.io import raw_path
 from photoeditor.models import Photo
 from photoeditor.services import (
-    catalog, copies, cover, derivatives, editing, export, history, layers, merges, trash,
+    catalog, copies, cover, derivatives, editing, export, history, instagram, layers, merges,
+    trash,
 )
 
 # URLs de imagem carregam a versao (mtime / hash dos ajustes): o conteudo de
@@ -30,7 +31,9 @@ def render_url(photo, state, merge_version=''):
     if state['preset']:
         params['preset'] = state['preset']
     if not develop.is_crop_identity(state['crop']):
-        params.update({f'crop_{k}': v for k, v in state['crop'].items()})
+        # ``ratio`` so quando o quadro tem proporcao propria (versao Instagram).
+        params.update({f'crop_{k}': v for k, v in state['crop'].items()
+                       if k != 'ratio' or v})
     if state['layers']:
         params['layers'] = layers_param(state['layers'])
     return f'/api/photos/{photo.pk}/render/?{urlencode(params)}'
@@ -57,12 +60,20 @@ def parse_layers_param(raw):
         for i, it in enumerate(items) if isinstance(it, dict)])
 
 
-def photo_json(photo, merge_index=None):
-    """``merge_index`` (``merges.index()``) evita uma consulta por foto na
-    lista inteira."""
+def photo_json(photo, merge_index=None, instagram_index=None):
+    """``merge_index`` (``merges.index()``) e ``instagram_index`` (``{id da
+    origem: id da versao}``) evitam consultas por foto na lista inteira."""
     state = editing.get_state(photo)
-    merge = (merge_index.get(photo.pk) if merge_index is not None
-             else merges.for_base(photo))
+    # Na versao Instagram, o merge que vale e o da origem (ela parte dele),
+    # mas quem edita o merge continua sendo a origem.
+    merge = merges.for_photo(photo, merge_index)
+    if instagram_index is not None:
+        version_id = instagram_index.get(photo.pk)
+    elif not photo.instagram_of_id:
+        version = instagram.version_of(photo)
+        version_id = version.pk if version else None
+    else:
+        version_id = None
     return {
         'id': str(photo.pk),
         'file_name': photo.file_name,
@@ -76,9 +87,12 @@ def photo_json(photo, merge_index=None):
         # Copia virtual (Duplicar): o id da original, de quem e o arquivo.
         'copy_of': str(photo.copy_of_id) if photo.copy_of_id else None,
         # A foto e a base de um merge: a "Editada" parte dele.
-        'merge_id': str(merge.pk) if merge else None,
+        'merge_id': str(merge.pk) if merge and not photo.instagram_of_id else None,
         # Capa do evento: sai tambem como publicar/capa.jpg.
         'is_cover': photo.is_cover,
+        # Versao Instagram: de qual foto ela e / qual e a desta foto.
+        'instagram_of': str(photo.instagram_of_id) if photo.instagram_of_id else None,
+        'instagram_id': str(version_id) if version_id else None,
     }
 
 
@@ -98,10 +112,11 @@ class PhotoListView(APIView):
     que sao camada de um merge ficam de fora (a base representa o merge)."""
 
     def get(self, request):
-        photos = (catalog.visible().exclude(pk__in=merges.hidden_ids())
-                  .select_related('adjustment', 'copy_of'))
+        photos = list(catalog.visible().exclude(pk__in=merges.hidden_ids())
+                      .select_related('adjustment', 'copy_of'))
         index = merges.index()
-        return Response({'results': [photo_json(p, index) for p in photos]})
+        versions = {p.instagram_of_id: p.pk for p in photos if p.instagram_of_id}
+        return Response({'results': [photo_json(p, index, versions) for p in photos]})
 
 
 def action_error(request, exc, status=409):
@@ -125,7 +140,11 @@ class PhotoDuplicateView(APIView):
     """Copia virtual da foto, com os ajustes dela (desfazivel)."""
 
     def post(self, request, pk):
-        return Response(photo_json(copies.duplicate(active_photo(pk))), status=201)
+        try:
+            copy = copies.duplicate(active_photo(pk))
+        except history.ActionError as exc:
+            return action_error(request, exc)
+        return Response(photo_json(copy), status=201)
 
 
 class PhotoCoverView(APIView):
@@ -134,7 +153,11 @@ class PhotoCoverView(APIView):
 
     def post(self, request, pk):
         on = bool((request.data or {}).get('cover', True))
-        return Response(photo_json(cover.set_cover(active_photo(pk), on)))
+        try:
+            photo = cover.set_cover(active_photo(pk), on)
+        except history.ActionError as exc:
+            return action_error(request, exc)
+        return Response(photo_json(photo))
 
 
 class PhotoHistoryView(APIView):
@@ -191,9 +214,8 @@ class PhotoRenderView(APIView):
         state = {
             'values': develop.normalize(values),
             'preset': develop.normalize_preset(preset),
-            'crop': develop.normalize_crop(
-                {k: q[f'crop_{k}'] for k in develop.CROP_IDENTITY if f'crop_{k}' in q},
-                editing.aspect(photo)),
+            'crop': editing.normalize_crop(
+                photo, {k: q[f'crop_{k}'] for k in develop.CROP_IDENTITY if f'crop_{k}' in q}),
             'layers': parse_layers_param(q.get('layers')),
         }
         return image_response(derivatives.render_path(photo, state))

@@ -69,7 +69,7 @@ Cada evento é uma pasta de projeto:
     raw/            fotos originais (somente JPEG, nunca alteradas)
     project_data/   db.sqlite3 + caches gerados + masks/ (camadas) + trava
     deleted/        fotos excluídas (movidas, nunca apagadas)
-    publicar/       saída do botão Exportar
+    publicar/       saída do botão Exportar (versões Instagram em instagram/)
 ```
 
 - O app cria `project_data/`, `deleted/` e `publicar/`; `raw/` só é criada
@@ -111,6 +111,28 @@ rotação e escala — a câmera na mão anda entre um clique e outro), com a á
 selecionada fora da análise. O ganho de exposição/cor também é medido no
 fundo. Nas fotos de teste: ~2.100 pontos de fundo por par e erro mediano de
 0,2 px no preview.
+
+### Instagram
+
+- **Versão Instagram** (`services/instagram.py`): cópia virtual da foto
+  (`Photo.copy_of` = quem tem o JPEG) com `Photo.instagram_of` = a foto de
+  origem. Nasce com os ajustes e camadas dela; o merge da origem vale para
+  ela (`merges.for_photo`). Uma ativa por foto.
+- **Crop com proporção:** o quadro tem `ratio` (altura/largura; 0 = a da
+  foto, `Adjustment.crop_ratio`). Na versão Instagram, `editing.crop_ratios`
+  o prende a `develop.INSTAGRAM_RATIOS` (4:5, 1:1, 1,91:1) e o giro a ±45°.
+  O frontend espelha a regra em `components/editor/crop.js`.
+- **Exportar:** as versões saem em `publicar/instagram/` com tamanho exato
+  (`publish.instagram_size`: 1080 de largura, altura arredondada para cima
+  para não passar de 1,91:1), qualidade 92.
+- **Conta** (`services/instagram_account.py`): login usuário/senha pela API
+  privada do app do celular (`instagrapi`) — a API oficial só aceita fotos
+  por URL pública. Guarda só a sessão em `~/.photoe/instagram.json` (0600).
+  O login roda numa thread que espera o código de 2FA/desafio chegar por
+  outra requisição.
+- **Publicar** (`services/instagram_publish.py`): exporta as versões
+  escolhidas e envia como post (1) ou carrossel (até 10), em thread com
+  progresso; o post fica em `InstagramPost`.
 
 ## Convenções principais
 
@@ -283,4 +305,9 @@ seu `.sha256`.
 | `DELETE /api/merges/<id>/layers/<foto>/` | Tira a foto da composição (volta à filmstrip) |
 | `GET  /api/merges/<id>/layers/<foto>.png?mask=` | Área alinhada sobre o preview da base |
 | `POST /api/export/`  | Dispara o Exportar (grava `capa.jpg` também)       |
+| `POST /api/photos/<id>/instagram/` | Cria (201) ou devolve (200) a versão Instagram da foto |
+| `GET/PUT/DELETE /api/instagram/account/` | Conta conectada, modelo da legenda, desconectar |
+| `GET/POST/DELETE /api/instagram/login/` | Andamento, início (`{username, password}`) e cancelamento do login |
+| `POST /api/instagram/login/code/` | Código de 2FA ou do desafio do Instagram |
+| `GET/POST /api/instagram/publish/` | Andamento + dados do evento / publica `{photos, caption}` |
 | `/admin/`            | Django admin público                               |

@@ -1,6 +1,6 @@
 import React, { useRef } from "react";
 import { cn } from "lib/utils";
-import { normalizeCrop } from "./crop";
+import { cropFrame, normalizeCrop } from "./crop";
 import useFitSize from "./useFitSize";
 
 // Cantos em "L" (a alça visível) dentro de uma área de toque maior e
@@ -19,7 +19,8 @@ const CORNERS = [
  *
  *   arrastar dentro do quadro ...... move
  *   arrastar um canto .............. redimensiona com o canto oposto fixo
- *                                    (sempre na proporção da foto)
+ *                                    (sempre na proporção do quadro: a da
+ *                                    foto, ou a do Instagram na versão dele)
  *   arrastar fora do quadro ........ gira o quadro em torno do centro dele
  *   ← / → (no Editor) .............. gira de 15 em 15 graus
  *
@@ -30,12 +31,16 @@ const CORNERS = [
  * recortada pelo `overflow-hidden` da moldura, escurece o que fica de fora.
  * Toda mudança passa por `normalizeCrop`, que mantém o quadro dentro da foto.
  */
-export default function CropEditor({ src, busy, photo, crop, onChange, onCommit, label }) {
+export default function CropEditor({ src, busy, photo, crop, ratios = null, onChange, onCommit, label }) {
   const paneRef = useRef(null);
   const frameRef = useRef(null);
   const drag = useRef(null);
   const aspect = photo.width && photo.height ? photo.height / photo.width : 1;
   const size = useFitSize(paneRef, aspect);
+  // Quadro com scale 1, em px da foto na tela.
+  const [bw, bh] = cropFrame(crop.ratio, aspect);
+  const fullW = bw * size.w;
+  const fullH = bh * size.h;
 
   const center = () => {
     const r = frameRef.current.getBoundingClientRect();
@@ -59,8 +64,8 @@ export default function CropEditor({ src, busy, photo, crop, onChange, onCommit,
     const t = (c0.angle * Math.PI) / 180;
     const cos = Math.cos(t);
     const sin = Math.sin(t);
-    const hw = (c0.scale * size.w) / 2;
-    const hh = (c0.scale * size.h) / 2;
+    const hw = (c0.scale * fullW) / 2;
+    const hh = (c0.scale * fullH) / 2;
     const [cx, cy] = d.c;
     const ox = cx - cos * sx * hw + sin * sy * hh;
     const oy = cy - sin * sx * hw - cos * sy * hh;
@@ -68,11 +73,11 @@ export default function CropEditor({ src, busy, photo, crop, onChange, onCommit,
     const dy = e.clientY - oy;
     const u = cos * dx + sin * dy;
     const v = -sin * dx + cos * dy;
-    const w = Math.max(sx * u, sy * v * (size.w / size.h), 1);
-    const h = (w * size.h) / size.w;
+    const w = Math.max(sx * u, sy * v * (fullW / fullH), 1);
+    const h = (w * fullH) / fullW;
     const ncx = ox + cos * (sx * w) / 2 - sin * (sy * h) / 2;
     const ncy = oy + sin * (sx * w) / 2 + cos * (sy * h) / 2;
-    return { ...c0, scale: w / size.w, cx: (ncx - r.left) / size.w, cy: (ncy - r.top) / size.h };
+    return { ...c0, scale: w / fullW, cx: (ncx - r.left) / size.w, cy: (ncy - r.top) / size.h };
   };
 
   const move = (e) => {
@@ -90,7 +95,7 @@ export default function CropEditor({ src, busy, photo, crop, onChange, onCommit,
       const a1 = Math.atan2(e.clientY - ccy, e.clientX - ccx);
       next = { ...d.crop, angle: d.crop.angle + ((a1 - a0) * 180) / Math.PI };
     }
-    onChange(normalizeCrop(next, aspect), d.mode);
+    onChange(normalizeCrop(next, aspect, ratios), d.mode);
   };
 
   const end = () => {
@@ -124,8 +129,8 @@ export default function CropEditor({ src, busy, photo, crop, onChange, onCommit,
           style={{
             left: crop.cx * size.w,
             top: crop.cy * size.h,
-            width: crop.scale * size.w,
-            height: crop.scale * size.h,
+            width: crop.scale * fullW,
+            height: crop.scale * fullH,
             transform: `translate(-50%, -50%) rotate(${crop.angle}deg)`,
             boxShadow: "0 0 0 9999px rgba(0, 0, 0, 0.55)",
           }}

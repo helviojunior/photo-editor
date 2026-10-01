@@ -216,3 +216,20 @@ original + ajustes.
 - [x] **9.10** O GitHub manda na versão: sem `VERSION` versionado nem bump
       por commit; a versão sai das Releases (tag na Release; última Release
       + `-dev` nos builds locais). Instaladores só na Release publicada.
+
+## 11. Instagram
+
+- [x] **11.1** Conta do Instagram em Configurações → Instagram: usuário e
+      senha (API privada do app, `instagrapi` — a oficial só aceita fotos por
+      URL pública), com 2FA e o código do desafio; só a sessão fica em
+      `~/.photoe/instagram.json`, nunca a senha.
+- [x] **11.2** Botão e atalho `I`: versão Instagram da foto — cópia virtual
+      com todos os ajustes, camadas e o merge já feitos —, aberta no modo
+      recorte; `I` na versão volta à foto.
+- [x] **11.3** Na versão Instagram o crop é forçado nas proporções do feed
+      (4:5, 1:1, 1,91:1), com o mesmo painel de edição.
+- [x] **11.4** Exportar grava as versões em `publicar/instagram/` (1080 px de
+      largura, tamanho exato do formato); a raiz de `publicar/` não muda.
+- [x] **11.5** Publicar no Instagram: modal com as versões (até 10, carrossel
+      na ordem da filmstrip) e a legenda preenchida com os dados do evento
+      (modelo configurável), editável antes de publicar.

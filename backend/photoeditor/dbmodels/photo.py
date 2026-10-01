@@ -43,6 +43,13 @@ class Photo(Base):
     copy_of = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True,
                                 related_name='copies')
 
+    # Versao Instagram (``services/instagram.py``): copia virtual da foto
+    # ``instagram_of`` (que tambem pode ser uma copia), com crop numa proporcao
+    # que o feed aceita. ``copy_of`` continua apontando para quem tem o JPEG.
+    # O Exportar a grava em ``publicar/instagram/``, nunca na raiz.
+    instagram_of = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True,
+                                     related_name='instagram_versions')
+
     # Hash do que foi escrito em publicar/ na ultima exportacao (arquivo +
     # ajustes + versoes). Reexportar pula a foto quando ele nao mudou.
     exported_hash = models.CharField(max_length=32, blank=True, default='')

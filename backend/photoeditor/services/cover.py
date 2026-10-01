@@ -29,6 +29,9 @@ def _apply(photo_id):
 
 def set_cover(photo, on=True):
     """Marca (``on``) ou desmarca ``photo`` como capa. Sem mudanca, nao grava."""
+    if photo.instagram_of_id:
+        # A capa sai em publicar/capa.jpg; a versao Instagram, so em instagram/.
+        raise history.ActionError('instagram.notForVersion')
     with transaction.atomic():
         before = current()
         before_id = before.pk if before else None

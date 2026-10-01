@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
-import { House, Moon, Sun } from "lucide-react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { House, Instagram, Moon, Sun } from "lucide-react";
 import api from "lib/api";
 import { cn } from "lib/utils";
 import brand from "lib/brand";
@@ -18,6 +18,7 @@ import { useI18n, LANGUAGE_OPTIONS } from "i18n";
 export default function AppLayout({ darkMode, setDarkMode }) {
   const { t, lang, setLanguage, adoptSystemDefault } = useI18n();
   const location = useLocation();
+  const navigate = useNavigate();
   const fullBleed = /^\/(photos|merges)(\/|$)/.test(location.pathname);
   // Projeto aberto e se ha app desktop em volta (para o botao Inicio).
   const [config, setConfig] = useState(null);
@@ -88,6 +89,21 @@ export default function AppLayout({ darkMode, setDarkMode }) {
           </select>
 
           <div className="hidden lg:block h-6 w-px bg-border" />
+
+          {/* Conta do Instagram para o "Publicar" (vale para todos os projetos). */}
+          <button
+            onClick={() => navigate("/settings/instagram")}
+            aria-label={t("instagram.settings.open", "Instagram settings")}
+            title={t("instagram.settings.open", "Instagram settings")}
+            aria-current={location.pathname === "/settings/instagram" ? "page" : undefined}
+            className={cn(
+              "touch-target inline-flex h-10 w-10 items-center justify-center rounded-full hover:bg-muted transition-colors",
+              location.pathname === "/settings/instagram"
+                ? "text-brand-400" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Instagram size={18} />
+          </button>
 
           <button
             onClick={() => setDarkMode(!darkMode)}

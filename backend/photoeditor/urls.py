@@ -10,6 +10,10 @@ from photoeditor.views.photos import (
     PhotoAdjustmentsView, PhotoAutoView, PhotoResetView, ExportView,
     PhotoSegmentView, MaskView, PhotoDuplicateView, PhotoCoverView,
 )
+from photoeditor.views.instagram import (
+    InstagramAccountView, InstagramLoginView, InstagramLoginCodeView, PhotoInstagramView,
+    InstagramPublishView,
+)
 from photoeditor.views.merges import (
     MergeListView, MergeDetailView, MergeLayerView, MergeCutoutView,
 )
@@ -26,6 +30,12 @@ common_patterns = [
     # Tela Home: projetos recentes e a capa de cada card
     path('api/projects/recent/', RecentProjectsView.as_view(), name='recent-projects'),
     path('api/projects/cover/', ProjectCoverView.as_view(), name='project-cover'),
+
+    # Conta do Instagram (da maquina, nao do evento): conectar, codigo, sair
+    path('api/instagram/account/', InstagramAccountView.as_view(), name='instagram-account'),
+    path('api/instagram/login/', InstagramLoginView.as_view(), name='instagram-login'),
+    path('api/instagram/login/code/', InstagramLoginCodeView.as_view(),
+         name='instagram-login-code'),
 ]
 
 # So com um projeto aberto (fora do modo Home nao ha catalogo).
@@ -61,8 +71,12 @@ project_patterns = [
     path('api/merges/<uuid:pk>/layers/<uuid:photo_pk>.png', MergeCutoutView.as_view(),
          name='merge-cutout'),
 
-    # Exportar para publicar/
+    # Exportar para publicar/ (e publicar/instagram/)
     path('api/export/', ExportView.as_view(), name='export'),
+
+    # Instagram: versao da foto (atalho I) e publicar as versoes escolhidas
+    path('api/photos/<uuid:pk>/instagram/', PhotoInstagramView.as_view(), name='photo-instagram'),
+    path('api/instagram/publish/', InstagramPublishView.as_view(), name='instagram-publish'),
 
     # Desfazer (CTRL/CMD+Z) — a ultima acao de qualquer foto
     path('api/history/undo/', UndoView.as_view(), name='history-undo'),

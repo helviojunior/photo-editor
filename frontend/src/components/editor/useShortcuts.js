@@ -12,16 +12,19 @@ function isFieldTarget(el) {
  * Atalhos do editor: → proxima, ← anterior, DEL excluir, CTRL/CMD+Z desfazer,
  * A aplica o Auto, C entra/sai do modo crop (no modo crop, quem decide o que
  * as setas fazem e o Editor: elas giram o quadro), S entra/sai do modo
- * selecao (camadas) e L passa para a proxima camada (o restante da foto conta
- * como uma, e depois da ultima volta a ele).
+ * selecao (camadas), L passa para a proxima camada (o restante da foto conta
+ * como uma, e depois da ultima volta a ele) e I abre a versao Instagram da
+ * foto (na versao, volta a foto de origem).
  *
  * O DEL aceita tambem o Backspace: no teclado do Mac a tecla "delete" manda
  * Backspace, e o Delete de verdade so existe com fn.
  */
-export default function useShortcuts({ onNext, onPrev, onDelete, onUndo, onCrop, onAuto, onSelect, onLayer }) {
+export default function useShortcuts({
+  onNext, onPrev, onDelete, onUndo, onCrop, onAuto, onSelect, onLayer, onInstagram,
+}) {
   // Os handlers mudam a cada render; o listener fica um so.
   const handlers = useRef({});
-  handlers.current = { onNext, onPrev, onDelete, onUndo, onCrop, onAuto, onSelect, onLayer };
+  handlers.current = { onNext, onPrev, onDelete, onUndo, onCrop, onAuto, onSelect, onLayer, onInstagram };
 
   useEffect(() => {
     const onKeyDown = (e) => {
@@ -41,6 +44,7 @@ export default function useShortcuts({ onNext, onPrev, onDelete, onUndo, onCrop,
       else if (e.key.toLowerCase() === "a" && !e.shiftKey) handler = h.onAuto;
       else if (e.key.toLowerCase() === "s" && !e.shiftKey) handler = h.onSelect;
       else if (e.key.toLowerCase() === "l" && !e.shiftKey) handler = h.onLayer;
+      else if (e.key.toLowerCase() === "i" && !e.shiftKey) handler = h.onInstagram;
 
       if (!handler) return;
       e.preventDefault();

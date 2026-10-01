@@ -24,6 +24,7 @@ class HistoryEntry(Base):
         LAYER = 'layer', 'Layer'
         DUPLICATE = 'duplicate', 'Duplicate'
         COVER = 'cover', 'Cover'
+        INSTAGRAM = 'instagram', 'Instagram'
 
     photo = models.ForeignKey('photoeditor.Photo', on_delete=models.CASCADE,
                               related_name='history')

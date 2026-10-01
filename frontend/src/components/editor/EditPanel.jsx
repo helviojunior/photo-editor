@@ -15,6 +15,10 @@ function formatValue(slider, value) {
 /**
  * Painel de edição: Auto, Reset, crop, camadas, presets e os sliders do motor.
  *
+ * Na versão Instagram (`instagram` = proporções do feed vindas do backend), o
+ * crop ganha a escolha da proporção — 4:5, 1:1 ou 1,91:1 — e o giro só
+ * endireita (±45°): o quadro nunca sai do que o Instagram aceita.
+ *
  * Sliders e presets editam a camada ATIVA (`layerId`); sem camada ativa, os
  * ajustes da própria foto — que, havendo camadas, valem para o restante.
  *
@@ -28,6 +32,7 @@ function formatValue(slider, value) {
 export default function EditPanel({
   config, draft, onDraft, onCommit, onAuto, onReset, busy, disabled,
   cropMode, onToggleCrop, onCropChange, aspect, layerId = null, layersSection,
+  instagram = null,
 }) {
   const { t } = useI18n();
   // Seta segurada no slider = um ajuste, nao um por passo: grava quando o
@@ -59,6 +64,15 @@ export default function EditPanel({
     onCommit(next);
   };
 
+  const ratioValues = instagram ? instagram.ratios.map((r) => r.ratio) : null;
+  const maxAngle = instagram ? instagram.max_angle : config.crop.max_angle;
+  // Trocar a proporção recomeça o quadro no maior tamanho que cabe, no mesmo
+  // centro e com o mesmo endireitamento.
+  const chooseRatio = (ratio) => {
+    onCropChange(normalizeCrop({ ...draft.crop, ratio, scale: 1 }, aspect, ratioValues), "ratio");
+    onCommit();
+  };
+
   const choosePreset = (id) => {
     const next = patched({ preset: target.preset === id ? "" : id });
     onDraft(next);
@@ -84,10 +98,40 @@ export default function EditPanel({
           {cropMode ? <Check className="h-4 w-4" /> : <CropIcon className="h-4 w-4" />}
           {cropMode ? t("edit.cropDone", "Done") : t("edit.crop", "Crop")}
         </Button>
+        {instagram && (
+          <div className="mt-2">
+            <div className="mb-1 text-xs">{t("instagram.ratio", "Instagram format")}</div>
+            <div className="grid grid-cols-3 gap-1.5" role="group"
+              aria-label={t("instagram.ratio", "Instagram format")}>
+              {instagram.ratios.map((r) => {
+                const active = draft.crop.ratio === r.ratio;
+                return (
+                  <button key={r.id} type="button" onClick={() => chooseRatio(r.ratio)}
+                    aria-pressed={active}
+                    title={t(`instagram.ratio.${r.id}`, r.id)}
+                    className={cn(
+                      "touch-target flex flex-col items-center gap-1 rounded-md border px-2 py-1.5 text-xs transition-colors",
+                      active
+                        ? "border-brand-400 bg-brand-400/15 text-brand-400"
+                        : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+                    )}>
+                    {/* O desenho da proporção, para reconhecer sem ler. */}
+                    <span aria-hidden="true" className="block rounded-[2px] border-2 border-current"
+                      style={{ width: 14 / Math.max(1, r.ratio), height: 14 * Math.min(1, r.ratio) }} />
+                    {r.id}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
         {cropMode && (
           <div className="mt-2 space-y-2">
             <p className="text-[11px] text-muted-foreground">
-              {t("edit.cropHint", "Drag the frame to move it, the corners to resize, outside it to rotate.")}
+              {instagram
+                ? t("instagram.cropHint",
+                  "Drag the frame to move it, the corners to resize, outside it to straighten (up to 45°; ← → 15° at a time). The frame keeps the Instagram format chosen above. C or Esc exits.")
+                : t("edit.cropHint", "Drag the frame to move it, the corners to resize, outside it to rotate.")}
             </p>
             <div>
               <div className="flex items-baseline justify-between text-xs">
@@ -97,12 +141,13 @@ export default function EditPanel({
               <input
                 id="slider-crop-angle"
                 type="range"
-                min={-config.crop.max_angle}
-                max={config.crop.max_angle}
+                min={-maxAngle}
+                max={maxAngle}
                 step={0.1}
                 value={draft.crop.angle}
                 onChange={(e) => onCropChange(
-                  normalizeCrop({ ...draft.crop, angle: Number(e.target.value) }, aspect), "rotate")}
+                  normalizeCrop({ ...draft.crop, angle: Number(e.target.value) }, aspect, ratioValues),
+                  "rotate")}
                 onPointerUp={commit}
                 onKeyUp={() => {
                   clearTimeout(keyTimer.current);
@@ -112,9 +157,16 @@ export default function EditPanel({
               />
             </div>
             <Button variant="ghost" size="sm" className="w-full"
-              disabled={isCropIdentity(draft.crop)}
+              disabled={instagram
+                ? draft.crop.scale >= 0.9999 && draft.crop.angle === 0
+                  && draft.crop.cx === 0.5 && draft.crop.cy === 0.5
+                : isCropIdentity(draft.crop)}
               onClick={() => {
-                onCropChange({ ...CROP_IDENTITY }, "reset");
+                // Na versão Instagram o quadro volta ao maior da proporção
+                // escolhida — "sem crop" não existe nela.
+                onCropChange(instagram
+                  ? normalizeCrop({ ratio: draft.crop.ratio }, aspect, ratioValues)
+                  : { ...CROP_IDENTITY }, "reset");
                 onCommit();
               }}>
               <RotateCcw className="h-4 w-4" /> {t("edit.cropReset", "Reset crop")}

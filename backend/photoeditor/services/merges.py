@@ -81,6 +81,9 @@ def create(photo_ids) -> Merge:
     ordered = [photos[i] for i in ids if i in photos]
     if len(ordered) < 2:
         raise ActionError('merge.tooFew')
+    # A versao Instagram ja parte do merge da origem: nao entra em outro.
+    if any(p.instagram_of_id for p in ordered):
+        raise ActionError('merge.instagramVersion')
     taken = hidden_ids() | set(index())
     busy = [p.file_name for p in ordered if p.pk in taken]
     if busy:
@@ -208,9 +211,27 @@ def for_base(photo):
     return _live().filter(base=photo).first()
 
 
+def source_id(photo):
+    """A foto cujo merge vale para ``photo``: a de origem, na versao Instagram
+    (ela parte do merge composto da origem), senao a propria."""
+    return photo.instagram_of_id or photo.pk
+
+
+def for_photo(photo, index=None):
+    """O merge de onde a edicao de ``photo`` parte (ver ``source_id``).
+    ``index`` (``index()``) evita a consulta."""
+    if index is not None:
+        return index.get(source_id(photo))
+    return _live().filter(base_id=source_id(photo)).first()
+
+
 def hidden_ids() -> set:
-    """Fotos que sao camada de algum merge: fora da filmstrip e do Exportar."""
-    return {uuid.UUID(e['photo']) for m in _live() for e in m.layers}
+    """Fotos que sao camada de algum merge — e as versoes Instagram delas:
+    fora da filmstrip e do Exportar."""
+    ids = {uuid.UUID(e['photo']) for m in _live() for e in m.layers}
+    if ids:
+        ids |= set(Photo.objects.filter(instagram_of_id__in=ids).values_list('pk', flat=True))
+    return ids
 
 
 def ready_layers(merge):
@@ -518,9 +539,10 @@ def composite_preview_path(merge, ver):
 
 def edit_source(photo, merge=None):
     """``(preview de onde a edicao parte, versao do merge)``: o merge composto
-    se a foto e base de um com alguma area, senao o proprio preview e ``''``.
+    se a foto (ou, na versao Instagram, a de origem) e base de um com alguma
+    area, senao o proprio preview e ``''``.
     ``merge`` evita a consulta quando quem chama ja o tem."""
-    merge = merge if merge is not None else for_base(photo)
+    merge = merge if merge is not None else for_photo(photo)
     ver = version(merge)
     if not ver:
         return derivatives.preview_path(photo), ''

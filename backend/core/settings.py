@@ -253,12 +253,14 @@ if not HOME_MODE and not PROJECT_ROOT.is_dir():
 
 if HOME_MODE:
     RAW_DIR = PROJECT_DATA_DIR = DELETED_DIR = PUBLISH_DIR = MASKS_DIR = None
+    INSTAGRAM_DIR = None
 else:
     PROJECT_ROOT = PROJECT_ROOT.resolve()
     RAW_DIR = PROJECT_ROOT / 'raw'                    # originais (somente JPEG)
     PROJECT_DATA_DIR = PROJECT_ROOT / 'project_data'  # SQLite + caches gerados
     DELETED_DIR = PROJECT_ROOT / 'deleted'            # fotos excluidas (movidas)
     PUBLISH_DIR = PROJECT_ROOT / 'publicar'           # saida do Exportar
+    INSTAGRAM_DIR = PUBLISH_DIR / 'instagram'         # versoes Instagram exportadas
     # Mascaras das camadas (PNG por hash do conteudo). Nao e cache: a edicao
     # gravada aponta para elas, entao moram fora de project_data/cache.
     MASKS_DIR = PROJECT_DATA_DIR / 'masks'
@@ -271,6 +273,9 @@ else:
 APP_DB = Path(os.environ.get('APP_DB') or DATA_DIR / 'photoe.db')
 # Capas dos cards da Home (uma miniatura por projeto), geradas sob demanda.
 PROJECT_COVERS_DIR = DATA_DIR / 'covers'
+# Conta do Instagram conectada (sessao do app, nunca a senha) e o modelo da
+# legenda: e da maquina, vale para todos os eventos.
+INSTAGRAM_ACCOUNT_FILE = DATA_DIR / 'instagram.json'
 
 # Modelo de segmentacao (SAM 2.1 tiny em ONNX) que transforma o traco do
 # pincel em mascara do objeto. Vai no pacote do app (``tools/build.py model``).

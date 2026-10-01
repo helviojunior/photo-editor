@@ -6,6 +6,7 @@ import AppLayout from "components/layout/AppLayout";
 import Editor from "pages/Editor";
 import Merge from "pages/Merge";
 import Home from "pages/Home";
+import InstagramSettings from "pages/InstagramSettings";
 import "./App.css";
 
 function App() {
@@ -33,6 +34,8 @@ function App() {
                 <Route path="/photos" element={<Editor />} />
                 <Route path="/photos/:id" element={<Editor />} />
                 <Route path="/merges/:id" element={<Merge />} />
+                {/* Conta do Instagram e modelo da legenda (da maquina, nao do evento). */}
+                <Route path="/settings/instagram" element={<InstagramSettings />} />
               </Route>
 
               <Route path="/" element={<Navigate to="/photos" replace />} />

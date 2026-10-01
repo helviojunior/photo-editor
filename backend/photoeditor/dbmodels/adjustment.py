@@ -25,12 +25,15 @@ class Adjustment(Base):
     saturation = models.FloatField(default=0)
     preset = models.CharField(max_length=32, blank=True, default='')
 
-    # Crop na proporcao da foto (ver develop.normalize_crop): escala do
-    # quadro, centro em fracao da largura/altura e giro em graus.
+    # Crop (ver develop.normalize_crop): escala do quadro, centro em fracao
+    # da largura/altura e giro em graus.
     crop_scale = models.FloatField(default=1)
     crop_cx = models.FloatField(default=0.5)
     crop_cy = models.FloatField(default=0.5)
     crop_angle = models.FloatField(default=0)
+    # Proporcao do quadro (altura/largura); 0 = a da foto. So a versao
+    # Instagram usa outra (``develop.INSTAGRAM_RATIOS``).
+    crop_ratio = models.FloatField(default=0)
 
     # Camadas (ver develop.normalize_layers): cada uma e
     # ``{id, mask, values, preset}`` — a chave da mascara em project_data/masks

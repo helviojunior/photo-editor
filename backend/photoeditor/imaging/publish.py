@@ -33,6 +33,13 @@ TARGET_SHORT_SIDE = 1080
 TARGET_DPI = 72
 JPEG_QUALITY = 88
 
+# Versao Instagram: 1080 px de largura — a resolucao do feed — com a altura
+# da proporcao (1080x1350 em 4:5, 1080x1080, 1080x566 em 1,91:1). Tamanho
+# EXATO: o Instagram reamostra o que chega fora disso. A qualidade e mais
+# alta porque o proprio Instagram recomprime.
+INSTAGRAM_WIDTH = 1080
+INSTAGRAM_QUALITY = 92
+
 
 def target_box(width, height) -> tuple[int, int]:
     """Caixa 1080p na orientacao da imagem (mesma regra do PhotoE)."""
@@ -43,13 +50,15 @@ def target_box(width, height) -> tuple[int, int]:
     return TARGET_LONG_SIDE, TARGET_SHORT_SIDE
 
 
-def load(path: Path, crop_scale: float = 1.0) -> tuple[np.ndarray, bytes]:
+def load(path: Path, crop_scale: float = 1.0,
+         long_side: int = TARGET_LONG_SIDE) -> tuple[np.ndarray, bytes]:
     """(pixels RGB ja girados, EXIF original).
 
     A resolucao e a menor que ainda enche a caixa de publicacao DEPOIS do crop:
     um recorte de 50 % precisa de 3840 px no lado maior para sair em 1920.
+    ``crop_scale`` e a fracao do lado menor da foto que o quadro ocupa.
     """
-    need = int(math.ceil(TARGET_LONG_SIDE / max(crop_scale, 0.01)))
+    need = int(math.ceil(long_side / max(crop_scale, 0.01)))
     with Image.open(path) as raw:
         exif = raw.info.get('exif', b'')
         # A DCT reduz por 1/2, 1/4, 1/8 mantendo os dois lados >= o pedido.
@@ -67,6 +76,23 @@ def fit(rgb: np.ndarray) -> np.ndarray:
     if w <= box[0] and h <= box[1]:
         return rgb
     img = ImageOps.contain(Image.fromarray(rgb), box, Image.Resampling.LANCZOS)
+    return np.asarray(img)
+
+
+def instagram_size(aspect: float) -> tuple[int, int]:
+    """(largura, altura) da versao Instagram para um recorte ``aspect``
+    (altura/largura). A altura arredonda PARA CIMA: 1080x565 ja passaria de
+    1,91:1 e o Instagram recortaria; 1080x566 fica dentro."""
+    return INSTAGRAM_WIDTH, max(math.ceil(INSTAGRAM_WIDTH * aspect - 1e-6), 1)
+
+
+def fit_exact(rgb: np.ndarray, size: tuple[int, int]) -> np.ndarray:
+    """Leva o recorte ao tamanho exato ``size`` (reduz ou amplia). O recorte
+    ja tem a proporcao de ``size``; a diferenca e so o arredondamento."""
+    h, w = rgb.shape[:2]
+    if (w, h) == tuple(size):
+        return rgb
+    img = Image.fromarray(rgb).resize(size, Image.Resampling.LANCZOS)
     return np.asarray(img)
 
 
@@ -103,9 +129,10 @@ def _exif_for_publication(exif_bytes: bytes, software: str = '') -> bytes | None
         return None
 
 
-def encode(rgb: np.ndarray, exif_bytes: bytes = b'', software: str = '') -> bytes:
+def encode(rgb: np.ndarray, exif_bytes: bytes = b'', software: str = '',
+           quality: int = JPEG_QUALITY) -> bytes:
     buf = io.BytesIO()
-    kw = dict(format='JPEG', quality=JPEG_QUALITY, optimize=True, progressive=True,
+    kw = dict(format='JPEG', quality=quality, optimize=True, progressive=True,
               dpi=(TARGET_DPI, TARGET_DPI))
     clean = _exif_for_publication(exif_bytes, software)
     if clean:

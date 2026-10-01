@@ -69,6 +69,12 @@ export default function ExportDialog({ open, status, onClose }) {
           </dl>
         )}
 
+        {!running && status.instagram > 0 && (
+          <p className="text-xs text-muted-foreground">
+            {tf("export.instagram", { count: status.instagram, dir: `${status.instagram_dir}/` })}
+          </p>
+        )}
+
         {!running && status.cover && (
           <p className="text-xs text-muted-foreground">
             {tf("export.cover", { file: `${status.output_dir}/${status.cover}` })}
