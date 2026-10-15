@@ -1,0 +1,224 @@
+{
+ "exposure": {
+  "values": {
+   "exposure": 0.75
+  },
+  "preset": ""
+ },
+ "tone": {
+  "values": {
+   "contrast": 35,
+   "highlights": -40,
+   "whites": 20,
+   "blacks": -15
+  },
+  "preset": ""
+ },
+ "shadows": {
+  "values": {
+   "shadows": 60
+  },
+  "preset": ""
+ },
+ "wb": {
+  "values": {
+   "temperature": 30,
+   "tint": -12
+  },
+  "preset": ""
+ },
+ "color": {
+  "values": {
+   "vibrance": 40,
+   "saturation": -20
+  },
+  "preset": ""
+ },
+ "preset": {
+  "values": {
+   "exposure": -0.35,
+   "shadows": -30
+  },
+  "preset": "vintage"
+ },
+ "all": {
+  "values": {
+   "exposure": 0.4,
+   "contrast": 20,
+   "highlights": 30,
+   "shadows": 25,
+   "whites": -10,
+   "blacks": 10,
+   "temperature": -15,
+   "tint": 7,
+   "vibrance": 25,
+   "saturation": 15
+  },
+  "preset": "vivid"
+ },
+ "_crop": {
+  "in": {
+   "scale": 0.7,
+   "cx": 0.45,
+   "cy": 0.55,
+   "angle": 12.34
+  },
+  "aspect": 0.6672760511882998,
+  "out": {
+   "scale": 0.7,
+   "cx": 0.45,
+   "cy": 0.5463,
+   "angle": 12.3,
+   "ratio": 0.0
+  }
+ },
+ "_crop90": {
+  "in": {
+   "scale": 0.5,
+   "angle": 95
+  },
+  "out": {
+   "scale": 0.5,
+   "cx": 0.5,
+   "cy": 0.5,
+   "angle": 90.0,
+   "ratio": 0.0
+  }
+ },
+ "_instagram": {
+  "in": {
+   "ratio": 0.9,
+   "angle": -60,
+   "scale": 2
+  },
+  "out": {
+   "scale": 0.7071,
+   "cx": 0.5,
+   "cy": 0.5,
+   "angle": -45.0,
+   "ratio": 1.0
+  }
+ },
+ "_hashes": [
+  {
+   "name": "neutral",
+   "values": {},
+   "preset": "",
+   "crop": null,
+   "layers": null,
+   "hash": "864532f6ff6f8546"
+  },
+  {
+   "name": "exposure",
+   "values": {
+    "exposure": 0.35
+   },
+   "preset": "",
+   "crop": null,
+   "layers": null,
+   "hash": "9b349149ee32aaaa"
+  },
+  {
+   "name": "negexp",
+   "values": {
+    "exposure": -0.01
+   },
+   "preset": "",
+   "crop": null,
+   "layers": null,
+   "hash": "08b5e1c39ebb66cd"
+  },
+  {
+   "name": "preset",
+   "values": {
+    "contrast": 12
+   },
+   "preset": "warm",
+   "crop": null,
+   "layers": null,
+   "hash": "ac67cd7502c0df2a"
+  },
+  {
+   "name": "crop",
+   "values": {},
+   "preset": "",
+   "crop": {
+    "scale": 0.7,
+    "cx": 0.45,
+    "cy": 0.5463,
+    "angle": 12.3,
+    "ratio": 0.0
+   },
+   "layers": null,
+   "hash": "254980ac4283be55"
+  },
+  {
+   "name": "instagram",
+   "values": {},
+   "preset": "",
+   "crop": {
+    "scale": 0.7071,
+    "cx": 0.5,
+    "cy": 0.5,
+    "angle": -45.0,
+    "ratio": 1.0
+   },
+   "layers": null,
+   "hash": "32e50bce27fefd0f"
+  },
+  {
+   "name": "layers",
+   "values": {
+    "tint": 3
+   },
+   "preset": "",
+   "crop": {
+    "scale": 0.7,
+    "cx": 0.45,
+    "cy": 0.5463,
+    "angle": 12.3,
+    "ratio": 0.0
+   },
+   "layers": [
+    {
+     "id": "a1",
+     "mask": "0123456789abcdef0123",
+     "values": {
+      "exposure": 0.25,
+      "contrast": -5,
+      "highlights": 0,
+      "shadows": 0,
+      "whites": 0,
+      "blacks": 0,
+      "temperature": 0,
+      "tint": 0,
+      "vibrance": 0,
+      "saturation": 0
+     },
+     "preset": "bw"
+    }
+   ],
+   "hash": "86c4e922a97a3847"
+  }
+ ],
+ "_normalize": {
+  "in": {
+   "exposure": 0.026,
+   "contrast": 12.5,
+   "tint": -0.4,
+   "highlights": 250
+  },
+  "out": {
+   "exposure": 0.05,
+   "contrast": 12,
+   "highlights": 100,
+   "shadows": 0,
+   "whites": 0,
+   "blacks": 0,
+   "temperature": 0,
+   "tint": 0,
+   "vibrance": 0,
+   "saturation": 0
+  }
+ }
+}

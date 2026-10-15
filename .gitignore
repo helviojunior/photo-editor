@@ -1,36 +1,24 @@
-# Segredos: so o .env.example vai para o git (regra 12)
-.env
-.env.*
-!.env.example
-
-# Versao GERADA pelo tools/build.py a partir das Releases do GitHub (regra 17)
+# Versao GERADA pelo packaging/build.py a partir das Releases do GitHub (regra 17)
 VERSION
 
-# Builder do app desktop (tools/build.py): runtimes embarcados, downloads,
-# modelo de segmentacao e pacotes gerados
-.runtime/
-.runtime-builder/
-.cache/
-models/
+# Builds (CMake), pacotes gerados e caches: dependencias compiladas, SDK do
+# macOS exportado, modelo SAM baixado (make model), downloads
+build/
+build-*/
 dist/
+.cache/
 
-# Dados da antiga instalacao em Docker (TLS, segredos) — nao usados mais
-photoeditor_data/
-
-# Python
+# Ferramentas
+compile_commands.json
+*.user
 __pycache__/
 *.pyc
-backend/staticfiles/
-# collectstatic com DEBUG=True grava aqui (settings.STATIC_ROOT)
-backend/photoeditor/static/
-backend/media/
-
-# Frontend
-frontend/node_modules/
-frontend/build/
 
 # Rascunhos locais
 temp/
+
+# Dados da antiga instalacao em Docker (TLS, segredos) — nao usados mais
+photoeditor_data/
 
 # SO / editores
 .DS_Store

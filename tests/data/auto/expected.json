@@ -1,0 +1,257 @@
+{
+ "cases": {
+  "bright": {
+   "case": "underexposed",
+   "features": {
+    "L": 33.51692199707031,
+    "clip": 0.034269114222033006,
+    "dr": 0.882352888584137,
+    "subject_bg": -1.4110903159401442,
+    "whites_rb": 0.9841225147247314
+   },
+   "hog_pixels": 0,
+   "illum": [
+    0.8061429262161255,
+    0.8092499375343323,
+    0.8129146099090576
+   ],
+   "memberships": {
+    "backlit": 0.0,
+    "color_cast": 0.0,
+    "low_contrast": 0.0,
+    "normal": 0.0,
+    "overexposed": 0.0,
+    "underexposed": 1.0
+   },
+   "params": {
+    "contrast": 0.28,
+    "shadow": 0.7,
+    "target": 0.46,
+    "wb_strength": 1.0
+   },
+   "subject_pixels": 45109,
+   "texture_pixels": 55633,
+   "values": {
+    "blacks": 0,
+    "contrast": 28,
+    "exposure": 0.4,
+    "highlights": 0,
+    "shadows": 70,
+    "temperature": 1,
+    "tint": 0,
+    "whites": 0
+   }
+  },
+  "dark": {
+   "case": "underexposed",
+   "features": {
+    "L": 8.054028511047363,
+    "clip": 0.0,
+    "dr": 0.21960784494876862,
+    "subject_bg": -1.688021636592029,
+    "whites_rb": null
+   },
+   "hog_pixels": 0,
+   "illum": [
+    0.2166425883769989,
+    0.216973215341568,
+    0.21813195943832397
+   ],
+   "memberships": {
+    "backlit": 0.0,
+    "color_cast": 0.3333333333333333,
+    "low_contrast": 0.3333333333333333,
+    "normal": 0.0,
+    "overexposed": 0.0,
+    "underexposed": 0.3333333333333333
+   },
+   "params": {
+    "contrast": 0.17333333333333334,
+    "shadow": 0.2333333333333333,
+    "target": 0.45999999999999996,
+    "wb_strength": 1.0
+   },
+   "subject_pixels": 40705,
+   "texture_pixels": 59897,
+   "values": {
+    "blacks": 0,
+    "contrast": 17,
+    "exposure": 1.35,
+    "highlights": 0,
+    "shadows": 23,
+    "temperature": 1,
+    "tint": 0,
+    "whites": 0
+   }
+  },
+  "flat": {
+   "case": "underexposed",
+   "features": {
+    "L": 45.81584167480469,
+    "clip": 0.0,
+    "dr": 0.13725492358207703,
+    "subject_bg": 0.0,
+    "whites_rb": 0.9945616126060486
+   },
+   "hog_pixels": 0,
+   "illum": [
+    0.5117031335830688,
+    0.5115975141525269,
+    0.5120323300361633
+   ],
+   "memberships": {
+    "backlit": 0.0,
+    "color_cast": 0.0,
+    "low_contrast": 0.5,
+    "normal": 0.0,
+    "overexposed": 0.0,
+    "underexposed": 0.5
+   },
+   "params": {
+    "contrast": 0.2,
+    "shadow": 0.35,
+    "target": 0.46,
+    "wb_strength": 1.0
+   },
+   "subject_pixels": 199655,
+   "texture_pixels": 59897,
+   "values": {
+    "blacks": 0,
+    "contrast": 20,
+    "exposure": 0.1,
+    "highlights": 0,
+    "shadows": 35,
+    "temperature": 0,
+    "tint": 0,
+    "whites": 0
+   }
+  },
+  "large": {
+   "case": "underexposed",
+   "features": {
+    "L": 21.841442108154297,
+    "clip": 0.0002933333333333333,
+    "dr": 0.5481501221656799,
+    "subject_bg": -1.2875765609579597,
+    "whites_rb": 1.0076565742492676
+   },
+   "hog_pixels": 9522,
+   "illum": [
+    0.8291745781898499,
+    0.8234646916389465,
+    0.8255908489227295
+   ],
+   "memberships": {
+    "backlit": 0.0,
+    "color_cast": 0.0,
+    "low_contrast": 0.45664448096266047,
+    "normal": 0.0,
+    "overexposed": 0.0,
+    "underexposed": 0.5433555190373396
+   },
+   "params": {
+    "contrast": 0.20693688304597435,
+    "shadow": 0.3803488633261377,
+    "target": 0.4600000000000001,
+    "wb_strength": 1.0
+   },
+   "subject_pixels": 85593,
+   "texture_pixels": 112024,
+   "values": {
+    "blacks": 0,
+    "contrast": 21,
+    "exposure": 0.75,
+    "highlights": 0,
+    "shadows": 38,
+    "temperature": 0,
+    "tint": -1,
+    "whites": 0
+   }
+  },
+  "original": {
+   "case": "underexposed",
+   "features": {
+    "L": 21.834291458129883,
+    "clip": 0.0008765119831709699,
+    "dr": 0.5529412031173706,
+    "subject_bg": -1.4642803459618903,
+    "whites_rb": 1.0088062286376953
+   },
+   "hog_pixels": 0,
+   "illum": [
+    0.8287928104400635,
+    0.8205696940422058,
+    0.8218172192573547
+   ],
+   "memberships": {
+    "backlit": 0.0,
+    "color_cast": 0.0,
+    "low_contrast": 0.44459562984057455,
+    "normal": 0.0,
+    "overexposed": 0.0,
+    "underexposed": 0.5554043701594255
+   },
+   "params": {
+    "contrast": 0.2088646992255081,
+    "shadow": 0.3887830591115978,
+    "target": 0.46,
+    "wb_strength": 1.0
+   },
+   "subject_pixels": 45891,
+   "texture_pixels": 59514,
+   "values": {
+    "blacks": 0,
+    "contrast": 21,
+    "exposure": 0.75,
+    "highlights": 0,
+    "shadows": 39,
+    "temperature": -1,
+    "tint": -1,
+    "whites": 0
+   }
+  },
+  "warm": {
+   "case": "underexposed",
+   "features": {
+    "L": 22.414871215820312,
+    "clip": 0.0,
+    "dr": 0.5660926103591919,
+    "subject_bg": -0.9404124622455468,
+    "whites_rb": null
+   },
+   "hog_pixels": 0,
+   "illum": [
+    0.9067645072937012,
+    0.7597060799598694,
+    0.5685852766036987
+   ],
+   "memberships": {
+    "backlit": 0.0,
+    "color_cast": 0.37162357954546715,
+    "low_contrast": 0.25675284090906564,
+    "normal": 0.0,
+    "overexposed": 0.0,
+    "underexposed": 0.37162357954546715
+   },
+   "params": {
+    "contrast": 0.17945977272727473,
+    "shadow": 0.260136505681827,
+    "target": 0.45999999999999996,
+    "wb_strength": 1.0
+   },
+   "subject_pixels": 49914,
+   "texture_pixels": 59641,
+   "values": {
+    "blacks": 0,
+    "contrast": 18,
+    "exposure": 0.75,
+    "highlights": 0,
+    "shadows": 26,
+    "temperature": -47,
+    "tint": 8,
+    "whites": 0
+   }
+  }
+ },
+ "sample_checksum": 31691074
+}

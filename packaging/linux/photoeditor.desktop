@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=PhotoEditor
+GenericName=Photo Editor
+GenericName[pt_BR]=Editor de fotos
+Comment=Event photo editor
+Comment[pt_BR]=Editor de fotos de eventos
+Exec=PhotoEditor %F
+Icon=photoeditor
+Terminal=false
+Categories=Graphics;Photography;RasterGraphics;Qt;
+StartupWMClass=PhotoEditor

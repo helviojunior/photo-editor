@@ -25,11 +25,12 @@ mais recente fica no topo):
 |---|---|---|
 | macOS (Apple Silicon — M1 ou mais novo) | `PhotoEditor-<versão>-macos-arm64.dmg` | abra o `.dmg` e arraste o **PhotoEditor** para **Aplicativos** |
 | macOS (Intel) | `PhotoEditor-<versão>-macos-x64.dmg` | idem |
-| Windows 10/11 (inclusive em ARM) | `PhotoEditor-<versão>-windows-x64.msi` | abra o `.msi`; o atalho aparece no Menu Iniciar e na Área de Trabalho |
-| Linux x64 / arm64 | `PhotoEditor-<versão>-linux-*.tar.gz` | descompacte e rode `PhotoEditor` |
+| Windows 10/11 (Intel/AMD) | `PhotoEditor-<versão>-windows-x64.msi` | abra o `.msi`; o atalho aparece no Menu Iniciar e na Área de Trabalho |
+| Windows 11 em ARM | `PhotoEditor-<versão>-windows-arm64.msi` | idem |
+| Linux x64 / arm64 | `PhotoEditor-<versão>-linux-*.tar.gz` | descompacte e rode `bin/PhotoEditor` |
 
-Requisitos mínimos: macOS 14, Windows 10/11 64 bits, ou Linux com glibc 2.34
-(Ubuntu 22.04; em arm64, Ubuntu 24.04).
+Requisitos mínimos: macOS 14, Windows 10/11 64 bits, ou Linux com glibc 2.39
+(Ubuntu 24.04).
 
 > **Primeira abertura:** os instaladores ainda não são assinados.
 > No **macOS**, se aparecer "não foi possível verificar o desenvolvedor", vá em
@@ -84,12 +85,12 @@ Um **projeto** é a pasta de um evento:
 Original e editada lado a lado, painel de edição à direita (Auto, presets e
 ajustes de luz e cor) e a filmstrip do evento embaixo:
 
-![Editor com o preset P&B aplicado](./images/screen1.png)
+![Editor com o preset P&B aplicado](./docs/images/screen1.png)
 
 Modo recorte: o quadro fica sobre a original e a editada mostra o resultado ao
 vivo — aqui girado a -90°, trocando paisagem por retrato sem girar a imagem:
 
-![Modo recorte com o quadro girado a -90°](./images/screen2.png)
+![Modo recorte com o quadro girado a -90°](./docs/images/screen2.png)
 
 ## Camadas (seleção de objetos)
 
@@ -103,13 +104,13 @@ para a outra; sliders, presets e Auto editam a camada ativa.
 Seleção: o traço do pincel (em vermelho, sobre a original) cobre o jogador e
 a IA estende a seleção ao objeto inteiro sob ele:
 
-![Modo seleção pintando o jogador com o pincel](./images/screen3.png)
+![Modo seleção pintando o jogador com o pincel](./docs/images/screen3.png)
 
 Resultado: o jogador virou a camada **Seleção 1** e mantém a cor, enquanto o
 **Restante da foto** recebeu o preset P&B — o objeto é editado separado do
 fundo:
 
-![Jogador em cor sobre o fundo em P&B, cada um na sua camada](./images/screen4.png)
+![Jogador em cor sobre o fundo em P&B, cada um na sua camada](./docs/images/screen4.png)
 
 A IA que reconhece o objeto roda **no seu computador**, sem internet e sem
 placa de vídeo: a primeira seleção de cada foto leva ~1,5 s e cada traço
@@ -203,7 +204,7 @@ aparece à esquerda com a área pintada em vermelho — a bola chegando à cesta
 Só esse recorte vai para o merge; o resto da foto serve apenas para alinhá-la
 à base. À direita, o **Resultado** já mostra a bola no lugar:
 
-![Merge: a bola na cesta pintada como a área da camada IMG_5794](./images/screen7.png)
+![Merge: a bola na cesta pintada como a área da camada IMG_5794](./docs/images/screen7.png)
 
 Camadas e opacidade: cada foto mostra como foi **alinhada à base**
 (`Alinhada: -0.1, 1.8 px · 0.01° · 100.00%` = deslocamento, rotação e escala)
@@ -211,14 +212,14 @@ e a própria opacidade. Com **Surgir**, a bola da base (IMG_5788) fica a 47% e
 as seguintes sobem — 57%, 75% e 100% — até a da cesta, inteira. **Esmaecer**
 faz o contrário e **Opacas** deixa todas a 100%:
 
-![Merge: camadas alinhadas à base, com opacidades 47%, 57%, 75% e 100%](./images/screen6.png)
+![Merge: camadas alinhadas à base, com opacidades 47%, 57%, 75% e 100%](./docs/images/screen6.png)
 
 Efeito final: de volta ao editor, a base leva o selo **MERGE** na filmstrip e
 a **Editada** passa a ser o merge — a trajetória da bola, do arremesso até a
 cesta, numa foto só. Ajustes, recorte e Auto valem sobre ele, e o **Exportar**
 grava `publicar/IMG_5788_merge.jpg`:
 
-![Editor com o merge: a trajetória da bola em uma só foto](./images/screen5.png)
+![Editor com o merge: a trajetória da bola em uma só foto](./docs/images/screen5.png)
 
 Não precisa de tripé: cada foto é **alinhada automaticamente à base pelo
 fundo** — deslocamento, rotação e escala, já que a câmera na mão anda entre
@@ -245,9 +246,20 @@ devolve todas.
 
 ## Para desenvolvedores
 
-Arquitetura, compilação (`make`), empacotamento, versão e API estão em
-[**ARCHITECTURE.md**](./ARCHITECTURE.md); as convenções obrigatórias do
-código, em [`CLAUDE.md`](./CLAUDE.md).
+O app é C++20 + Qt 6 (QML), com OpenCV e ONNX Runtime; só a publicação no
+Instagram usa um pequeno auxiliar em Python. Compilar, testar e gerar os
+instaladores é pelo `make` (com Docker, sem instalar Qt na máquina):
+
+```bash
+make test        # testes
+make run         # abre o app
+make help        # todos os alvos (make dmg, make windows, make linux, make dist...)
+```
+
+Arquitetura, empacotamento e versão estão em
+[**docs/ARCHITECTURE.md**](./docs/ARCHITECTURE.md); as convenções obrigatórias
+do código, em [`CLAUDE.md`](./CLAUDE.md). A versão anterior (Python + React)
+fica na branch `legacy`.
 
 ## Licença
 
