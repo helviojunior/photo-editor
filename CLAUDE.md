@@ -220,7 +220,7 @@ qualquer outro runtime (Python das referências, node, actionlint), imagem
 oficial descartável com `--rm` e volume no projeto.
 
 ### 14. Commits vão direto na `main`
-Fluxo trunk-based no `git@gitlab.com:saas-sec4us/photo-editor.git`.
+Fluxo trunk-based no `git@github.com:helviojunior/photo-editor.git` (o único remoto).
 - **Proibido:** branch de feature ou merge request para publicar uma alteração.
 - **Como aplicar:** quando o usuário pedir, `git add` + `git commit` +
   `git push origin main`, sem `--author`, mensagens em português.
