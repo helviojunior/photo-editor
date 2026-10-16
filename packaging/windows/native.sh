@@ -49,7 +49,10 @@ if [ ! -d "$QT/bin" ]; then
     "$PY" -m aqt install-qt "$AQT_HOST" desktop "$QT_VERSION" "$AQT_ARCH" -O "$CACHE/qt"
 fi
 
-# OpenCV estático com o CRT dinâmico (/MD), o mesmo do app e do Qt.
+# OpenCV estático com o CRT dinâmico (/MD), o mesmo do app e do Qt. No MSVC
+# ele instala no formato "pacote Windows": o OpenCVConfig.cmake da raiz adivinha
+# a arquitetura (e diz x64 no ARM64); o do próprio build fica em staticlib/ —
+# é ele que o configure do app usa (OpenCV_DIR).
 OPENCV=$CACHE/deps/$TARGET/opencv
 OPENCV_WORK=$CACHE/deps/$TARGET/opencv-work bash packaging/deps/opencv.sh "$OPENCV" \
     -DBUILD_WITH_STATIC_CRT=OFF -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl
@@ -64,6 +67,7 @@ B=build/$TARGET
 cmake -S . -B "$B" -G Ninja -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl \
     -DCMAKE_PREFIX_PATH="$(cd "$QT" && pwd -W);$(cd "$OPENCV" && pwd -W)" \
+    -DOpenCV_DIR="$(cd "$OPENCV/staticlib" && pwd -W)" \
     -DPHOTOEDITOR_BUILD_TESTS=OFF -DPHOTOEDITOR_DEPLOY=ON "${EXTRA[@]}" ${CMAKE_ARGS:-}
 cmake --build "$B"
 
