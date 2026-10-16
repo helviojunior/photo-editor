@@ -44,7 +44,9 @@ $PY packaging/build.py art
 
 QT=$CACHE/qt/$QT_VERSION/$QT_DIR
 if [ ! -d "$QT/bin" ]; then
-    aqt install-qt "$AQT_HOST" desktop "$QT_VERSION" "$AQT_ARCH" -O "$CACHE/qt"
+    # Pelo módulo, não pelo aqt.exe: no Git Bash do runner Windows ARM o
+    # Scripts/ do venv no PATH não basta para achar o executável.
+    "$PY" -m aqt install-qt "$AQT_HOST" desktop "$QT_VERSION" "$AQT_ARCH" -O "$CACHE/qt"
 fi
 
 # OpenCV estático com o CRT dinâmico (/MD), o mesmo do app e do Qt.

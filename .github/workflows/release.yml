@@ -9,7 +9,9 @@
 # msi_version em packaging/build.py). Tag fora disso para no 1º job.
 #
 # À mão (Actions -> Release installers -> Run workflow): refaz os instaladores
-# de uma Release já publicada, informando a tag.
+# de uma Release já publicada, informando a tag. Opcionais: "targets" refaz só
+# alguns alvos (ex.: windows-arm64) e "ref" compila outro commit/branch que não
+# a tag (ex.: main com uma correção de empacotamento) — a versão continua a da tag.
 
 name: Release installers
 
@@ -21,6 +23,14 @@ on:
       tag:
         description: "Tag da Release que recebe os instaladores (ex.: v1.2.3)"
         required: true
+      targets:
+        description: "Alvos: all, ou lista com linux, macos, windows-x64, windows-arm64"
+        required: false
+        default: "all"
+      ref:
+        description: "Commit/branch a compilar (vazio = a própria tag)"
+        required: false
+        default: ""
 
 permissions:
   contents: write     # anexar arquivos à Release
@@ -56,5 +66,6 @@ jobs:
     uses: ./.github/workflows/package.yml
     with:
       version: ${{ needs.version.outputs.version }}
-      ref: ${{ needs.version.outputs.tag }}
+      ref: ${{ inputs.ref || needs.version.outputs.tag }}
       release-tag: ${{ needs.version.outputs.tag }}
+      targets: ${{ inputs.targets || 'all' }}
