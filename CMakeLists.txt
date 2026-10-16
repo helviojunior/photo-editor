@@ -21,6 +21,12 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_AUTOMOC ON)
+# Windows: o executável fica na RAIZ da instalação, ao lado das DLLs. O deploy
+# do Qt lê esta variável no nível do projeto (não adianta trocá-la dentro de
+# uma função): tem de valer antes do GNUInstallDirs.
+if(WIN32)
+    set(CMAKE_INSTALL_BINDIR "." CACHE PATH "Executáveis (raiz da instalação no Windows)")
+endif()
 include(GNUInstallDirs)
 
 option(PHOTOEDITOR_BUILD_TESTS "Compilar testes" ON)

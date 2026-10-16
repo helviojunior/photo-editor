@@ -74,7 +74,9 @@ cmake --build "$B"
 STAGE=$CACHE/stage/$TARGET
 rm -rf "$STAGE"
 # O deploy do Qt (windeployqt) roda dentro do install.
-cmake --install "$B" --prefix "$STAGE"
+# Prefixo ABSOLUTO: o deploy do Qt recusa caminho relativo (qt.conf).
+mkdir -p "$STAGE"
+cmake --install "$B" --prefix "$(cd "$STAGE" && pwd -W)"
 $PY packaging/build.py build-info --target "$TARGET" --out "$STAGE/build-info.json"
 # Runtime do Visual C++ (app, Qt e ONNX Runtime são MSVC): ao lado do .exe,
 # sem depender do vc_redist instalado na máquina.
