@@ -90,6 +90,10 @@ QtObject {
     readonly property color border: dark ? "#333333" : "#e5e5e5"
     readonly property color input: border
     readonly property color ring: dark ? "#3c83f6" : "#0a0a0a"
+    // Item ativo (trilho lateral, linha da paleta, atalho sendo gravado):
+    // fundo suave e ícone no acento da marca.
+    readonly property color brandSoft: alpha(brand500, dark ? 0.16 : 0.10)
+    readonly property color brandForeground: dark ? brand400 : brand600
     // Anel de foco das telas (focus-visible:ring-brand-400).
     readonly property color focusRing: brand400
 

@@ -46,7 +46,7 @@ ColumnLayout {
 
             Tip {
                 text: section.full ? qsTr("Up to %1 layers per photo.").arg(App.editor.maxLayers)
-                                   : qsTr("Select an area to extract as a layer (S)")
+                                   : qsTr("Select an area to extract as a layer") + Keymap.hint("selectArea")
                 visible: newButton.hovered
             }
         }

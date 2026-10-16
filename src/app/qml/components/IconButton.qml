@@ -10,11 +10,16 @@ import PhotoEditor
 // variant: "ghost"   (padrão) ícone apagado, acende ao passar o mouse
 //          "overlay" círculo preto translúcido sobre foto (cards da Home)
 // active:  marca o botão da tela atual (ícone no acento da marca).
+// shortcut: texto do atalho, mostrado na dica depois do nome
+//           (``Keymap.label("undo")``).
+// tooltipSide: "bottom" (padrão) | "right" (botões do trilho lateral).
 T.AbstractButton {
     id: control
 
     property string iconName: ""
     property string tooltip: ""
+    property string shortcut: ""
+    property string tooltipSide: "bottom"
     property string variant: "ghost"
     property bool active: false
     /// Diâmetro do botão.
@@ -67,7 +72,9 @@ T.AbstractButton {
     }
 
     Tip {
-        text: control.tooltip
+        text: control.shortcut !== "" ? control.tooltip + "   " + control.shortcut : control.tooltip
         visible: control.hovered && control.tooltip !== ""
+        x: control.tooltipSide === "right" ? control.width + 6 : Math.round((control.width - implicitWidth) / 2)
+        y: control.tooltipSide === "right" ? Math.round((control.height - implicitHeight) / 2) : control.height + 6
     }
 }

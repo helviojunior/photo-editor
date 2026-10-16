@@ -24,7 +24,7 @@ file(GLOB PHOTOEDITOR_QML RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS
 file(GLOB PHOTOEDITOR_ICONS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS icons/*.svg)
 file(GLOB PHOTOEDITOR_ASSETS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS
     assets/*.png assets/logo/*.png fonts/*.ttf)
-set_source_files_properties(qml/Theme.qml qml/Dialogs.qml qml/Messages.qml
+set_source_files_properties(qml/Theme.qml qml/Dialogs.qml qml/Messages.qml qml/Keymap.qml
     PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 
 # Pastas qml/components, qml/pages... com qmldir próprio.

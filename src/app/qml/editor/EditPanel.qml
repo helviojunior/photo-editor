@@ -50,19 +50,6 @@ ColumnLayout {
         return name;
     }
 
-    function presetLabel(id) {
-        switch (id) {
-        case "vivid": return qsTr("Vivid");
-        case "soft": return qsTr("Soft");
-        case "warm": return qsTr("Warm");
-        case "cool": return qsTr("Cool");
-        case "bw": return qsTr("B&W");
-        case "matte": return qsTr("Matte");
-        case "vintage": return qsTr("Vintage");
-        }
-        return id;
-    }
-
     function ratioLabel(id) {
         switch (id) {
         case "4:5": return qsTr("4:5 — portrait (1080×1350)");
@@ -97,7 +84,7 @@ ColumnLayout {
             onClicked: App.editor.autoAdjust()
 
             Tip {
-                text: qsTr("Auto (A)")
+                text: qsTr("Auto") + Keymap.hint("auto")
                 visible: autoButton.hovered
             }
         }
@@ -129,7 +116,7 @@ ColumnLayout {
             onClicked: panel.cropToggled()
 
             Tip {
-                text: qsTr("Crop mode (C)")
+                text: qsTr("Crop mode") + Keymap.hint("crop")
                 visible: cropButton.hovered
             }
         }
@@ -274,7 +261,7 @@ ColumnLayout {
 
                 PillButton {
                     required property var modelData
-                    text: panel.presetLabel(modelData.id)
+                    text: Messages.presetName(modelData.id)
                     active: App.editor.preset === modelData.id
                     onClicked: App.editor.togglePreset(modelData.id)
                 }

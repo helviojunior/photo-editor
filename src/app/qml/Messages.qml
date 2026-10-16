@@ -173,6 +173,21 @@ QtObject {
         return String(kind || "");
     }
 
+    /// Nome de um preset de revelação (App.editor.presets[].id): o painel de
+    /// edição e a paleta de comandos.
+    function presetName(id) {
+        switch (id) {
+        case "vivid": return qsTr("Vivid");
+        case "soft": return qsTr("Soft");
+        case "warm": return qsTr("Warm");
+        case "cool": return qsTr("Cool");
+        case "bw": return qsTr("B&W");
+        case "matte": return qsTr("Matte");
+        case "vintage": return qsTr("Vintage");
+        }
+        return String(id || "");
+    }
+
     /// Mensagem da barra da filmstrip (App.editor.statusMessage/statusParams).
     function status(key, params) {
         const p = params || {};
@@ -188,6 +203,12 @@ QtObject {
             return qsTr("Undone: %1.").arg(actionName(p.kind));
         case "status.nothingToUndo":
             return qsTr("Nothing to undo.");
+        case "status.redone":
+            return name !== ""
+                ? qsTr("Redone: %1 · %2").arg(actionName(p.kind)).arg(name)
+                : qsTr("Redone: %1.").arg(actionName(p.kind));
+        case "status.nothingToRedo":
+            return qsTr("Nothing to redo.");
         case "status.rescanned":
             return qsTr("Catalog updated: %1 photos.").arg(p.total !== undefined ? p.total : 0);
         case "status.coverSet":

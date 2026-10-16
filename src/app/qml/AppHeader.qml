@@ -1,15 +1,23 @@
 import QtQuick
-import QtQuick.Effects
 import QtQuick.Layouts
+import QtQuick.Templates as T
 import PhotoEditor
 
-// Cabeçalho do app (AppLayout.jsx): logo + versão, Início e nome do projeto
-// quando há um aberto; à direita o idioma, a conta do Instagram e o tema.
+// Cabeçalho do app (o TopBar do clivcut): à esquerda logo + versão e o nome
+// do projeto aberto (clicar volta ao editor); ao centro a busca de ações
+// (abre a paleta de comandos); à direita desfazer, refazer e Exportar.
+// Projetos, idioma, Instagram e tema ficam no trilho lateral (ActivityRail).
 // Baixo de propósito: cada pixel que ele não usa vai para as fotos.
 Rectangle {
     id: header
 
-    signal instagramRequested()
+    signal searchRequested()
+    signal exportRequested()
+
+    readonly property var exportStatus: App.editor.exportStatus || ({})
+    readonly property bool exporting: exportStatus.running === true
+    readonly property int exportPercent: exportStatus.total
+        ? Math.round((exportStatus.done || 0) / exportStatus.total * 100) : 0
 
     implicitHeight: Theme.headerHeight + 1
     color: Theme.card
@@ -21,14 +29,15 @@ Rectangle {
         color: Theme.border
     }
 
+    // Esquerda: logo, versão e projeto.
     RowLayout {
-        anchors.fill: parent
-        anchors.bottomMargin: 1
+        id: left
+        anchors.left: parent.left
         anchors.leftMargin: 16
-        anchors.rightMargin: 16
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.verticalCenterOffset: -0.5
         spacing: 8
 
-        // Logo com o brilho branco (drop-shadow 0 0 10px white/40).
         Image {
             id: logo
             Layout.preferredHeight: 24
@@ -38,17 +47,6 @@ Rectangle {
             sourceSize.height: 24 * Screen.devicePixelRatio
             fillMode: Image.PreserveAspectFit
             smooth: true
-            // Sem GPU (renderização por software) não há efeito: o logo vai sem brilho.
-            layer.enabled: Theme.dark && GraphicsInfo.api !== GraphicsInfo.Software
-            layer.effect: MultiEffect {
-                shadowEnabled: true
-                shadowColor: Qt.rgba(1, 1, 1, 0.4)
-                shadowBlur: 0.5
-                shadowHorizontalOffset: 0
-                shadowVerticalOffset: 0
-                blurMax: 20
-                autoPaddingEnabled: true
-            }
         }
 
         Text {
@@ -57,24 +55,18 @@ Rectangle {
             color: Theme.mutedForeground
         }
 
-        // Projeto aberto: Início + nome (clicar no nome volta ao editor).
+        // Projeto aberto: o nome (clicar nele volta ao editor).
         Separator {
             vertical: true
             visible: App.hasProject
+            Layout.preferredHeight: 20
             Layout.leftMargin: 4
             Layout.rightMargin: 4
-        }
-        IconButton {
-            visible: App.hasProject
-            iconName: "house"
-            tooltip: qsTr("Home")
-            active: App.page === "home"
-            onClicked: App.page = "home"
         }
         Text {
             id: projectName
             visible: App.hasProject
-            Layout.maximumWidth: header.width * 0.4
+            Layout.maximumWidth: Math.max(80, header.width * 0.5 - 220 - left.x - logo.width)
             text: App.projectName
             font.pixelSize: Theme.fontBase
             font.weight: Font.Medium
@@ -96,39 +88,102 @@ Rectangle {
                 visible: nameMouse.containsMouse
             }
         }
+    }
 
-        Item { Layout.fillWidth: true }
+    // Busca de ações (paleta de comandos), centrada na janela; encolhe para
+    // não encostar no que está à esquerda e à direita, e some se não couber.
+    T.AbstractButton {
+        id: search
 
-        // Idioma: escolha salva pelo C++ (QSettings) e aplicada na hora.
-        Select {
-            id: language
-            variant: "ghost"
-            model: App.languages
-            textRole: "name"
-            valueRole: "code"
-            currentIndex: App.languages.findIndex((l) => l.code === App.language)
-            Accessible.name: qsTr("Language")
-            onActivated: App.setLanguage(currentValue)
+        readonly property real room: header.width - 2 * Math.max(left.width + left.x, right.width + 16) - 32
+
+        anchors.centerIn: parent
+        anchors.verticalCenterOffset: -0.5
+        width: Math.min(360, room)
+        height: 28
+        visible: room >= 160
+        hoverEnabled: true
+        focusPolicy: Qt.StrongFocus
+        Accessible.name: qsTr("Search actions…")
+        onClicked: header.searchRequested()
+
+        background: Rectangle {
+            radius: Theme.radiusLg
+            color: Theme.background
+            border.color: search.hovered || search.visualFocus ? Theme.brand400 : Theme.border
+            Behavior on border.color { ColorAnimation { duration: Theme.animationFast } }
         }
-
-        Separator {
-            vertical: true
-            Layout.leftMargin: 4
-            Layout.rightMargin: 4
+        contentItem: RowLayout {
+            spacing: 8
+            Icon {
+                Layout.leftMargin: 10
+                name: "search"
+                size: 14
+                color: Theme.mutedForeground
+            }
+            Text {
+                Layout.fillWidth: true
+                text: qsTr("Search actions…")
+                font.pixelSize: Theme.fontSm
+                color: Theme.mutedForeground
+                elide: Text.ElideRight
+            }
+            Keycap {
+                Layout.rightMargin: 5
+                text: Keymap.label("palette")
+            }
         }
+    }
 
-        // Conta do Instagram para o "Publicar" (vale para todos os projetos).
+    // Direita: desfazer, refazer e Exportar (só com projeto aberto).
+    RowLayout {
+        id: right
+        anchors.right: parent.right
+        anchors.rightMargin: 12
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.verticalCenterOffset: -0.5
+        visible: App.hasProject
+        spacing: 2
+
+        // Globais: a última ação de qualquer foto.
         IconButton {
-            iconName: "instagram"
-            tooltip: qsTr("Instagram settings")
-            active: App.page === "instagram"
-            onClicked: header.instagramRequested()
+            diameter: 32
+            iconSize: 17
+            iconName: "undo-2"
+            enabled: App.editor.canUndo
+            tooltip: App.editor.canUndo ? qsTr("Undo: %1").arg(Messages.actionName(App.editor.undoKind)) : qsTr("Undo")
+            shortcut: Keymap.label("undo")
+            onClicked: App.editor.undo()
+        }
+        IconButton {
+            diameter: 32
+            iconSize: 17
+            iconName: "redo-2"
+            enabled: App.editor.canRedo
+            tooltip: App.editor.canRedo ? qsTr("Redo: %1").arg(Messages.actionName(App.editor.redoKind)) : qsTr("Redo")
+            shortcut: Keymap.label("redo")
+            onClicked: App.editor.redo()
         }
 
-        IconButton {
-            iconName: Theme.dark ? "sun" : "moon"
-            tooltip: qsTr("Theme")
-            onClicked: App.darkTheme = !App.darkTheme
+        // Exportando, o botão mostra o andamento e reabre o diálogo.
+        Button {
+            id: exportButton
+            Layout.leftMargin: 8
+            implicitHeight: 30
+            size: "sm"
+            iconName: "upload"
+            loading: header.exporting
+            enabled: true
+            text: header.exporting ? qsTr("Exporting %1%").arg(header.exportPercent) : qsTr("Export")
+            onClicked: header.exportRequested()
+
+            Tip {
+                text: Keymap.label("export") !== ""
+                    ? qsTr("Export the active photos to publicar/") + "   " + Keymap.label("export")
+                    : qsTr("Export the active photos to publicar/")
+                visible: exportButton.hovered
+                x: exportButton.width - implicitWidth
+            }
         }
     }
 }

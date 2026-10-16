@@ -15,8 +15,9 @@ import PhotoEditor
 // sem a área quando ela muda; transparência e visibilidade gravam sozinhas.
 // "← Editor" grava o que falta e volta ao editor na base.
 //
-// Atalhos (Merge.jsx): S seleciona a área da camada ativa; na seleção Enter
-// (ou S) conclui, Esc cancela e [ ] mudam o pincel.
+// Atalhos (Merge.jsx; teclas do Keymap, as mesmas da seleção do editor): S
+// seleciona a área da camada ativa; na seleção Enter (ou S) conclui, Esc
+// cancela e [ ] mudam o pincel.
 Item {
     id: page
 
@@ -106,34 +107,34 @@ Item {
     readonly property Item _focusItem: Window.activeFocusItem
     readonly property bool _textFocus: _focusItem !== null && ("cursorPosition" in _focusItem)
     readonly property bool _buttonFocus: _focusItem !== null && ("checkable" in _focusItem) && ("autoRepeat" in _focusItem)
-    readonly property bool keysActive: App.page === "merge" && visible && merge.open
+    readonly property bool keysActive: App.page === "merge" && visible && merge.open && !Keymap.recording
         && Dialogs.current === null && !_textFocus
 
     Shortcut {
-        sequence: "S"
+        sequences: Keymap.keys("selectArea")
         autoRepeat: false
         enabled: page.keysActive && page.activeLayer !== null
         onActivated: page.selecting ? page.applySelection() : page.startSelect(page.merge.activePhoto)
     }
     Shortcut {
-        sequences: ["Return", "Enter"]
+        sequences: Keymap.keys("applySelection")
         autoRepeat: false
         enabled: page.keysActive && page.selecting && !page._buttonFocus
         onActivated: page.applySelection()
     }
     Shortcut {
-        sequence: "Esc"
+        sequences: Keymap.keys("cancel")
         autoRepeat: false
         enabled: page.keysActive && page.selecting
         onActivated: App.merge.cancelSelection()
     }
     Shortcut {
-        sequence: "["
+        sequences: Keymap.keys("brushSmaller")
         enabled: page.keysActive && page.selecting
         onActivated: brush.step(-1)
     }
     Shortcut {
-        sequence: "]"
+        sequences: Keymap.keys("brushLarger")
         enabled: page.keysActive && page.selecting
         onActivated: brush.step(1)
     }

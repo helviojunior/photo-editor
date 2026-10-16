@@ -132,10 +132,14 @@ foto do merge: a "Editada" parte do composto e o Exportar grava
 
 `src/app/qml/`: `Theme.qml` (tokens claro/escuro, escala da marca),
 `Dialogs.qml`/`Messages.qml` (singletons: modais e textos de erro/status),
-`components/` (Button, Toggle, SelectionCheck, ValueSlider, Splitter, Modal,
-FormError...), `pages/` (Home, Editor, Merge, Configurações do Instagram),
-`editor/` (painéis, crop, pincel, filmstrip) e `dialogs/` (Exportar,
-Publicar, fluxos de abrir/criar projeto). Ícones Lucide em `src/app/icons/`,
+`Keymap.qml` (singleton: atalhos de teclado, padrões + trocas salvas no
+QSettings), `AppHeader.qml` (logo, busca de ações, desfazer/refazer,
+Exportar), `ActivityRail.qml` (trilho lateral, no lugar da barra de menus: Projetos, Editor, Idioma,
+Instagram, Sobre, atalhos, tema), `components/` (Button, Toggle,
+SelectionCheck, ValueSlider, Splitter, Modal, FormError, CommandPalette...),
+`pages/` (Home, Editor, Merge, Configurações do Instagram), `editor/`
+(painéis, crop, pincel, filmstrip) e `dialogs/` (Exportar, Publicar, editor de
+atalhos, fluxos de abrir/criar projeto). Ícones Lucide em `src/app/icons/`,
 fonte Inter em `src/app/fonts/`. Traduções em `i18n/` (Qt Linguist).
 
 ## Compilação e pacotes: `make`

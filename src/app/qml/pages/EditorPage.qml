@@ -17,12 +17,14 @@ import PhotoEditor
 // O painel da esquerda muda com o modo: crop (o quadro sobre a original),
 // seleção (o pincel), camada ativa (a área dela por cima) ou só a original.
 //
-// Atalhos (useShortcuts.js): → ← trocam de foto (no crop giram o quadro de
-// 15 em 15°), Del/Backspace exclui, Ctrl/Cmd+Z desfaz, A Auto, C crop, S
-// seleção (dentro dela, conclui), L próxima camada, I versão Instagram;
+// Atalhos (padrões do Keymap, trocáveis no editor de atalhos): → ← trocam de
+// foto (no crop giram o quadro de 15 em 15°), Del/Backspace exclui, Ctrl/Cmd+Z
+// desfaz, Ctrl/Cmd+Shift+Z (ou +Y) refaz, Ctrl/Cmd+D duplica, A Auto, C crop,
+// S seleção (dentro dela, conclui), L próxima camada, I versão Instagram;
 // na seleção Enter conclui, Esc cancela e [ ] mudam o pincel. Valem só com o
 // editor na tela, sem diálogo aberto e sem foco num campo de texto; só as
-// setas repetem com a tecla segurada.
+// setas repetem com a tecla segurada. ``run(id)`` é o que cada um faz — a
+// paleta de comandos chama o mesmo.
 Item {
     id: page
 
@@ -108,6 +110,44 @@ Item {
             exportDialog.start();
     }
 
+    function openPublish() {
+        publishDialog.open();
+    }
+
+    /// Uma ação do editor pelo id do Keymap: o que os atalhos e a paleta de
+    /// comandos (Main.qml) disparam. Quem chama confere as condições.
+    function run(id) {
+        switch (id) {
+        case "nextPhoto": cropMode ? rotateCrop(1) : App.editor.next(); break;
+        case "previousPhoto": cropMode ? rotateCrop(-1) : App.editor.previous(); break;
+        case "deletePhoto": App.editor.deleteCurrent(); break;
+        case "duplicate": App.editor.duplicateCurrent(); break;
+        case "cover": App.editor.toggleCover(); break;
+        case "instagram": App.editor.toggleInstagram(); break;
+        case "rescan": App.editor.rescan(); break;
+        case "merge": App.editor.picking = !App.editor.picking; break;
+        case "undo": App.editor.undo(); break;
+        case "redo": App.editor.redo(); break;
+        case "auto": App.editor.autoAdjust(); break;
+        case "reset": App.editor.reset(); break;
+        case "crop": setCropMode(!cropMode); break;
+        case "nextLayer": App.editor.cycleLayer(); break;
+        case "selectArea": selecting ? applySelection() : startSelect(""); break;
+        case "applySelection": applySelection(); break;
+        case "cancel":
+            if (selecting)
+                App.editor.cancelSelection();
+            else
+                cropMode = false;
+            break;
+        case "brushSmaller": brush.step(-1); break;
+        case "brushLarger": brush.step(1); break;
+        case "export": openExport(); break;
+        case "publish": openPublish(); break;
+        default: console.warn("Unknown editor action", id);
+        }
+    }
+
     Component.onCompleted: photoChanged()
 
     Connections {
@@ -144,88 +184,122 @@ Item {
     readonly property bool _arrowFocus: _focusItem !== null
         && (("visualPosition" in _focusItem) || ("displayText" in _focusItem))
     readonly property bool _buttonFocus: _focusItem !== null && ("checkable" in _focusItem) && ("autoRepeat" in _focusItem)
-    readonly property bool keysActive: App.page === "editor" && visible && !empty
+    readonly property bool keysActive: App.page === "editor" && visible && !empty && !Keymap.recording
         && Dialogs.current === null && !exportDialog.visible && !publishDialog.visible && !_textFocus
 
+    // As teclas vêm do Keymap (trocáveis no editor de atalhos); as condições
+    // de cada uma ficam aqui.
+    readonly property bool _photoKeys: keysActive && !selecting && !App.editor.picking && hasCurrent
     Shortcut {
-        sequences: ["Right"]
+        sequences: Keymap.keys("nextPhoto")
         enabled: page.keysActive && !page._arrowFocus && !page.selecting
-        onActivated: page.cropMode ? page.rotateCrop(1) : App.editor.next()
+        onActivated: page.run("nextPhoto")
     }
     Shortcut {
-        sequences: ["Left"]
+        sequences: Keymap.keys("previousPhoto")
         enabled: page.keysActive && !page._arrowFocus && !page.selecting
-        onActivated: page.cropMode ? page.rotateCrop(-1) : App.editor.previous()
+        onActivated: page.run("previousPhoto")
     }
     // Pintando, nada exclui: um Backspace perdido não pode jogar a foto fora.
     Shortcut {
-        sequences: ["Delete", "Backspace"]
+        sequences: Keymap.keys("deletePhoto")
         autoRepeat: false
-        enabled: page.keysActive && !page.selecting && !App.editor.picking && page.hasCurrent
-        onActivated: App.editor.deleteCurrent()
+        enabled: page._photoKeys
+        onActivated: page.run("deletePhoto")
     }
     Shortcut {
-        sequences: [StandardKey.Undo]
+        sequences: Keymap.keys("duplicate")
+        autoRepeat: false
+        enabled: page._photoKeys && page.current.isInstagram !== true
+        onActivated: page.run("duplicate")
+    }
+    Shortcut {
+        sequences: Keymap.keys("cover")
+        autoRepeat: false
+        enabled: page._photoKeys && page.current.isInstagram !== true
+        onActivated: page.run("cover")
+    }
+    Shortcut {
+        sequences: Keymap.keys("instagram")
+        autoRepeat: false
+        enabled: page._photoKeys
+        onActivated: page.run("instagram")
+    }
+    Shortcut {
+        sequences: Keymap.keys("rescan")
+        autoRepeat: false
+        enabled: page.keysActive && !page.selecting
+        onActivated: page.run("rescan")
+    }
+    Shortcut {
+        sequences: Keymap.keys("merge")
+        autoRepeat: false
+        enabled: page.keysActive && !page.selecting && App.editor.photos.count >= 2
+        onActivated: page.run("merge")
+    }
+    Shortcut {
+        sequences: Keymap.keys("undo")
         autoRepeat: false
         enabled: page.keysActive
-        onActivated: App.editor.undo()
+        onActivated: page.run("undo")
     }
     Shortcut {
-        sequence: "A"
+        sequences: Keymap.keys("redo")
+        autoRepeat: false
+        enabled: page.keysActive
+        onActivated: page.run("redo")
+    }
+    Shortcut {
+        sequences: Keymap.keys("auto")
         autoRepeat: false
         enabled: page.keysActive && !page.selecting && page.hasCurrent
-        onActivated: App.editor.autoAdjust()
+        onActivated: page.run("auto")
     }
     Shortcut {
-        sequence: "C"
+        sequences: Keymap.keys("reset")
         autoRepeat: false
         enabled: page.keysActive && !page.selecting && page.hasCurrent
-        onActivated: page.setCropMode(!page.cropMode)
+        onActivated: page.run("reset")
     }
     Shortcut {
-        sequence: "S"
+        sequences: Keymap.keys("crop")
         autoRepeat: false
-        enabled: page.keysActive && page.hasCurrent
-        onActivated: page.selecting ? page.applySelection() : page.startSelect("")
+        enabled: page.keysActive && !page.selecting && page.hasCurrent
+        onActivated: page.run("crop")
     }
     Shortcut {
-        sequence: "L"
+        sequences: Keymap.keys("nextLayer")
         autoRepeat: false
         enabled: page.keysActive && !page.selecting && !page.cropMode
-        onActivated: App.editor.cycleLayer()
+        onActivated: page.run("nextLayer")
     }
     Shortcut {
-        sequence: "I"
+        sequences: Keymap.keys("selectArea")
         autoRepeat: false
-        enabled: page.keysActive && !page.selecting && !App.editor.picking && page.hasCurrent
-        onActivated: App.editor.toggleInstagram()
+        enabled: page.keysActive && page.hasCurrent
+        onActivated: page.run("selectArea")
     }
     Shortcut {
-        sequences: ["Return", "Enter"]
+        sequences: Keymap.keys("applySelection")
         autoRepeat: false
         enabled: page.keysActive && page.selecting && !page._buttonFocus
-        onActivated: page.applySelection()
+        onActivated: page.run("applySelection")
     }
     Shortcut {
-        sequence: "Esc"
+        sequences: Keymap.keys("cancel")
         autoRepeat: false
         enabled: page.keysActive && (page.selecting || page.cropMode)
-        onActivated: {
-            if (page.selecting)
-                App.editor.cancelSelection();
-            else
-                page.cropMode = false;
-        }
+        onActivated: page.run("cancel")
     }
     Shortcut {
-        sequence: "["
+        sequences: Keymap.keys("brushSmaller")
         enabled: page.keysActive && page.selecting
-        onActivated: brush.step(-1)
+        onActivated: page.run("brushSmaller")
     }
     Shortcut {
-        sequence: "]"
+        sequences: Keymap.keys("brushLarger")
         enabled: page.keysActive && page.selecting
-        onActivated: brush.step(1)
+        onActivated: page.run("brushLarger")
     }
 
     // --------------------------------------------------------------------- //
@@ -481,7 +555,7 @@ Item {
                             variant: "outline"
                             size: "sm"
                             iconName: "chevron-left"
-                            text: qsTr("Back to the photo (I)")
+                            text: qsTr("Back to the photo") + Keymap.hint("instagram")
                             onClicked: App.editor.toggleInstagram()
                         }
                     }
@@ -564,7 +638,6 @@ Item {
             FilmstripToolbar {
                 id: toolbar
                 width: parent.width
-                onExportRequested: page.openExport()
                 onPublishRequested: publishDialog.open()
             }
 

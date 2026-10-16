@@ -4,19 +4,17 @@ import PhotoEditor
 
 // Barra da filmstrip (Editor.jsx): posição, mensagem da última ação, ordem
 // das fotos e os mesmos comandos dos atalhos, para quem não tem teclado.
-// Exportar e Publicar abrem os diálogos (sinais para o EditorPage).
+// Publicar abre o diálogo (sinal para o EditorPage); Exportar, desfazer e
+// refazer ficam no cabeçalho (AppHeader).
 Rectangle {
     id: bar
 
-    signal exportRequested()
     signal publishRequested()
 
     readonly property var current: App.editor.current
     readonly property bool hasCurrent: current.id !== undefined && current.id !== ""
     readonly property bool picking: App.editor.picking
     readonly property bool isInstagram: current.isInstagram === true
-    readonly property var exportStatus: App.editor.exportStatus
-    readonly property bool exporting: exportStatus.running === true
     readonly property var sortOptions: [
         { value: "date_asc", text: qsTr("Date/time ↑ (oldest first)") },
         { value: "date_desc", text: qsTr("Date/time ↓ (newest first)") },
@@ -113,28 +111,28 @@ Rectangle {
 
             ToolButton {
                 iconName: "chevron-left"
-                tooltip: qsTr("Previous photo (←)")
+                tooltip: qsTr("Previous photo") + Keymap.hint("previousPhoto")
                 enabled: bar.hasCurrent && bar.current.position > 1
                 onClicked: App.editor.previous()
             }
             ToolButton {
                 iconName: "chevron-right"
-                tooltip: qsTr("Next photo (→)")
+                tooltip: qsTr("Next photo") + Keymap.hint("nextPhoto")
                 enabled: bar.hasCurrent && bar.current.position < bar.current.total
                 onClicked: App.editor.next()
             }
             ToolButton {
                 iconName: "instagram"
-                tooltip: bar.isInstagram ? qsTr("Back to the photo (I)")
-                       : bar.current.hasInstagram ? qsTr("Open the Instagram version (I)")
-                       : qsTr("Edit for Instagram (I)")
+                tooltip: (bar.isInstagram ? qsTr("Back to the photo")
+                       : bar.current.hasInstagram ? qsTr("Open the Instagram version")
+                       : qsTr("Edit for Instagram")) + Keymap.hint("instagram")
                 active: bar.isInstagram || bar.current.hasInstagram === true
                 enabled: bar.hasCurrent && !bar.picking
                 onClicked: App.editor.toggleInstagram()
             }
             ToolButton {
                 iconName: "copy"
-                tooltip: qsTr("Duplicate photo (virtual copy)")
+                tooltip: qsTr("Duplicate photo (virtual copy)") + Keymap.hint("duplicate")
                 enabled: bar.hasCurrent && !bar.picking && !bar.isInstagram
                 onClicked: App.editor.duplicateCurrent()
             }
@@ -149,14 +147,9 @@ Rectangle {
             }
             ToolButton {
                 iconName: "trash-2"
-                tooltip: qsTr("Delete photo (Del)")
+                tooltip: qsTr("Delete photo") + Keymap.hint("deletePhoto")
                 enabled: bar.hasCurrent
                 onClicked: App.editor.deleteCurrent()
-            }
-            ToolButton {
-                iconName: "undo-2"
-                tooltip: qsTr("Undo (Ctrl/Cmd+Z)")
-                onClicked: App.editor.undo()
             }
             Button {
                 size: "sm"
@@ -182,17 +175,6 @@ Rectangle {
                         : qsTr("No photo has an Instagram version. Press I on a photo to create one.")
                     visible: publishHover.hovered
                 }
-            }
-            Button {
-                size: "sm"
-                iconName: "upload"
-                loading: bar.exporting
-                // Exportando, o botão mostra o andamento e reabre o diálogo.
-                enabled: true
-                text: bar.exporting
-                    ? qsTr("%1 of %2").arg(bar.exportStatus.done || 0).arg(bar.exportStatus.total || 0)
-                    : qsTr("Export")
-                onClicked: bar.exportRequested()
             }
         }
     }

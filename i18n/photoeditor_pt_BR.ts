@@ -29,22 +29,140 @@
     </message>
 </context>
 <context>
-    <name>AppHeader</name>
+    <name>ActivityRail</name>
     <message>
-        <source>Home</source>
-        <translation>Início</translation>
+        <source>Projects</source>
+        <translation>Projetos</translation>
+    </message>
+    <message>
+        <source>Editor</source>
+        <translation>Editor</translation>
     </message>
     <message>
         <source>Language</source>
         <translation>Idioma</translation>
     </message>
     <message>
-        <source>Instagram settings</source>
-        <translation>Configurações do Instagram</translation>
+        <source>Instagram</source>
+        <translation>Instagram</translation>
     </message>
     <message>
-        <source>Theme</source>
-        <translation>Tema</translation>
+        <source>About</source>
+        <translation>Sobre</translation>
+    </message>
+    <message>
+        <source>Keyboard shortcuts</source>
+        <translation>Atalhos de teclado</translation>
+    </message>
+    <message>
+        <source>Light theme</source>
+        <translation>Tema claro</translation>
+    </message>
+    <message>
+        <source>Dark theme</source>
+        <translation>Tema escuro</translation>
+    </message>
+    <message>
+        <source>Home</source>
+        <translation>Início</translation>
+    </message>
+    <message>
+        <source>New project…</source>
+        <translation>Novo projeto…</translation>
+    </message>
+    <message>
+        <source>Open project folder…</source>
+        <translation>Abrir pasta do projeto…</translation>
+    </message>
+    <message>
+        <source>Open recent</source>
+        <translation>Abrir recente</translation>
+    </message>
+    <message>
+        <source>No recent projects</source>
+        <translation>Nenhum projeto recente</translation>
+    </message>
+    <message>
+        <source>Show project folder</source>
+        <translation>Mostrar pasta do projeto</translation>
+    </message>
+    <message>
+        <source>Close project</source>
+        <translation>Fechar projeto</translation>
+    </message>
+    <message>
+        <source>Export…</source>
+        <translation>Exportar…</translation>
+    </message>
+    <message>
+        <source>Publish on Instagram…</source>
+        <translation>Publicar no Instagram…</translation>
+    </message>
+    <message>
+        <source>Quit</source>
+        <translation>Sair</translation>
+    </message>
+    <message>
+        <source>About %1</source>
+        <translation>Sobre o %1</translation>
+    </message>
+    <message>
+        <source>Open logs folder</source>
+        <translation>Abrir pasta de logs</translation>
+    </message>
+    <message>
+        <source>Toggle full screen</source>
+        <translation>Alternar tela cheia</translation>
+    </message>
+</context>
+<context>
+    <name>AppHeader</name>
+    <message>
+        <source>Search actions…</source>
+        <translation>Buscar ações…</translation>
+    </message>
+    <message>
+        <source>Undo: %1</source>
+        <translation>Desfazer: %1</translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation>Desfazer</translation>
+    </message>
+    <message>
+        <source>Redo: %1</source>
+        <translation>Refazer: %1</translation>
+    </message>
+    <message>
+        <source>Redo</source>
+        <translation>Refazer</translation>
+    </message>
+    <message>
+        <source>Exporting %1%</source>
+        <translation>Exportando %1%</translation>
+    </message>
+    <message>
+        <source>Export</source>
+        <translation>Exportar</translation>
+    </message>
+    <message>
+        <source>Export the active photos to publicar/</source>
+        <translation>Exportar as fotos ativas para publicar/</translation>
+    </message>
+</context>
+<context>
+    <name>CommandPalette</name>
+    <message>
+        <source>Search actions…</source>
+        <translation>Buscar ações…</translation>
+    </message>
+    <message>
+        <source>What do you want to do? (e.g. crop, export, layers)</source>
+        <translation>O que você quer fazer? (ex.: recortar, exportar, camadas)</translation>
+    </message>
+    <message>
+        <source>No commands found</source>
+        <translation>Nenhum comando encontrado</translation>
     </message>
 </context>
 <context>
@@ -105,34 +223,6 @@
         <translation>Saturação</translation>
     </message>
     <message>
-        <source>Vivid</source>
-        <translation>Vívido</translation>
-    </message>
-    <message>
-        <source>Soft</source>
-        <translation>Suave</translation>
-    </message>
-    <message>
-        <source>Warm</source>
-        <translation>Quente</translation>
-    </message>
-    <message>
-        <source>Cool</source>
-        <translation>Frio</translation>
-    </message>
-    <message>
-        <source>B&amp;W</source>
-        <translation>P&amp;B</translation>
-    </message>
-    <message>
-        <source>Matte</source>
-        <translation>Matte</translation>
-    </message>
-    <message>
-        <source>Vintage</source>
-        <translation>Vintage</translation>
-    </message>
-    <message>
         <source>4:5 — portrait (1080×1350)</source>
         <translation>4:5 — retrato (1080×1350)</translation>
     </message>
@@ -157,10 +247,6 @@
         <translation>Auto</translation>
     </message>
     <message>
-        <source>Auto (A)</source>
-        <translation>Auto (A)</translation>
-    </message>
-    <message>
         <source>Reset</source>
         <translation>Resetar</translation>
     </message>
@@ -171,10 +257,6 @@
     <message>
         <source>Crop</source>
         <translation>Recortar</translation>
-    </message>
-    <message>
-        <source>Crop mode (C)</source>
-        <translation>Modo recorte (C)</translation>
     </message>
     <message>
         <source>Instagram format</source>
@@ -203,6 +285,10 @@
     <message>
         <source>Presets</source>
         <translation>Presets</translation>
+    </message>
+    <message>
+        <source>Crop mode</source>
+        <translation>Modo recorte</translation>
     </message>
 </context>
 <context>
@@ -248,12 +334,12 @@
         <translation>Versão Instagram: exportada em publicar/instagram/ no formato do feed.</translation>
     </message>
     <message>
-        <source>Back to the photo (I)</source>
-        <translation>Voltar à foto (I)</translation>
-    </message>
-    <message>
         <source>Resize the filmstrip (double-click to reset)</source>
         <translation>Redimensionar a filmstrip (duplo clique volta ao padrão)</translation>
+    </message>
+    <message>
+        <source>Back to the photo</source>
+        <translation>Voltar à foto</translation>
     </message>
 </context>
 <context>
@@ -384,26 +470,6 @@
         <translation>Selecione as fotos do merge: a primeira é a base, as outras viram camadas</translation>
     </message>
     <message>
-        <source>Previous photo (←)</source>
-        <translation>Foto anterior (←)</translation>
-    </message>
-    <message>
-        <source>Next photo (→)</source>
-        <translation>Próxima foto (→)</translation>
-    </message>
-    <message>
-        <source>Back to the photo (I)</source>
-        <translation>Voltar à foto (I)</translation>
-    </message>
-    <message>
-        <source>Open the Instagram version (I)</source>
-        <translation>Abrir a versão Instagram (I)</translation>
-    </message>
-    <message>
-        <source>Edit for Instagram (I)</source>
-        <translation>Editar para o Instagram (I)</translation>
-    </message>
-    <message>
         <source>Duplicate photo (virtual copy)</source>
         <translation>Duplicar foto (cópia virtual)</translation>
     </message>
@@ -414,14 +480,6 @@
     <message>
         <source>Set as cover (exported as capa.jpg)</source>
         <translation>Definir como capa (exportada como capa.jpg)</translation>
-    </message>
-    <message>
-        <source>Delete photo (Del)</source>
-        <translation>Excluir foto (Del)</translation>
-    </message>
-    <message>
-        <source>Undo (Ctrl/Cmd+Z)</source>
-        <translation>Desfazer (Ctrl/Cmd+Z)</translation>
     </message>
     <message>
         <source>Rescan</source>
@@ -440,12 +498,28 @@
         <translation>Nenhuma foto tem versão Instagram. Tecle I numa foto para criar uma.</translation>
     </message>
     <message>
-        <source>%1 of %2</source>
-        <translation>%1 de %2</translation>
+        <source>Previous photo</source>
+        <translation>Foto anterior</translation>
     </message>
     <message>
-        <source>Export</source>
-        <translation>Exportar</translation>
+        <source>Next photo</source>
+        <translation>Próxima foto</translation>
+    </message>
+    <message>
+        <source>Back to the photo</source>
+        <translation>Voltar à foto</translation>
+    </message>
+    <message>
+        <source>Open the Instagram version</source>
+        <translation>Abrir a versão Instagram</translation>
+    </message>
+    <message>
+        <source>Edit for Instagram</source>
+        <translation>Editar para o Instagram</translation>
+    </message>
+    <message>
+        <source>Delete photo</source>
+        <translation>Excluir foto</translation>
     </message>
 </context>
 <context>
@@ -716,6 +790,153 @@
     </message>
 </context>
 <context>
+    <name>Keymap</name>
+    <message>
+        <source>Photos</source>
+        <translation>Fotos</translation>
+    </message>
+    <message>
+        <source>Next photo (rotates the frame in crop)</source>
+        <translation>Próxima foto (no recorte, gira o quadro)</translation>
+    </message>
+    <message>
+        <source>Previous photo (rotates the frame in crop)</source>
+        <translation>Foto anterior (no recorte, gira o quadro)</translation>
+    </message>
+    <message>
+        <source>Delete photo</source>
+        <translation>Excluir foto</translation>
+    </message>
+    <message>
+        <source>Duplicate photo</source>
+        <translation>Duplicar foto</translation>
+    </message>
+    <message>
+        <source>Set or unset cover</source>
+        <translation>Marcar ou desmarcar capa</translation>
+    </message>
+    <message>
+        <source>Instagram version</source>
+        <translation>Versão Instagram</translation>
+    </message>
+    <message>
+        <source>Rescan raw/</source>
+        <translation>Reescanear raw/</translation>
+    </message>
+    <message>
+        <source>Select photos to merge</source>
+        <translation>Selecionar fotos para o merge</translation>
+    </message>
+    <message>
+        <source>Editing</source>
+        <translation>Edição</translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation>Desfazer</translation>
+    </message>
+    <message>
+        <source>Redo</source>
+        <translation>Refazer</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>Auto</translation>
+    </message>
+    <message>
+        <source>Reset adjustments</source>
+        <translation>Resetar ajustes</translation>
+    </message>
+    <message>
+        <source>Crop</source>
+        <translation>Recortar</translation>
+    </message>
+    <message>
+        <source>Next layer</source>
+        <translation>Próxima camada</translation>
+    </message>
+    <message>
+        <source>Selection</source>
+        <translation>Seleção</translation>
+    </message>
+    <message>
+        <source>Select area (applies when selecting)</source>
+        <translation>Selecionar área (na seleção, conclui)</translation>
+    </message>
+    <message>
+        <source>Apply selection</source>
+        <translation>Concluir seleção</translation>
+    </message>
+    <message>
+        <source>Cancel selection or crop</source>
+        <translation>Cancelar seleção ou recorte</translation>
+    </message>
+    <message>
+        <source>Smaller brush</source>
+        <translation>Pincel menor</translation>
+    </message>
+    <message>
+        <source>Larger brush</source>
+        <translation>Pincel maior</translation>
+    </message>
+    <message>
+        <source>Output</source>
+        <translation>Saída</translation>
+    </message>
+    <message>
+        <source>Export</source>
+        <translation>Exportar</translation>
+    </message>
+    <message>
+        <source>Publish on Instagram</source>
+        <translation>Publicar no Instagram</translation>
+    </message>
+    <message>
+        <source>File</source>
+        <translation>Arquivo</translation>
+    </message>
+    <message>
+        <source>New project</source>
+        <translation>Novo projeto</translation>
+    </message>
+    <message>
+        <source>Open project</source>
+        <translation>Abrir projeto</translation>
+    </message>
+    <message>
+        <source>Close project</source>
+        <translation>Fechar projeto</translation>
+    </message>
+    <message>
+        <source>Projects</source>
+        <translation>Projetos</translation>
+    </message>
+    <message>
+        <source>Quit</source>
+        <translation>Sair</translation>
+    </message>
+    <message>
+        <source>Interface</source>
+        <translation>Interface</translation>
+    </message>
+    <message>
+        <source>Command palette</source>
+        <translation>Paleta de comandos</translation>
+    </message>
+    <message>
+        <source>Keyboard shortcuts</source>
+        <translation>Atalhos de teclado</translation>
+    </message>
+    <message>
+        <source>Full screen</source>
+        <translation>Tela cheia</translation>
+    </message>
+    <message>
+        <source>Light or dark theme</source>
+        <translation>Tema claro ou escuro</translation>
+    </message>
+</context>
+<context>
     <name>LayersPanel</name>
     <message>
         <source>Rest of the photo</source>
@@ -742,16 +963,16 @@
         <translation>Até %1 camadas por foto.</translation>
     </message>
     <message>
-        <source>Select an area to extract as a layer (S)</source>
-        <translation>Selecionar uma área para extrair como camada (S)</translation>
-    </message>
-    <message>
         <source>Edit area</source>
         <translation>Editar área</translation>
     </message>
     <message>
         <source>Delete layer</source>
         <translation>Excluir camada</translation>
+    </message>
+    <message>
+        <source>Select an area to extract as a layer</source>
+        <translation>Selecionar uma área para extrair como camada</translation>
     </message>
 </context>
 <context>
@@ -772,64 +993,113 @@
         <source>Close</source>
         <translation>Fechar</translation>
     </message>
-</context>
-<context>
-    <name>MainMenuBar</name>
     <message>
-        <source>&amp;File</source>
-        <translation>&amp;Arquivo</translation>
+        <source>Next photo</source>
+        <translation>Próxima foto</translation>
     </message>
     <message>
-        <source>Home</source>
-        <translation>Início</translation>
+        <source>Previous photo</source>
+        <translation>Foto anterior</translation>
     </message>
     <message>
-        <source>New Project…</source>
-        <translation>Novo Projeto…</translation>
+        <source>Auto adjust</source>
+        <translation>Ajuste automático</translation>
     </message>
     <message>
-        <source>Open Project Folder…</source>
-        <translation>Abrir Pasta do Projeto…</translation>
+        <source>Crop mode</source>
+        <translation>Modo recorte</translation>
     </message>
     <message>
-        <source>Open Recent</source>
-        <translation>Abrir Recente</translation>
+        <source>Select area</source>
+        <translation>Selecionar área</translation>
     </message>
     <message>
-        <source>No recent projects</source>
-        <translation>Nenhum projeto recente</translation>
+        <source>Back to the photo</source>
+        <translation>Voltar à foto</translation>
     </message>
     <message>
-        <source>Show Project Folder</source>
-        <translation>Mostrar Pasta do Projeto</translation>
+        <source>Instagram version</source>
+        <translation>Versão Instagram</translation>
     </message>
     <message>
-        <source>Close Project</source>
-        <translation>Fechar Projeto</translation>
+        <source>Unset cover</source>
+        <translation>Desmarcar capa</translation>
     </message>
     <message>
-        <source>Quit</source>
-        <translation>Sair</translation>
+        <source>Set as cover</source>
+        <translation>Definir como capa</translation>
     </message>
     <message>
-        <source>&amp;View</source>
-        <translation>&amp;Exibir</translation>
+        <source>Undo</source>
+        <translation>Desfazer</translation>
     </message>
     <message>
-        <source>Toggle Full Screen</source>
-        <translation>Alternar Tela Cheia</translation>
+        <source>Redo</source>
+        <translation>Refazer</translation>
     </message>
     <message>
-        <source>&amp;Help</source>
-        <translation>Aj&amp;uda</translation>
+        <source>Exit merge selection</source>
+        <translation>Sair da seleção do merge</translation>
     </message>
     <message>
-        <source>Open Logs Folder</source>
-        <translation>Abrir Pasta de Logs</translation>
+        <source>Export</source>
+        <translation>Exportar</translation>
+    </message>
+    <message>
+        <source>Preset: %1</source>
+        <translation>Preset: %1</translation>
+    </message>
+    <message>
+        <source>Open project…</source>
+        <translation>Abrir projeto…</translation>
+    </message>
+    <message>
+        <source>New project…</source>
+        <translation>Novo projeto…</translation>
+    </message>
+    <message>
+        <source>Close project</source>
+        <translation>Fechar projeto</translation>
+    </message>
+    <message>
+        <source>Show project folder</source>
+        <translation>Mostrar pasta do projeto</translation>
+    </message>
+    <message>
+        <source>Projects</source>
+        <translation>Projetos</translation>
+    </message>
+    <message>
+        <source>Instagram settings</source>
+        <translation>Configurações do Instagram</translation>
     </message>
     <message>
         <source>About %1</source>
         <translation>Sobre o %1</translation>
+    </message>
+    <message>
+        <source>Keyboard shortcuts</source>
+        <translation>Atalhos de teclado</translation>
+    </message>
+    <message>
+        <source>Language: %1</source>
+        <translation>Idioma: %1</translation>
+    </message>
+    <message>
+        <source>Light theme</source>
+        <translation>Tema claro</translation>
+    </message>
+    <message>
+        <source>Dark theme</source>
+        <translation>Tema escuro</translation>
+    </message>
+    <message>
+        <source>Full screen</source>
+        <translation>Tela cheia</translation>
+    </message>
+    <message>
+        <source>Open logs folder</source>
+        <translation>Abrir pasta de logs</translation>
     </message>
 </context>
 <context>
@@ -1259,6 +1529,46 @@
         <source>Reading the catalog. Large projects take a few seconds.</source>
         <translation>Lendo o catálogo. Projetos grandes levam alguns segundos.</translation>
     </message>
+    <message>
+        <source>Vivid</source>
+        <translation>Vívido</translation>
+    </message>
+    <message>
+        <source>Soft</source>
+        <translation>Suave</translation>
+    </message>
+    <message>
+        <source>Warm</source>
+        <translation>Quente</translation>
+    </message>
+    <message>
+        <source>Cool</source>
+        <translation>Frio</translation>
+    </message>
+    <message>
+        <source>B&amp;W</source>
+        <translation>P&amp;B</translation>
+    </message>
+    <message>
+        <source>Matte</source>
+        <translation>Matte</translation>
+    </message>
+    <message>
+        <source>Vintage</source>
+        <translation>Vintage</translation>
+    </message>
+    <message>
+        <source>Redone: %1 · %2</source>
+        <translation>Refeito: %1 · %2</translation>
+    </message>
+    <message>
+        <source>Redone: %1.</source>
+        <translation>Refeito: %1.</translation>
+    </message>
+    <message>
+        <source>Nothing to redo.</source>
+        <translation>Nada para refazer.</translation>
+    </message>
 </context>
 <context>
     <name>Modal</name>
@@ -1428,6 +1738,61 @@
     <message>
         <source>Cancel</source>
         <translation>Cancelar</translation>
+    </message>
+</context>
+<context>
+    <name>ShortcutsDialog</name>
+    <message>
+        <source>Reset all shortcuts?</source>
+        <translation>Restaurar todos os atalhos?</translation>
+    </message>
+    <message>
+        <source>Every action goes back to its default keys. Your changes are lost.</source>
+        <translation>Todas as ações voltam às teclas padrão. As suas mudanças se perdem.</translation>
+    </message>
+    <message>
+        <source>Reset all</source>
+        <translation>Restaurar tudo</translation>
+    </message>
+    <message>
+        <source>Keyboard shortcuts</source>
+        <translation>Atalhos de teclado</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Fechar</translation>
+    </message>
+    <message>
+        <source>Filter by action or key…</source>
+        <translation>Filtrar por ação ou tecla…</translation>
+    </message>
+    <message>
+        <source>Click + to add a shortcut and press the keys. Esc cancels. Keys already in use move to the new action.</source>
+        <translation>Clique em + para adicionar um atalho e pressione as teclas. Esc cancela. Teclas já usadas passam para a nova ação.</translation>
+    </message>
+    <message>
+        <source>Remove shortcut</source>
+        <translation>Remover atalho</translation>
+    </message>
+    <message>
+        <source>Press the keys…</source>
+        <translation>Pressione as teclas…</translation>
+    </message>
+    <message>
+        <source>Add shortcut</source>
+        <translation>Adicionar atalho</translation>
+    </message>
+    <message>
+        <source>Restore default</source>
+        <translation>Restaurar padrão</translation>
+    </message>
+    <message>
+        <source>No shortcuts found</source>
+        <translation>Nenhum atalho encontrado</translation>
+    </message>
+    <message>
+        <source>%1 was removed from “%2”.</source>
+        <translation>%1 foi removido de “%2”.</translation>
     </message>
 </context>
 <context>
