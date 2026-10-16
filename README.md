@@ -3,7 +3,7 @@
 **PhotoEditor é um sistema livre ([BSD 2-Clause](./LICENSE)), feito para
 otimizar a seleção e a edição rápida de fotos de eventos.** Em vez de abrir
 centenas de arquivos um a um, você percorre o evento inteiro pelo teclado:
-descarta as fotos ruins com `DEL`,
+descarta as fotos ruins com `Del` (lixeira) ou as arquiva com `Backspace`,
 aplica `A` (Auto) ou um preset, recorta com `C`, extrai uma pessoa ou objeto
 numa camada com `S` e exporta tudo de uma vez, já no formato de publicação. A edição nunca altera os originais.
 
@@ -44,9 +44,12 @@ mantidos.
 
 ## Primeiros passos
 
-A tela inicial mostra **Abrir projeto**, **Novo projeto** e os projetos
-recentes em cards — com a capa, o número de fotos, o tamanho e a data da
-última abertura.
+A tela inicial (**Projetos**, no trilho à esquerda) mostra **Abrir projeto**,
+**Novo projeto** e os projetos recentes em cards — com a capa, o número de
+fotos, o tamanho e a data da última abertura; o projeto aberto leva o selo
+**Aberto**:
+
+![Tela inicial com os projetos recentes](./docs/images/screen8.png)
 
 Um **projeto** é a pasta de um evento:
 
@@ -55,7 +58,8 @@ Um **projeto** é a pasta de um evento:
     raw/            as fotos originais (JPEG) — o editor nunca as altera
     publicar/       as fotos prontas, geradas pelo botão Exportar
       instagram/    as versões Instagram (1080 px, no formato do feed)
-    deleted/        as fotos excluídas (movidas para cá, nunca apagadas)
+    archived/       as fotos arquivadas (Backspace) — fora da filmstrip e do Exportar
+    deleted/        a lixeira (Del): as fotos excluídas, movidas para cá
     project_data/   o catálogo e os ajustes do evento (não mexa)
 ```
 
@@ -64,26 +68,57 @@ Um **projeto** é a pasta de um evento:
   só o abre; se estiver vazia, oferece copiar as fotos de outro lugar.
 - **Abrir projeto:** escolha uma pasta que já tenha a `raw/` (ou clique num
   card dos recentes). Remover um card da lista nunca apaga a pasta.
-- O botão **Início** (a casinha no topo) volta para a tela inicial.
+- O trilho à esquerda leva às telas do app: **Projetos** abre o menu do
+  projeto (Início, novo, abrir, recentes, mostrar a pasta, fechar, Exportar,
+  Publicar, idioma e sair — cada item com o atalho ao lado), **Editor** volta
+  ao projeto aberto, **Idioma** troca o idioma da interface, **Instagram** abre
+  a conta do Publicar e **Sobre** reúne o Sobre, a pasta de logs e a tela
+  cheia. Embaixo ficam os atalhos de teclado e o tema claro/escuro.
+
+![Menu Projetos aberto no trilho lateral](./docs/images/screen11.png)
 
 ## Atalhos
 
 | Tecla | Ação |
 |---|---|
-| `←` `→` | foto anterior / próxima |
-| `Del` | exclui a foto (vai para `deleted/`) |
+| `←` `→` | foto anterior / próxima (no recorte, gira o quadro de 15 em 15°) |
+| `Backspace` (Mac: `⌫`) | arquiva a foto (vai para `archived/`) |
+| `Del` (Mac: `fn+⌫`) | manda a foto para a lixeira (`deleted/`) |
+| `Ctrl/Cmd+Shift+R` | restaura a foto arquivada ou da lixeira |
 | `A` | Auto |
 | `C` | modo recorte |
 | `S` | modo seleção (camadas); `S` de novo conclui |
 | `L` | próxima camada |
 | `I` | versão Instagram da foto (cria/abre); na versão, volta à foto |
 | `[` `]` | diminui / aumenta o pincel |
+| `W` | conta-gotas do balanço de branco |
+| `Alt+1` … `Alt+4` | abas Ajustes / Níveis / Curvas / Efeitos |
 | `Ctrl/Cmd+Z` | desfaz a última ação |
+| `Ctrl/Cmd+Shift+Z` (ou `Ctrl/Cmd+Y`) | refaz o que foi desfeito |
+| `Ctrl/Cmd+D` | duplica a foto (cópia virtual) |
+| `Ctrl/Cmd+E` | exporta |
+| `Ctrl/Cmd+K` | busca de ações (paleta de comandos) |
+| `Ctrl/Cmd+/` | atalhos de teclado |
+
+**Buscar ações:** a caixa no centro da barra superior (ou `Ctrl/Cmd+K`) abre
+a paleta de comandos — digite parte do nome e `Enter` executa. Ela acha
+qualquer ação do app, de "recorte" e presets a idioma e tema, e mostra o
+atalho de cada uma; também entende o nome em inglês ("crop", "export"):
+
+![Paleta de comandos buscando "rec"](./docs/images/screen9.png)
+
+**Os atalhos são editáveis:** o ícone de teclado no pé do trilho lateral (ou
+`Ctrl/Cmd+/`) abre a lista de ações por grupo. `+` grava uma tecla nova para a
+ação, o `×` remove uma, e **Restaurar tudo** volta aos padrões. Uma tecla que já
+era de outra ação passa para a nova, e o aviso diz quem a perdeu:
+
+![Atalhos de teclado editáveis](./docs/images/screen10.png)
 
 ## Exemplos
 
-Original e editada lado a lado, painel de edição à direita (Auto, presets e
-ajustes de luz e cor) e a filmstrip do evento embaixo:
+Original e editada lado a lado, painel de edição à direita (em abas:
+Ajustes, Níveis, Curvas e Efeitos) e a filmstrip do evento embaixo. Na barra superior
+ficam a busca de ações, **Desfazer**/**Refazer** e **Exportar**:
 
 ![Editor com o preset P&B aplicado](./docs/images/screen1.png)
 
@@ -92,6 +127,45 @@ vivo — aqui girado a -90°, trocando paisagem por retrato sem girar a imagem:
 
 ![Modo recorte com o quadro girado a -90°](./docs/images/screen2.png)
 
+## Ajustes profissionais
+
+O painel de edição tem quatro abas (`Alt+1` a `Alt+4`); a aba escolhida fica
+salva. Tudo vale para a camada ativa, entra no histórico e no desfazer, e
+arrastar mostra o resultado ao vivo na **Editada**.
+
+- **Ajustes:** o histograma RGB da Editada, com os dados da câmera (ISO,
+  focal, abertura e velocidade); **Auto** e **Resetar**; os presets; o
+  balanço de branco; e os sliders de luz (exposição, contraste, realces,
+  sombras, brancos, pretos) e de cor (vibração, saturação). Os **presets** são
+  botões de uma vez só: somam os valores deles aos sliders, que continuam
+  ajustáveis um a um — nada fica "ligado". Duplo clique no nome de um slider
+  volta a zero.
+- **Balanço de branco:** o **conta-gotas** (`W`) transforma o cursor numa
+  cruz sobre a **Original**; clique numa área que deveria ser branca ou cinza
+  (camisa, parede, rede) e o app acha a temperatura e a matiz que a deixam
+  neutra. Um clique e o modo sai; `Esc` cancela. O ajuste fino fica nos
+  sliders **Temperatura** e **Matiz**, com o trilho colorido:
+
+![Aba Ajustes com histograma e o conta-gotas de branco](./docs/images/screen16.png)
+
+- **Níveis:** entrada (preto, gama e branco, sobre o histograma) e saída, para
+  o RGB ou para cada canal (R, G, B); **Auto** corta as pontas do histograma
+  do canal:
+
+![Aba Níveis com o preto e o gama ajustados](./docs/images/screen17.png)
+
+- **Curvas:** clique no gráfico para criar um ponto (até 16 por canal) e
+  arraste; duplo clique, ou arrastar para fora, remove. Uma curva para o RGB e
+  uma para cada canal, com o histograma ao fundo — aqui, um S para dar
+  contraste:
+
+![Aba Curvas com uma curva em S](./docs/images/screen18.png)
+
+- **Efeitos:** P&B, Sépia, Vintage, Fade, Matte, Vinheta e Grão, combináveis
+  — ligue quantos quiser, e cada um ganha o seu slider de intensidade:
+
+![Aba Efeitos com Vinheta e Vintage ligados](./docs/images/screen19.png)
+
 ## Camadas (seleção de objetos)
 
 `S` entra no modo seleção: pinte por cima de uma pessoa ou objeto na
@@ -99,7 +173,8 @@ original e ele vira uma **camada**, com ajustes próprios — o resto da foto
 fica em outra, com os dela (ex.: fundo escuro e P&B, jogador em cor). Cada
 traço soma à seleção; **Subtrair** (ou `Alt`) remove; `[` e `]` diminuem e
 aumentam o pincel. `L` passa de uma camada
-para a outra; sliders, presets e Auto editam a camada ativa.
+para a outra; sliders, presets, Auto, níveis, curvas e efeitos editam a
+camada ativa.
 
 Seleção: o traço do pincel (em vermelho, sobre a original) cobre o jogador e
 a IA estende a seleção ao objeto inteiro sob ele:
@@ -116,7 +191,36 @@ A IA que reconhece o objeto roda **no seu computador**, sem internet e sem
 placa de vídeo: a primeira seleção de cada foto leva ~1,5 s e cada traço
 seguinte, ~0,3 s. Com **Detectar o objeto (IA)** desligado, o pincel seleciona
 exatamente a área pintada. As camadas entram no histórico, no desfazer
-(`Ctrl/Cmd+Z`) e na exportação como qualquer ajuste.
+(`Ctrl/Cmd+Z`), no refazer e na exportação como qualquer ajuste.
+
+## Arquivar e lixeira
+
+Na triagem há dois destinos para a foto que não vai ser publicada:
+
+- **Arquivar** (`Backspace`; no Mac, `⌫`): a foto sai da filmstrip e do
+  Exportar, e o JPEG vai de `raw/` para `archived/`. Serve para a foto boa
+  que não entra nesta publicação, mas que vale guardar.
+- **Lixeira** (`Del`; no Mac, `fn+⌫`): a foto vai para `deleted/` — das fotos
+  ou do arquivo. Nada é apagado: a lixeira só junta o que foi descartado.
+
+Arquivar, mandar para a lixeira e restaurar entram no desfazer
+(`Ctrl/Cmd+Z`) e no refazer.
+
+A barra da filmstrip troca a visualização: **Fotos | Arquivadas (n) |
+Lixeira (n)**. Em Arquivadas e Lixeira as fotos só são vistas, não editadas;
+**Restaurar** (`Ctrl/Cmd+Shift+R`) devolve a foto à filmstrip.
+
+![Visualização Arquivadas com quatro fotos arquivadas](./docs/images/screen14.png)
+
+Na lixeira,
+**Excluir definitivamente** apaga a foto atual e **Esvaziar lixeira** apaga
+todas — o arquivo e o registro, com as cópias virtuais, as versões Instagram,
+o histórico, a participação em merges e o que já foi exportado em
+`publicar/`. Essas duas **não têm desfazer**: a confirmação pede que você
+digite uma palavra (ou, ao esvaziar, o número de fotos da lixeira) antes de
+liberar o botão.
+
+![Lixeira com a confirmação digitada do Esvaziar lixeira](./docs/images/screen15.png)
 
 ## Duplicar (cópia virtual)
 
@@ -133,8 +237,8 @@ desfaz a duplicação.
 
 ## Instagram
 
-**Conectar a conta:** o ícone do Instagram no cabeçalho abre
-**Configurações → Instagram**. Entre com usuário e senha; se a conta tiver
+**Conectar a conta:** o item **Instagram** do trilho lateral abre as
+configurações do Instagram. Entre com usuário e senha; se a conta tiver
 verificação em duas etapas, ou se o Instagram pedir para confirmar o acesso,
 a tela pede o código. O app guarda só a sessão em `~/.photoe/` — nunca a
 senha — e ela vale para todos os eventos. Na mesma tela fica o **modelo da
@@ -154,7 +258,12 @@ painel; o resto do painel funciona como sempre. Em 4:5 e 1:1 o quadro gira
 até 45° (só endireita); no 1,91:1 gira até 90°, como no recorte normal —
 passando de 45° ele deita e o recorte fica vertical (1:1,91). Esse formato
 é exportado, mas o feed não aceita: o painel avisa e o Publicar não deixa
-enviá-lo. `I` de novo volta à foto;
+enviá-lo. Aqui, a versão 4:5 de uma foto: o quadro retrato sobre a
+original e, à direita, o recorte que vai para o feed:
+
+![Versão Instagram no modo recorte, em 4:5](./docs/images/screen12.png)
+
+`I` de novo volta à foto;
 na foto, `I` abre a versão que já existe. A versão não aparece na filmstrip
 — clicar numa foto ou andar com as setas abre sempre a foto, nunca o editor do
 Instagram; a foto que tem versão leva o ícone do Instagram no canto. Dentro da
@@ -168,6 +277,17 @@ escolha as versões (até 10 — mais de uma vira carrossel, na ordem da
 filmstrip), revise a legenda — já preenchida com os dados do evento — e
 publique. O que vai para o Instagram é exatamente o arquivo de
 `publicar/instagram/`.
+
+## Exportar
+
+O botão **Exportar**, no canto superior direito (ou `Ctrl/Cmd+E`, ou
+**Projetos → Exportar…**), grava as fotos ativas, com os ajustes, recortes,
+camadas e merges, em `publicar/`; as versões Instagram vão para
+`publicar/instagram/`. Só é regravado o que mudou desde a última exportação, e
+a foto excluída sai de `publicar/`. Fechar o diálogo não interrompe nada: a
+exportação segue e o botão mostra o andamento. No fim, o resumo:
+
+![Exportação concluída](./docs/images/screen13.png)
 
 ## Capa do evento
 
@@ -192,7 +312,7 @@ empilhado em camadas — a trajetória da bola sobre a cena parada.
 
 1. **Merge** na barra da filmstrip liga a marcação: marque as fotos (a
    primeira, na ordem da faixa, é a **base**) e clique em **Criar merge**.
-2. Na tela do merge (`/merges/:id`), pinte com o pincel (`S`, o mesmo das
+2. Na tela do merge, pinte com o pincel (`S`, o mesmo das
    camadas, com o SAM) a bola de cada foto. **Só a área pintada** entra no
    resultado. Na base, pinte a bola dela para **esmaecê-la**: o fundo por trás
    vem de uma foto seguinte, onde a bola já saiu dali.
@@ -241,8 +361,8 @@ devolve todas.
 - **As preferências do app** (lista de projetos recentes, idioma, tamanho dos
   painéis, a sessão do Instagram) ficam em `~/.photoe/` —
   `C:\Users\<você>\.photoe` no Windows.
-- **Logs**, para relatar um problema: menu **Ajuda → Abrir Pasta de Logs**
-  (`~/.photoe/logs/`).
+- **Logs**, para relatar um problema: **Sobre** (no trilho lateral) →
+  **Abrir pasta de logs** (`~/.photoe/logs/`).
 
 ## Para desenvolvedores
 
