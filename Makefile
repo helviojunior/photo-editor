@@ -62,6 +62,14 @@ DOCKER_ENV  = -e PHOTOEDITOR_VERSION -e PHOTOEDITOR_CHANNEL -e PHOTOEDITOR_GIT_H
 	-e BUILD_TYPE=$(BUILD_TYPE) -e CMAKE_ARGS -e SKIP_TESTS
 BUILDER_RUN = $(DOCKER) run --rm $(DOCKER_ENV) -v "$(CURDIR)":/src -v $(CACHE_VOLUME):/cache
 
+# Os builders rodam como root: num host Linux (a CI), dist/ e .cache/ ficariam
+# do root e o passo seguinte (make checksums, fora do container) não grava
+# nada. Ao fim de cada builder, a posse volta para quem chamou o make. No Mac
+# o Docker Desktop já mapeia o dono; o chown é inofensivo.
+HOST_OWNER := $(shell id -u):$(shell id -g)
+own_outputs = $(DOCKER) run --rm -v "$(CURDIR)":/src --entrypoint sh $(1) -c \
+	'for d in /src/dist /src/.cache; do [ -e $$d ] && chown -R $(HOST_OWNER) $$d; done; true'
+
 # Linux: imagem e plataforma Docker de cada arquitetura.
 linux_image    = $(if $(filter arm64,$(1)),$(LINUX_BUILDER)-arm64,$(LINUX_BUILDER))
 linux_platform = $(if $(filter arm64,$(1)),linux/arm64,linux/amd64)
@@ -172,6 +180,7 @@ linux: linux-builder	## .tar.gz do Linux de ARCHS (padrão: esta máquina) em di
 	@for a in $(ARCHS); do \
 		$(BUILDER_RUN) --platform $$( [ $$a = arm64 ] && echo linux/arm64 || echo linux/amd64 ) \
 			$$( [ $$a = arm64 ] && echo $(LINUX_BUILDER)-arm64 || echo $(LINUX_BUILDER) ) package || exit 1; \
+		$(call own_outputs,--platform $$( [ $$a = arm64 ] && echo linux/arm64 || echo linux/amd64 ) $$( [ $$a = arm64 ] && echo $(LINUX_BUILDER)-arm64 || echo $(LINUX_BUILDER) )) || exit 1; \
 	done
 
 linux-all:		## .tar.gz x86_64 e arm64 (arm64 emulado num host x86_64: lento)
@@ -193,9 +202,11 @@ macos-builder: $(SDK_DIR)/MacOSX.sdk.tar.gz	## Cria/atualiza a imagem do builder
 
 dmg: macos-builder	## .dmg de ARCHS (padrão: esta máquina) em dist/
 	$(BUILDER_RUN) $(MACOS_BUILDER) $(ARCHS)
+	$(call own_outputs,$(MACOS_BUILDER))
 
 dmg-all: macos-builder	## .dmg x86_64 e arm64 em dist/
 	$(BUILDER_RUN) $(MACOS_BUILDER) x86_64 arm64
+	$(call own_outputs,$(MACOS_BUILDER))
 
 dmg-art: macos-builder	## Prévia do fundo e dos ícones do DMG em ART_OUT
 	$(BUILDER_RUN) --entrypoint python3 $(MACOS_BUILDER) packaging/macos/dmg.py --preview $(ART_OUT)
@@ -214,11 +225,13 @@ windows-builder:	## Cria/atualiza a imagem do builder Windows
 
 windows: windows-builder	## .msi do Windows x64 (cross-compile llvm-mingw) em dist/
 	$(BUILDER_RUN) --platform linux/amd64 $(WINDOWS_BUILDER)
+	$(call own_outputs,--platform linux/amd64 $(WINDOWS_BUILDER))
 
 msi: windows		## Alias de `make windows`
 
 msi-stage: windows-builder	## .msi de uma pasta pronta em .cache/stage/TARGET (windows-arm64)
 	$(BUILDER_RUN) --platform linux/amd64 $(WINDOWS_BUILDER) msi $(TARGET)
+	$(call own_outputs,--platform linux/amd64 $(WINDOWS_BUILDER))
 
 windows-native:		## Só num Windows (Git Bash + MSVC): compila TARGET em .cache/stage/TARGET
 	bash packaging/windows/native.sh $(TARGET)

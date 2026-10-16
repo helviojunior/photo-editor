@@ -30,10 +30,13 @@ VENV=$CACHE/venv-$TARGET
 if [ ! -x "$VENV/Scripts/python.exe" ]; then
     python -m venv "$VENV"
     "$VENV/Scripts/python.exe" -m pip install -q --upgrade pip
-    "$VENV/Scripts/python.exe" -m pip install -q "aqtinstall==$AQT_VERSION" "Pillow>=10" "cmake==3.31.6" ninja
 fi
+# Sempre: um venv restaurado do cache da CI pode estar incompleto (sem o
+# Pillow, o art.py para). Com tudo instalado, o pip só confere e sai.
+"$VENV/Scripts/python.exe" -m pip install -q "aqtinstall==$AQT_VERSION" "Pillow>=10" "cmake==3.31.6" ninja
 PATH="$(cd "$VENV/Scripts" && pwd):$PATH"
-PY=python.exe
+# O python do venv pelo caminho, não pelo PATH: o do runner pode vir antes.
+PY="$(cd "$VENV/Scripts" && pwd)/python.exe"
 
 echo "==> [$TARGET] versão $($PY packaging/build.py version)"
 $PY packaging/build.py model
