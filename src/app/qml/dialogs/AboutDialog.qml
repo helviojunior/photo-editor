@@ -42,6 +42,31 @@ Modal {
             horizontalAlignment: Text.AlignHCenter
         }
 
+        // Site do produto: abre no navegador do sistema.
+        Text {
+            id: siteLink
+            readonly property string url: "https://photoe.com.br/photo-editor/"
+            Layout.alignment: Qt.AlignHCenter
+            text: "photoe.com.br/photo-editor"
+            font.pixelSize: Theme.fontBase
+            font.underline: siteMouse.containsMouse
+            color: Theme.brand400
+            Accessible.role: Accessible.Link
+            Accessible.name: qsTr("Open the PhotoEditor website")
+
+            MouseArea {
+                id: siteMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: App.openUrl(siteLink.url)
+            }
+            Tip {
+                text: qsTr("Open the PhotoEditor website")
+                visible: siteMouse.containsMouse
+            }
+        }
+
         Repeater {
             model: [
                 { label: qsTr("Data"), value: App.dataDir },

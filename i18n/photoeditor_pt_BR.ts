@@ -27,6 +27,10 @@
         <source>Close</source>
         <translation>Fechar</translation>
     </message>
+    <message>
+        <source>Open the PhotoEditor website</source>
+        <translation>Abrir o site do PhotoEditor</translation>
+    </message>
 </context>
 <context>
     <name>ActivityRail</name>
