@@ -5,7 +5,8 @@
 // o que o editor usa.
 //
 // Leitura (``io.py``): Orientation e a hora de captura (DateTimeOriginal +
-// SubsecTimeOriginal + OffsetTimeOriginal).
+// SubsecTimeOriginal + OffsetTimeOriginal); e os dados de disparo do painel
+// (câmera, lente, ISO, abertura, velocidade, distância focal).
 //
 // Escrita (``publish.py: _exif_for_publication``): o EXIF da foto publicada é
 // o ORIGINAL com Orientation = 1, sem a miniatura (IFD1) e com ``Software`` =
@@ -29,6 +30,13 @@ inline constexpr int kExifIfdPointer = 0x8769;
 inline constexpr int kExifDateTimeOriginal = 0x9003;
 inline constexpr int kExifOffsetTimeOriginal = 0x9011;
 inline constexpr int kExifSubsecTimeOriginal = 0x9291;
+inline constexpr int kExifMake = 0x010F;
+inline constexpr int kExifModel = 0x0110;
+inline constexpr int kExifExposureTime = 0x829A;
+inline constexpr int kExifFNumber = 0x829D;
+inline constexpr int kExifIsoSpeed = 0x8827;
+inline constexpr int kExifFocalLength = 0x920A;
+inline constexpr int kExifLensModel = 0xA434;
 
 /// Maior conteúdo de um segmento APP1 (o campo de tamanho, 16 bits, conta a si mesmo).
 inline constexpr int kMaxApp1Payload = 65535 - 2;
@@ -43,7 +51,23 @@ struct ExifInfo
     QString offsetTimeOriginal;
     QString software;       ///< tag Software do IFD0 (sem o NUL)
     bool hasIfd1 = false;   ///< há IFD1 (a miniatura) encadeado ao IFD0
+
+    // Dados de disparo (0 / vazio = ausente)
+    QString make;           ///< IFD0 Make
+    QString model;          ///< IFD0 Model
+    QString lensModel;      ///< sub-IFD Exif LensModel
+    double exposureTime = 0.0;  ///< segundos
+    double fNumber = 0.0;
+    double focalLength = 0.0;   ///< mm
+    int iso = 0;
 };
+
+/// "1/200" abaixo de meio segundo; "0.5s", "2s", "1.3s" a partir dele. Vazio se <= 0.
+QString formatShutter(double seconds);
+/// "f/2.8", "f/8", "f/11". Vazio se <= 0.
+QString formatAperture(double fNumber);
+/// "Canon EOS R5" — sem repetir a marca quando o modelo já começa por ela.
+QString cameraName(const QString &make, const QString &model);
 
 /// Lê o EXIF (``"Exif\0\0"`` + TIFF, ou TIFF puro). Nunca lança.
 ExifInfo parseExif(const QByteArray &exif);

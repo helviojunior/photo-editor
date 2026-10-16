@@ -9,6 +9,8 @@
 //   no_exif.jpg      64x48, sem EXIF
 //   o1..o8.jpg       64x48, só Orientation
 //   big_exif.bin     TIFF de ~64 KB (MakerNote enorme) que não cabe num APP1
+//   shooting*.jpg    dados de disparo (gen_shooting.py): Canon 1/200 f/2.8
+//                    ISO 800 85 mm + lente; Nikon 2 s f/8 ISO 64 24,5 mm
 // Com PHOTOEDITOR_EXIF_DUMP_DIR definido, os JPEGs de publicação são gravados
 // lá para conferência externa (piexif).
 #include "imaging/Exif.h"
@@ -103,6 +105,7 @@ class ExifTest : public QObject
     Q_OBJECT
 private slots:
     void capturedAtParsing();
+    void shootingInfo();
     void readInfoFixtures();
     void readInfoNonAsciiPath();
     void orientationTranspose_data();
@@ -535,6 +538,45 @@ void ExifTest::derivatives()
     QCOMPARE(QDir(tmp.path()).entryList(QDir::Files).size(), 2);
     QVERIFY(!writeAtomic(tmp.filePath(QStringLiteral("nao/existe/x.jpg")), QByteArray("x")));
     QVERIFY(!writePreview(data("exif/missing.jpg"), tmp.filePath(QStringLiteral("p2.jpg"))));
+}
+
+void ExifTest::shootingInfo()
+{
+    const auto a = readJpegHeader(data(QStringLiteral("exif/shooting.jpg")));
+    QVERIFY(a);
+    const ExifInfo ea = parseExif(a->exif);
+    QCOMPARE(ea.make, QStringLiteral("Canon"));
+    QCOMPARE(ea.model, QStringLiteral("Canon EOS R5"));
+    QCOMPARE(ea.lensModel, QStringLiteral("RF85mm F1.2 L USM"));
+    QCOMPARE(ea.iso, 800);
+    QCOMPARE(ea.exposureTime, 1.0 / 200.0);
+    QCOMPARE(ea.fNumber, 2.8);
+    QCOMPARE(ea.focalLength, 85.0);
+    QCOMPARE(formatShutter(ea.exposureTime), QStringLiteral("1/200"));
+    QCOMPARE(formatAperture(ea.fNumber), QStringLiteral("f/2.8"));
+    QCOMPARE(cameraName(ea.make, ea.model), QStringLiteral("Canon EOS R5"));
+    QVERIFY(ea.capturedAt.isValid());
+
+    const auto b = readJpegHeader(data(QStringLiteral("exif/shooting_long.jpg")));
+    QVERIFY(b);
+    const ExifInfo eb = parseExif(b->exif);
+    QCOMPARE(eb.iso, 64);
+    QCOMPARE(formatShutter(eb.exposureTime), QStringLiteral("2s"));
+    QCOMPARE(formatAperture(eb.fNumber), QStringLiteral("f/8"));
+    QCOMPARE(eb.focalLength, 24.5);
+    QVERIFY(eb.lensModel.isEmpty());
+    QCOMPARE(cameraName(eb.make, eb.model), QStringLiteral("NIKON D850"));
+
+    // Sem EXIF: nada de dados de disparo.
+    const auto none = readJpegHeader(data(QStringLiteral("exif/no_exif.jpg")));
+    QVERIFY(none);
+    const ExifInfo en = parseExif(none->exif);
+    QCOMPARE(en.iso, 0);
+    QCOMPARE(en.exposureTime, 0.0);
+    QVERIFY(formatShutter(en.exposureTime).isEmpty());
+    QCOMPARE(formatShutter(0.5), QStringLiteral("0.5s"));
+    QCOMPARE(formatShutter(1.0 / 3.0), QStringLiteral("1/3"));
+    QCOMPARE(cameraName(QStringLiteral("FUJIFILM"), QStringLiteral("X-T5")), QStringLiteral("FUJIFILM X-T5"));
 }
 
 QTEST_GUILESS_MAIN(ExifTest)

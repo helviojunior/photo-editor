@@ -5,7 +5,9 @@
 #include "SelectionChain.h"
 
 #include "core/Derivatives.h"
+#include "imaging/Exif.h"
 #include "imaging/ImageIO.h"
+#include "imaging/Look.h"
 #include "imaging/Mask.h"
 #include "imaging/Merge.h"
 #include "imaging/Segment.h"
@@ -18,7 +20,10 @@
 #include <QThreadPool>
 #include <QtConcurrent>
 
+#include <opencv2/imgproc.hpp>
+
 #include <algorithm>
+#include <cmath>
 
 Q_LOGGING_CATEGORY(lcEditor, "photoeditor.editor")
 
@@ -28,6 +33,10 @@ using namespace pe;
 namespace {
 
 constexpr int kRenderDebounceMs = 120;
+/// Lado maior da imagem do histograma e dos níveis automáticos.
+constexpr int kAnalysisSide = 512;
+/// Níveis automáticos: corta 0,1% em cada ponta.
+constexpr double kAutoLevelsClip = 0.001;
 const QString kSortKey = QStringLiteral("editor/sort");
 
 QVariantMap cropMap(const imaging::Crop &c)
@@ -45,6 +54,63 @@ imaging::Crop cropFrom(const QVariantMap &m, const imaging::Crop &fallback)
     c.angle = m.value(QStringLiteral("angle"), c.angle).toDouble();
     c.ratio = m.value(QStringLiteral("ratio"), c.ratio).toDouble();
     return c;
+}
+
+/// Reduz para caber em ``side`` px no lado maior (INTER_AREA).
+cv::Mat fitSide(const cv::Mat &rgb, int side)
+{
+    const int longSide = std::max(rgb.cols, rgb.rows);
+    if (longSide <= side)
+        return rgb;
+    const double s = static_cast<double>(side) / longSide;
+    cv::Mat out;
+    cv::resize(rgb, out, cv::Size(std::max(1, static_cast<int>(std::lround(rgb.cols * s))),
+                                  std::max(1, static_cast<int>(std::lround(rgb.rows * s)))),
+               0, 0, cv::INTER_AREA);
+    return out;
+}
+
+/// Histograma do preview editado, no formato da propriedade ``histogram``.
+QVariantMap histogramOf(const cv::Mat &rgb)
+{
+    std::array<std::array<double, 256>, 4> bins{};
+    qint64 lowClip = 0, highClip = 0;
+    for (int r = 0; r < rgb.rows; ++r) {
+        const auto *row = rgb.ptr<cv::Vec3b>(r);
+        for (int c = 0; c < rgb.cols; ++c) {
+            const cv::Vec3b px = row[c];
+            for (int k = 0; k < 3; ++k)
+                bins[k][px[k]] += 1;
+            const int l = static_cast<int>(0.2126 * px[0] + 0.7152 * px[1] + 0.0722 * px[2] + 0.5);
+            bins[3][std::min(l, 255)] += 1;
+            if (px[0] == 0 || px[1] == 0 || px[2] == 0)
+                ++lowClip;
+            if (px[0] == 255 || px[1] == 255 || px[2] == 255)
+                ++highClip;
+        }
+    }
+    // Raiz quadrada: o pico de um céu liso não achata todo o resto. O maior
+    // valor fora dos extremos dá a escala (o estouro fica em 1).
+    double peak = 0.0;
+    for (const auto &b : bins) {
+        for (int i = 1; i < 255; ++i)
+            peak = std::max(peak, std::sqrt(b[i]));
+    }
+    if (peak <= 0.0)
+        peak = 1.0;
+    QVariantMap out;
+    const char *names[] = {"r", "g", "b", "l"};
+    for (int k = 0; k < 4; ++k) {
+        QVariantList list;
+        list.reserve(256);
+        for (int i = 0; i < 256; ++i)
+            list << std::min(1.0, std::sqrt(bins[k][i]) / peak);
+        out.insert(QLatin1String(names[k]), list);
+    }
+    const double total = std::max<qint64>(1, static_cast<qint64>(rgb.total()));
+    out.insert(QStringLiteral("clipShadows"), lowClip / total);
+    out.insert(QStringLiteral("clipHighlights"), highClip / total);
+    return out;
 }
 
 QString randomLayerId()
@@ -89,11 +155,14 @@ EditorController::EditorController(QObject *parent)
     m_sortMode = QSettings().value(kSortKey, QStringLiteral("date_asc")).toString();
     m_renderTimer.setSingleShot(true);
     m_renderTimer.setInterval(kRenderDebounceMs);
+    m_histogramPool.setMaxThreadCount(1);
     connect(&m_renderTimer, &QTimer::timeout, this, &EditorController::updateEditedUrl);
 }
 
 EditorController::~EditorController()
 {
+    m_histogramLatest->fetch_add(1);
+    m_histogramPool.waitForDone();
     m_chain->pool.waitForDone();
 }
 
@@ -315,6 +384,7 @@ void EditorController::loadCurrent()
     if (std::none_of(m_draft.layers.begin(), m_draft.layers.end(),
                      [&](const imaging::Layer &l) { return l.id == m_activeLayer; }))
         m_activeLayer.clear();
+    loadShootingInfo();
     updateEditedUrl();
     emit currentChanged();
     emit stateChanged();
@@ -408,6 +478,7 @@ void EditorController::updateEditedUrl()
     if (!p || !m_project) {
         m_editedUrl.clear();
         emit editedUrlChanged();
+        scheduleHistogram();
         return;
     }
     // A chave carrega tudo de que o render depende: a URL só muda quando o
@@ -416,7 +487,7 @@ void EditorController::updateEditedUrl()
     for (const auto &l : m_draft.layers)
         hash += u'.' + l.mask.left(6);
     const QString key = QStringLiteral("%1-%2-%3-%4").arg(p->id).arg(p->mtimeNs).arg(hash, m_mergeVersion);
-    RenderRequest req{m_project->paths(), *p, m_draft, m_merge, m_mergeVersion};
+    const RenderRequest req = renderRequest(m_draft);
     ImageRegistry::instance().put(QStringLiteral("render"), key,
                                   [req]() { return imagefiles::load(pe::render(req)); });
     const QString url = QStringLiteral("image://photo/render/") + key;
@@ -424,6 +495,74 @@ void EditorController::updateEditedUrl()
         m_editedUrl = url;
         emit editedUrlChanged();
     }
+    scheduleHistogram();
+}
+
+RenderRequest EditorController::renderRequest(const EditState &state) const
+{
+    return RenderRequest{m_project->paths(), *currentPhoto(), state, m_merge, m_mergeVersion};
+}
+
+void EditorController::scheduleHistogram()
+{
+    const int generation = m_histogramLatest->fetch_add(1) + 1;
+    const Photo *p = currentPhoto();
+    if (!p || !m_project) {
+        if (!m_histogram.isEmpty()) {
+            m_histogram.clear();
+            emit histogramChanged();
+        }
+        return;
+    }
+    // Montado aqui (thread principal); o trabalho só lê arquivos.
+    const RenderRequest req = renderRequest(m_draft);
+    const auto latest = m_histogramLatest;
+    QPointer<EditorController> self(this);
+    m_histogramPool.start([req, latest, generation, self]() {
+        if (latest->load() != generation)
+            return;
+        const cv::Mat rgb = imaging::loadRgb(editSource(req).first);
+        if (rgb.empty())
+            return;
+        const cv::Mat out = developImage(
+            rgb, req.state, req.paths.masksDir(), [](const cv::Mat &m) { return fitSide(m, kAnalysisSide); },
+            imaging::grainSeed(req.photo.id));
+        QVariantMap h = histogramOf(out);
+        QMetaObject::invokeMethod(
+            self.data(),
+            [self, latest, generation, h]() {
+                if (!self || latest->load() != generation)
+                    return;
+                self->m_histogram = h;
+                emit self->histogramChanged();
+            },
+            Qt::QueuedConnection);
+    });
+}
+
+void EditorController::loadShootingInfo()
+{
+    m_shootingInfo.clear();
+    const Photo *p = currentPhoto();
+    if (!p || !m_project)
+        return;
+    const auto header = imaging::readJpegHeader(m_project->rawPathOf(*p));
+    if (!header)
+        return;
+    const imaging::ExifInfo exif = imaging::parseExif(header->exif);
+    if (exif.iso > 0)
+        m_shootingInfo.insert(QStringLiteral("iso"), exif.iso);
+    if (exif.focalLength > 0)
+        m_shootingInfo.insert(QStringLiteral("focalLength"), std::nearbyint(exif.focalLength * 10.0) / 10.0);
+    if (exif.fNumber > 0)
+        m_shootingInfo.insert(QStringLiteral("aperture"), imaging::formatAperture(exif.fNumber));
+    if (exif.exposureTime > 0)
+        m_shootingInfo.insert(QStringLiteral("shutter"), imaging::formatShutter(exif.exposureTime));
+    const QString camera = imaging::cameraName(exif.make, exif.model);
+    if (!camera.isEmpty())
+        m_shootingInfo.insert(QStringLiteral("camera"), camera);
+    if (!exif.lensModel.simplified().isEmpty())
+        m_shootingInfo.insert(QStringLiteral("lens"), exif.lensModel.simplified());
 }
 
 // --------------------------------------------------------------------------- //
@@ -446,6 +585,24 @@ QString &EditorController::draftPreset()
             return l.preset;
     }
     return m_draft.preset;
+}
+
+imaging::Look &EditorController::draftLook()
+{
+    for (auto &l : m_draft.layers) {
+        if (l.id == m_activeLayer)
+            return l.look;
+    }
+    return m_draft.look;
+}
+
+const imaging::Look &EditorController::activeLook() const
+{
+    for (const auto &l : m_draft.layers) {
+        if (l.id == m_activeLayer)
+            return l.look;
+    }
+    return m_draft.look;
 }
 
 QVariantList EditorController::sliders() const
@@ -621,7 +778,8 @@ void EditorController::saveDraft(bool withCrop, bool withLayers)
         m_saved = m_project->setAdjustments(*p, m_draft.values, m_draft.preset,
                                             withCrop ? std::optional(m_draft.crop) : std::nullopt,
                                             withLayers ? std::optional(imaging::layersToJson(m_draft.layers))
-                                                       : std::nullopt);
+                                                       : std::nullopt,
+                                            m_draft.look);
     });
     // O que o banco aceitou (normalizado) vira o rascunho.
     const imaging::Crop keepCrop = withCrop ? m_saved.crop : m_draft.crop;
@@ -639,6 +797,271 @@ void EditorController::commit()
         saveDraft(false, true);
     else
         updateEditedUrl();
+}
+
+void EditorController::saveAs(const QString &kind)
+{
+    const Photo *p = currentPhoto();
+    if (!p)
+        return;
+    m_renderTimer.stop();
+    guarded([&]() {
+        EditState next = m_draft;
+        next.crop = m_saved.crop;
+        m_saved = m_project->applyState(*p, next, kind);
+    });
+    const imaging::Crop keepCrop = m_draft.crop;
+    m_draft = m_saved;
+    m_draft.crop = keepCrop;
+    updateEditedUrl();
+    emit stateChanged();
+    emit historyChanged();
+}
+
+void EditorController::applyPreset(const QString &id)
+{
+    if (!currentPhoto() || !editable() || !imaging::isPreset(id))
+        return;
+    commit();
+    imaging::Values &v = draftValues();
+    // effective() = valores + deslocamentos, cada um no limite do slider.
+    v = imaging::effective(v, id);
+    saveAs(HistoryKind::Preset);
+}
+
+void EditorController::pickWhite(double x, double y)
+{
+    const Photo *p = currentPhoto();
+    if (!p || !m_project || !editable() || !std::isfinite(x) || !std::isfinite(y))
+        return;
+    commit();
+    // A etapa 1 do motor (balanço de branco) recebe o original: é nele que a
+    // amostra tem de ficar neutra (o resto do motor preserva o cinza).
+    const cv::Mat rgb = imaging::loadRgb(editSource(renderRequest(m_draft)).first);
+    if (rgb.empty())
+        return;
+    const int side = std::max(5, static_cast<int>(std::lround(0.01 * std::max(rgb.cols, rgb.rows))));
+    const int cx = static_cast<int>(std::clamp(x, 0.0, 1.0) * (rgb.cols - 1));
+    const int cy = static_cast<int>(std::clamp(y, 0.0, 1.0) * (rgb.rows - 1));
+    const cv::Rect box = cv::Rect(cx - side / 2, cy - side / 2, side, side) & cv::Rect(0, 0, rgb.cols, rgb.rows);
+    if (box.empty())
+        return;
+    const cv::Scalar mean = cv::mean(rgb(box));
+    const double lo = std::min({mean[0], mean[1], mean[2]});
+    const double hi = std::max({mean[0], mean[1], mean[2]});
+    if (lo < 10.0 || hi > 250.0) {
+        emit failed(QStringLiteral("wb.badSample"), {});
+        return;
+    }
+    const double gray = (mean[0] + mean[1] + mean[2]) / 3.0;
+    const auto [temperature, tint] = imaging::gainsToWb(cv::Vec3d(gray / mean[0], gray / mean[1], gray / mean[2]));
+    // O preset legado soma o dele por cima: desconta para o efetivo ser o medido.
+    const imaging::Values offsets = imaging::effective(imaging::kNeutral, draftPreset());
+    imaging::Values &v = draftValues();
+    v[imaging::Temperature] = imaging::clampValue(imaging::Temperature, temperature - offsets[imaging::Temperature]);
+    v[imaging::Tint] = imaging::clampValue(imaging::Tint, tint - offsets[imaging::Tint]);
+    saveAs(HistoryKind::Adjust);
+}
+
+// --------------------------------------------------------------------------- //
+// Níveis, curvas e efeitos
+// --------------------------------------------------------------------------- //
+
+QVariantMap EditorController::levels() const
+{
+    const imaging::Look &look = activeLook();
+    QVariantMap out;
+    for (int c = 0; c < imaging::ChannelCount; ++c) {
+        out.insert(QLatin1String(imaging::channelName(static_cast<imaging::Channel>(c))),
+                   imaging::levelsChannelToJson(look.levels[c]).toVariantMap());
+    }
+    return out;
+}
+
+QVariantMap EditorController::curves() const
+{
+    const imaging::Look &look = activeLook();
+    QVariantMap out;
+    for (int c = 0; c < imaging::ChannelCount; ++c) {
+        out.insert(QLatin1String(imaging::channelName(static_cast<imaging::Channel>(c))),
+                   imaging::curveToJson(look.curves[c]).toVariantList());
+    }
+    return out;
+}
+
+QVariantList EditorController::effects() const
+{
+    return imaging::effectsToJson(activeLook().effects).toVariantList();
+}
+
+QVariantList EditorController::effectCatalog() const
+{
+    QVariantList out;
+    for (const auto &e : imaging::effectCatalog()) {
+        out << QVariantMap{{QStringLiteral("id"), QString::fromLatin1(e.id)},
+                           {QStringLiteral("defaultAmount"), e.defaultAmount}};
+    }
+    return out;
+}
+
+void EditorController::setLevels(const QString &channel, const QVariantMap &levels)
+{
+    const auto ch = imaging::channelByName(channel);
+    if (!ch || !currentPhoto() || !editable())
+        return;
+    imaging::LevelsChannel &l = draftLook().levels[*ch];
+    auto num = [&](const char *key, double current) {
+        bool ok = false;
+        const double v = levels.value(QLatin1String(key)).toDouble(&ok);
+        return ok && std::isfinite(v) ? v : current;
+    };
+    imaging::LevelsChannel next;
+    next.inBlack = static_cast<int>(std::lround(std::clamp(num("inBlack", l.inBlack), -1.0, 256.0)));
+    next.gamma = num("gamma", l.gamma);
+    next.inWhite = static_cast<int>(std::lround(std::clamp(num("inWhite", l.inWhite), -1.0, 256.0)));
+    next.outBlack = static_cast<int>(std::lround(std::clamp(num("outBlack", l.outBlack), -1.0, 256.0)));
+    next.outWhite = static_cast<int>(std::lround(std::clamp(num("outWhite", l.outWhite), -1.0, 256.0)));
+    l = imaging::normalizeLevelsChannel(next);
+    emit stateChanged();
+    scheduleRender();
+}
+
+void EditorController::autoLevels(const QString &channel)
+{
+    const auto ch = imaging::channelByName(channel);
+    const Photo *p = currentPhoto();
+    if (!ch || !p || !m_project || !editable())
+        return;
+    commit();
+    // Mede o que CHEGA aos níveis deste canal: a camada ativa sozinha, sem os
+    // níveis do canal, sem curvas e sem efeitos (que vêm depois).
+    EditState probe = m_draft;
+    imaging::Look look = activeLook();
+    look.levels[*ch] = imaging::kLevelsIdentity;
+    look.curves = {};
+    look.effects.clear();
+    QString mask;
+    for (const auto &l : m_draft.layers) {
+        if (l.id == m_activeLayer) {
+            probe.values = l.values;
+            probe.preset = l.preset;
+            mask = l.mask;
+        }
+    }
+    probe.look = look;
+    probe.layers.clear();
+    const RenderRequest req = renderRequest(probe);
+    const cv::Mat rgb = imaging::loadRgb(editSource(req).first);
+    if (rgb.empty())
+        return;
+    const cv::Mat out = developImage(
+        rgb, probe, req.paths.masksDir(), [](const cv::Mat &m) { return fitSide(m, kAnalysisSide); },
+        imaging::grainSeed(p->id));
+    // Numa camada, só os pixels da área dela contam.
+    cv::Mat alpha;
+    if (!mask.isEmpty())
+        alpha = imaging::layerAlpha(m_project->masksDir(), mask, rgb.size(), probe.crop, out.size());
+    std::array<double, 256> hist{};
+    double total = 0.0;
+    for (int r = 0; r < out.rows; ++r) {
+        for (int c = 0; c < out.cols; ++c) {
+            if (!alpha.empty() && alpha.at<float>(r, c) < 0.5f)
+                continue;
+            const cv::Vec3b px = out.at<cv::Vec3b>(r, c);
+            const int v = *ch == imaging::ChannelRgb
+                ? std::min(255, static_cast<int>(0.2126 * px[0] + 0.7152 * px[1] + 0.0722 * px[2] + 0.5))
+                : px[*ch - 1];
+            hist[v] += 1;
+            total += 1;
+        }
+    }
+    if (total <= 0)
+        return;
+    int lo = 0, hi = 255;
+    for (double acc = 0; lo < 255; ++lo) {
+        acc += hist[lo];
+        if (acc > total * kAutoLevelsClip)
+            break;
+    }
+    for (double acc = 0; hi > 0; --hi) {
+        acc += hist[hi];
+        if (acc > total * kAutoLevelsClip)
+            break;
+    }
+    imaging::LevelsChannel &l = draftLook().levels[*ch];
+    imaging::LevelsChannel next = l;
+    next.inBlack = std::min(lo, 253);
+    next.inWhite = std::max(hi, next.inBlack + 2);
+    l = imaging::normalizeLevelsChannel(next);
+    saveAs(HistoryKind::Levels);
+}
+
+void EditorController::resetLevels(const QString &channel)
+{
+    const auto ch = imaging::channelByName(channel);
+    if (!ch || !currentPhoto() || !editable())
+        return;
+    draftLook().levels[*ch] = imaging::kLevelsIdentity;
+    saveDraft(false, true);
+}
+
+void EditorController::setCurve(const QString &channel, const QVariantList &points)
+{
+    const auto ch = imaging::channelByName(channel);
+    if (!ch || !currentPhoto() || !editable())
+        return;
+    imaging::Curve curve;
+    for (const QVariant &v : points) {
+        if (v.metaType().id() == QMetaType::QVariantMap) {
+            const QVariantMap m = v.toMap();
+            curve.push_back({m.value(QStringLiteral("x")).toDouble(), m.value(QStringLiteral("y")).toDouble()});
+            continue;
+        }
+        const QVariantList xy = v.toList();
+        if (xy.size() == 2)
+            curve.push_back({xy[0].toDouble(), xy[1].toDouble()});
+    }
+    draftLook().curves[*ch] = imaging::normalizeCurve(curve);
+    emit stateChanged();
+    scheduleRender();
+}
+
+void EditorController::resetCurve(const QString &channel)
+{
+    const auto ch = imaging::channelByName(channel);
+    if (!ch || !currentPhoto() || !editable())
+        return;
+    draftLook().curves[*ch].clear();
+    saveDraft(false, true);
+}
+
+void EditorController::setEffect(const QString &id, int amount)
+{
+    if (!imaging::isEffect(id) || !currentPhoto() || !editable())
+        return;
+    imaging::Effects &effects = draftLook().effects;
+    std::erase_if(effects, [&](const imaging::Effect &e) { return e.id == id; });
+    effects.push_back({id, std::clamp(amount, 0, 100)});
+    effects = imaging::normalizeEffects(effects);
+    emit stateChanged();
+    scheduleRender();
+}
+
+void EditorController::toggleEffect(const QString &id)
+{
+    if (!imaging::isEffect(id) || !currentPhoto() || !editable())
+        return;
+    imaging::Effects &effects = draftLook().effects;
+    if (imaging::effectAmount(effects, id) > 0) {
+        std::erase_if(effects, [&](const imaging::Effect &e) { return e.id == id; });
+    } else {
+        for (const auto &spec : imaging::effectCatalog()) {
+            if (id == QLatin1String(spec.id))
+                effects.push_back({id, spec.defaultAmount});
+        }
+        effects = imaging::normalizeEffects(effects);
+    }
+    saveDraft(false, true);
 }
 
 void EditorController::togglePreset(const QString &id)
@@ -864,6 +1287,7 @@ void EditorController::applySelection()
             layer.mask = m_selectionMask;
             layer.values = m_draft.values;
             layer.preset = m_draft.preset;
+            layer.look = m_draft.look;
             m_draft.layers.push_back(layer);
             m_activeLayer = layer.id;
         } else {

@@ -3,6 +3,7 @@
 # QtCore (strings, JSON, hash).
 add_library(photoeditor_imaging STATIC
     Develop.h Develop.cpp
+    Look.h Look.cpp
     Crop.h Crop.cpp
     SettingsHash.h SettingsHash.cpp
     Exif.h Exif.cpp

@@ -14,15 +14,18 @@
 
 #include "PhotoListModel.h"
 
+#include "core/Derivatives.h"
 #include "core/Exporter.h"
 #include "core/Merges.h"
 #include "core/Project.h"
 
 #include <QObject>
+#include <QThreadPool>
 #include <QTimer>
 #include <QVariantMap>
 #include <QtQmlIntegration>
 
+#include <atomic>
 #include <memory>
 
 namespace pe::imaging {
@@ -80,6 +83,33 @@ class EditorController : public QObject
     Q_PROPERTY(QString activeLayer READ activeLayer WRITE setActiveLayer NOTIFY stateChanged)
     Q_PROPERTY(QString activeLayerMaskUrl READ activeLayerMaskUrl NOTIFY stateChanged)
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
+
+    // Acabamento (rascunho) da camada ativa: níveis, curvas e efeitos. Vêm
+    // depois dos sliders no motor (imaging/Look.h). Como os sliders, os
+    // set*() só mudam o rascunho (render em 120 ms) e o commit() grava; os
+    // reset*/toggle*/auto*/pick*/applyPreset gravam na hora.
+    /// Os quatro canais, sempre (identidade inclusive):
+    /// {rgb|r|g|b: {inBlack: 0..253, gamma: 0.10..9.99, inWhite: 2..255,
+    ///              outBlack: 0..255, outWhite: 0..255}} — escala 0..255
+    Q_PROPERTY(QVariantMap levels READ levels NOTIFY stateChanged)
+    /// Os quatro canais, sempre: {rgb|r|g|b: [[x, y], ...]} com x e y em
+    /// [0, 1], ordenados por x; identidade = [[0, 0], [1, 1]]
+    Q_PROPERTY(QVariantMap curves READ curves NOTIFY stateChanged)
+    /// [{id, amount: 1..100}] — só os ligados, na ordem do catálogo
+    Q_PROPERTY(QVariantList effects READ effects NOTIFY stateChanged)
+    /// [{id, defaultAmount}] — a biblioteca, na ordem em que é aplicada
+    /// (bw, sepia, vintage, fade, matte, vignette, grain)
+    Q_PROPERTY(QVariantList effectCatalog READ effectCatalog CONSTANT)
+    /// Histograma da "Editada" (rascunho, ~512 px, calculado fora da thread
+    /// principal): {r, g, b, l: [256 números 0..1 (raiz quadrada da contagem,
+    /// normalizada pelo maior pico fora dos extremos 0 e 255)],
+    /// clipShadows: fração de pixels com algum canal em 0,
+    /// clipHighlights: fração com algum canal em 255}. {} sem foto.
+    Q_PROPERTY(QVariantMap histogram READ histogram NOTIFY histogramChanged)
+    /// Dados de disparo do JPEG original (EXIF). Só as chaves que existem:
+    /// {iso: 800, focalLength: 85 (mm), aperture: "f/2.8", shutter: "1/200" | "2s",
+    ///  camera: "Canon EOS R5", lens: "RF85mm F1.2 L USM"}
+    Q_PROPERTY(QVariantMap shootingInfo READ shootingInfo NOTIFY currentChanged)
 
     // Seleção (pincel)
     Q_PROPERTY(bool selecting READ selecting NOTIFY selectionChanged)
@@ -152,6 +182,12 @@ public:
     void setActiveLayer(const QString &id);
     QString activeLayerMaskUrl() const;
     bool busy() const { return m_busy; }
+    QVariantMap levels() const;
+    QVariantMap curves() const;
+    QVariantList effects() const;
+    QVariantList effectCatalog() const;
+    QVariantMap histogram() const { return m_histogram; }
+    QVariantMap shootingInfo() const { return m_shootingInfo; }
 
     bool selecting() const { return m_selecting; }
     QString selectionLayer() const { return m_selectionLayer; }
@@ -187,8 +223,21 @@ public:
     Q_INVOKABLE void setValue(const QString &name, double value);
     /// Grava o rascunho (soltar o slider). Sem mudança, não grava.
     Q_INVOKABLE void commit();
-    /// Liga/desliga um preset na camada ativa e grava.
+    /// Liga/desliga um preset na camada ativa e grava. LEGADO: o painel usa
+    /// applyPreset; fica para as fotos que já guardam um preset.
     Q_INVOKABLE void togglePreset(const QString &id);
+    /// Soma os deslocamentos do preset aos sliders da camada ativa (limitados)
+    /// e grava (histórico "preset"). O campo preset não muda: o preset só
+    /// move sliders, que a pessoa continua ajustando.
+    Q_INVOKABLE void applyPreset(const QString &id);
+    /// Conta-gotas do balanço de branco: (x, y) em fração do preview ORIGINAL
+    /// inteiro (o painel "Original", sem crop). Amostra ~1% do lado maior (no
+    /// mínimo 5x5 px) do original — que é exatamente a entrada da etapa de
+    /// balanço de branco, a primeira do motor — e acha temperature/tint que
+    /// deixam a amostra neutra (descontado o preset legado, se houver). Grava
+    /// na camada ativa (histórico "adjust"). Amostra estourada ou quase preta:
+    /// failed("wb.badSample").
+    Q_INVOKABLE void pickWhite(double x, double y);
     Q_INVOKABLE void autoAdjust();
     Q_INVOKABLE void reset();
     /// Rascunho do quadro do crop ({scale, cx, cy, angle}; normalizado aqui).
@@ -200,6 +249,27 @@ public:
     /// Quadro normalizado para ``crop`` sem gravar nada (o CropEditor usa ao arrastar).
     Q_INVOKABLE QVariantMap normalizeCrop(const QVariantMap &crop) const;
     Q_INVOKABLE double cropMaxScaleFor(double angle) const;
+
+    // --- níveis, curvas e efeitos (camada ativa) ---------------------------- //
+    /// Rascunho dos níveis de um canal ("rgb" | "r" | "g" | "b"); ``levels`` =
+    /// {inBlack, gamma, inWhite, outBlack, outWhite} (chaves ausentes = as
+    /// atuais). Normalizado aqui (inWhite >= inBlack + 2). commit() grava.
+    Q_INVOKABLE void setLevels(const QString &channel, const QVariantMap &levels);
+    /// Níveis automáticos do canal: corta 0,1% em cada ponta do histograma do
+    /// que CHEGA aos níveis desse canal (rgb: na luminância; r/g/b: no canal) e
+    /// grava inBlack/inWhite (gamma e saída ficam). Histórico "levels".
+    Q_INVOKABLE void autoLevels(const QString &channel);
+    /// Canal de volta à identidade; grava.
+    Q_INVOKABLE void resetLevels(const QString &channel);
+    /// Rascunho da curva de um canal: [[x, y], ...] (ou [{x, y}]) em [0, 1],
+    /// 2 a 16 pontos; ordenada e sem x repetido aqui. commit() grava.
+    Q_INVOKABLE void setCurve(const QString &channel, const QVariantList &points);
+    /// Curva de volta à identidade; grava.
+    Q_INVOKABLE void resetCurve(const QString &channel);
+    /// Rascunho da intensidade de um efeito (0..100; 0 desliga). commit() grava.
+    Q_INVOKABLE void setEffect(const QString &id, int amount);
+    /// Liga (com o defaultAmount) ou desliga um efeito; grava.
+    Q_INVOKABLE void toggleEffect(const QString &id);
 
     // --- camadas ------------------------------------------------------------ //
     Q_INVOKABLE void deleteLayer(const QString &id);
@@ -251,6 +321,7 @@ signals:
     void statusMessageChanged();
     void editedUrlChanged();
     void stateChanged();
+    void histogramChanged();
     void busyChanged();
     void selectionChanged();
     void historyChanged();
@@ -264,6 +335,13 @@ signals:
 private:
     pe::imaging::Values &draftValues();
     QString &draftPreset();
+    pe::imaging::Look &draftLook();
+    const pe::imaging::Look &activeLook() const;
+    /// Grava o rascunho com um tipo de ação fixo (o crop fica o gravado).
+    void saveAs(const QString &kind);
+    pe::RenderRequest renderRequest(const pe::EditState &state) const;
+    void scheduleHistogram();
+    void loadShootingInfo();
     const pe::Photo *currentPhoto() const;
     void loadCurrent();
     void scheduleRender();
@@ -297,6 +375,11 @@ private:
     QString m_editedUrl;
     QTimer m_renderTimer;
     bool m_busy = false;
+    QVariantMap m_histogram;
+    QVariantMap m_shootingInfo;
+    /// Só o pedido mais recente vale: os anteriores nem chegam a rodar.
+    std::shared_ptr<std::atomic<int>> m_histogramLatest = std::make_shared<std::atomic<int>>(0);
+    QThreadPool m_histogramPool;
 
     bool m_selecting = false;
     QString m_selectionLayer;

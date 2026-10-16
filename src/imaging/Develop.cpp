@@ -198,6 +198,7 @@ std::vector<Layer> normalizeLayers(const QJsonArray &layers)
         layer.mask = mask;
         layer.values = valuesFromJson(obj.value(QStringLiteral("values")).toObject());
         layer.preset = normalizePreset(obj.value(QStringLiteral("preset")).toString());
+        layer.look = lookFromJson(obj);
         out.push_back(layer);
         if (static_cast<int>(out.size()) == kMaxLayers)
             break;
@@ -209,12 +210,14 @@ QJsonArray layersToJson(const std::vector<Layer> &layers)
 {
     QJsonArray out;
     for (const auto &l : layers) {
-        out.append(QJsonObject{
+        QJsonObject obj{
             {QStringLiteral("id"), l.id},
             {QStringLiteral("mask"), l.mask},
             {QStringLiteral("values"), valuesToJson(l.values)},
             {QStringLiteral("preset"), l.preset},
-        });
+        };
+        lookToJson(l.look, obj, true);
+        out.append(obj);
     }
     return out;
 }
@@ -222,7 +225,8 @@ QJsonArray layersToJson(const std::vector<Layer> &layers)
 bool isNeutral(const Values &values, const QString &preset, const std::vector<Layer> &layers)
 {
     return isNeutral(values, preset)
-        && std::all_of(layers.begin(), layers.end(), [](const Layer &l) { return isNeutral(l.values, l.preset); });
+        && std::all_of(layers.begin(), layers.end(),
+                       [](const Layer &l) { return isNeutral(l.values, l.preset) && l.look.isIdentity(); });
 }
 
 // --------------------------------------------------------------------------- //
@@ -369,11 +373,11 @@ cv::Mat shadowMask(const cv::Mat &rgb32f, double knee, double floor, double satS
     return m;
 }
 
-cv::Mat render(const cv::Mat &rgb, const Values &values, const QString &preset)
+cv::Mat render(const cv::Mat &rgb, const Values &values, const QString &preset, const Look &look, quint64 seed)
 {
     CV_Assert(rgb.type() == CV_8UC3);
     const Values v = effective(values, preset);
-    if (std::all_of(v.begin(), v.end(), [](double x) { return x == 0.0; }))
+    if (std::all_of(v.begin(), v.end(), [](double x) { return x == 0.0; }) && look.isIdentity())
         return rgb.clone();
 
     cv::Mat x;
@@ -443,6 +447,10 @@ cv::Mat render(const cv::Mat &rgb, const Values &values, const QString &preset)
         });
     }
 
+    // 5-7. níveis, curvas e efeitos (Look.h)
+    if (!look.isIdentity())
+        applyLook(x, look, seed);
+
     cv::Mat out(x.size(), CV_8UC3);
     x.forEach<cv::Vec3f>([&](const cv::Vec3f &px, const int *pos) {
         out.at<cv::Vec3b>(pos[0], pos[1]) = cv::Vec3b(toByte(px[0]), toByte(px[1]), toByte(px[2]));
@@ -451,16 +459,16 @@ cv::Mat render(const cv::Mat &rgb, const Values &values, const QString &preset)
 }
 
 cv::Mat renderLayers(const cv::Mat &rgb, const Values &values, const QString &preset,
-                     const std::vector<LayerPass> &layers)
+                     const std::vector<LayerPass> &layers, const Look &look, quint64 seed)
 {
-    cv::Mat out = render(rgb, values, preset);
+    cv::Mat out = render(rgb, values, preset, look, seed);
     if (layers.empty())
         return out;
     cv::Mat acc;
     out.convertTo(acc, CV_32FC3);
     for (const auto &layer : layers) {
         CV_Assert(layer.alpha.type() == CV_32F && layer.alpha.size() == rgb.size());
-        const cv::Mat top = render(rgb, layer.values, layer.preset);
+        const cv::Mat top = render(rgb, layer.values, layer.preset, layer.look, seed);
         acc.forEach<cv::Vec3f>([&](cv::Vec3f &a, const int *pos) {
             const cv::Vec3b t = top.at<cv::Vec3b>(pos[0], pos[1]);
             const float al = layer.alpha.at<float>(pos[0], pos[1]);

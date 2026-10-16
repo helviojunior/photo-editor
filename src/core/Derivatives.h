@@ -30,9 +30,10 @@ QString ensurePreview(const ProjectPaths &paths, const Photo &p);
 QString ensureThumbnail(const ProjectPaths &paths, const Photo &p);
 
 /// Foto INTEIRA (antes do crop) + estado -> foto editada: crop, depois ``fit``
-/// (a redução da exportação), depois o motor e as camadas.
+/// (a redução da exportação), depois o motor, o look e as camadas. ``seed`` é
+/// a do grão: imaging::grainSeed(photo.id) — a mesma no preview e na exportação.
 cv::Mat developImage(const cv::Mat &rgb, const EditState &state, const QString &masksDir,
-                     const std::function<cv::Mat(const cv::Mat &)> &fit = {});
+                     const std::function<cv::Mat(const cv::Mat &)> &fit = {}, quint64 seed = 0);
 
 /// O que o editor precisa para mostrar a "Editada" de uma foto — montado na
 /// thread principal (renderRequest), executado em qualquer uma (render).

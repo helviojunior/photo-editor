@@ -16,7 +16,11 @@
 //   3. realce local de sombras               -> shadows
 //   4. cor                                   -> vibrance, saturation
 //
-// Porte 1:1 de backend/photoeditor/imaging/develop.py (branch legacy).
+// Porte 1:1 de backend/photoeditor/imaging/develop.py (branch legacy). Depois
+// da cor vêm níveis, curvas e efeitos (Look.h), que não existiam no Python:
+// identidade = nem rodam, e a saída continua a mesma.
+
+#include "imaging/Look.h"
 
 #include <QJsonArray>
 #include <QJsonObject>
@@ -104,13 +108,17 @@ struct Layer
     QString mask;
     Values values = kNeutral;
     QString preset;
+    Look look;  ///< níveis, curvas e efeitos DA camada
 
     bool operator==(const Layer &) const = default;
 };
 
 bool isMaskKey(const QString &key);
-/// Camadas válidas, na ordem (a de baixo primeiro). Determinístico.
+/// Camadas válidas, na ordem (a de baixo primeiro). Determinístico. As chaves
+/// "levels", "curves" e "effects" de cada camada são opcionais.
 std::vector<Layer> normalizeLayers(const QJsonArray &layers);
+/// As chaves do Look só saem quando a camada tem algo nelas (o JSON das
+/// camadas antigas não muda).
 QJsonArray layersToJson(const std::vector<Layer> &layers);
 bool isNeutral(const Values &values, const QString &preset, const std::vector<Layer> &layers);
 
@@ -136,19 +144,23 @@ cv::Mat guidedFilter(const cv::Mat &p, const cv::Mat &g, int r, double eps = 1e-
 /// Peso do realce de sombras (CV_32FC1) — ``shadow_mask`` do Python.
 cv::Mat shadowMask(const cv::Mat &rgb32f, double knee = 0.45, double floor = 0.12, double satSup = 0.7);
 
-/// Aplica os ajustes numa imagem RGB CV_8UC3 e devolve RGB CV_8UC3.
-cv::Mat render(const cv::Mat &rgb, const Values &values, const QString &preset = {});
+/// Aplica os ajustes numa imagem RGB CV_8UC3 e devolve RGB CV_8UC3. ``look``
+/// (níveis, curvas, efeitos) vem depois da cor; ``seed`` é a do grão
+/// (grainSeed da foto).
+cv::Mat render(const cv::Mat &rgb, const Values &values, const QString &preset = {}, const Look &look = {},
+               quint64 seed = 0);
 
 struct LayerPass
 {
     Values values = kNeutral;
     QString preset;
     cv::Mat alpha;  ///< CV_32FC1 em [0, 1], do tamanho da imagem
+    Look look;
 };
 
-/// Restante com values/preset; cada camada revelada do MESMO ``rgb`` e
+/// Restante com values/preset/look; cada camada revelada do MESMO ``rgb`` e
 /// misturada por cima pela alpha. Sem camadas = ``render``.
 cv::Mat renderLayers(const cv::Mat &rgb, const Values &values, const QString &preset,
-                     const std::vector<LayerPass> &layers);
+                     const std::vector<LayerPass> &layers, const Look &look = {}, quint64 seed = 0);
 
 } // namespace pe::imaging

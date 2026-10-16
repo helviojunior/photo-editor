@@ -71,7 +71,7 @@ QString ensureThumbnail(const ProjectPaths &paths, const Photo &p)
 }
 
 cv::Mat developImage(const cv::Mat &rgb, const EditState &state, const QString &masksDir,
-                     const std::function<cv::Mat(const cv::Mat &)> &fit)
+                     const std::function<cv::Mat(const cv::Mat &)> &fit, quint64 seed)
 {
     cv::Mat out = imaging::applyCrop(rgb, state.crop);
     if (fit)
@@ -80,9 +80,9 @@ cv::Mat developImage(const cv::Mat &rgb, const EditState &state, const QString &
     for (const auto &layer : state.layers) {
         cv::Mat alpha = imaging::layerAlpha(masksDir, layer.mask, rgb.size(), state.crop, out.size());
         if (!alpha.empty())
-            passes.push_back({layer.values, layer.preset, alpha});
+            passes.push_back({layer.values, layer.preset, alpha, layer.look});
     }
-    return imaging::renderLayers(out, state.values, state.preset, passes);
+    return imaging::renderLayers(out, state.values, state.preset, passes, state.look, seed);
 }
 
 std::pair<QString, QString> editSource(const RenderRequest &req)
@@ -107,7 +107,7 @@ QString render(const RenderRequest &req)
     const cv::Mat rgb = imaging::loadRgb(source);
     if (rgb.empty())
         return source;
-    const cv::Mat out = developImage(rgb, req.state, req.paths.masksDir());
+    const cv::Mat out = developImage(rgb, req.state, req.paths.masksDir(), {}, imaging::grainSeed(req.photo.id));
     imaging::writeAtomic(path, imaging::encodeJpeg(out, imaging::kRenderQuality));
     return path;
 }

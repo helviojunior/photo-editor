@@ -6,6 +6,7 @@
 #include <QTimeZone>
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <optional>
 #include <vector>
@@ -172,6 +173,27 @@ public:
         if (!has(off, e.count))
             return {};
         return QString::fromLatin1(m_data.constData() + off, qsizetype(e.count));
+    }
+
+    /// RATIONAL/SRATIONAL (ou SHORT/LONG) como double; nullopt se ilegível.
+    std::optional<double> number(const Entry &e) const
+    {
+        if (e.count < 1)
+            return std::nullopt;
+        if (e.type == 5 || e.type == 10) {
+            const qint64 off = valueOffset(e);
+            if (!has(off, 8))
+                return std::nullopt;
+            const quint32 num = u32(off), den = u32(off + 4);
+            if (den == 0)
+                return std::nullopt;
+            if (e.type == 10)
+                return double(qint32(num)) / double(qint32(den));
+            return double(num) / double(den);
+        }
+        if (const auto v = uintValue(e))
+            return double(*v);
+        return std::nullopt;
     }
 
     QByteArray rawEntry(const Entry &e) const
@@ -532,6 +554,10 @@ ExifInfo parseExif(const QByteArray &exif)
     info.hasIfd1 = ifd0->next != 0;
     if (const Entry *sw = ifd0->find(quint16(kExifSoftware)))
         info.software = stripNulSpace(t.text(*sw));
+    if (const Entry *e = ifd0->find(quint16(kExifMake)))
+        info.make = stripNulSpace(t.text(*e));
+    if (const Entry *e = ifd0->find(quint16(kExifModel)))
+        info.model = stripNulSpace(t.text(*e));
 
     if (const Entry *o = ifd0->find(quint16(kExifOrientation))) {
         const auto v = t.uintValue(*o);
@@ -551,9 +577,51 @@ ExifInfo parseExif(const QByteArray &exif)
             info.offsetTimeOriginal = text(kExifOffsetTimeOriginal);
             info.capturedAt = capturedAtFromExif(info.dateTimeOriginal, info.subsecTimeOriginal,
                                                  info.offsetTimeOriginal);
+            info.lensModel = text(kExifLensModel);
+            auto number = [&](int tag) {
+                const Entry *e = sub->find(quint16(tag));
+                const auto v = e ? t.number(*e) : std::nullopt;
+                return v && std::isfinite(*v) && *v > 0 ? *v : 0.0;
+            };
+            info.exposureTime = number(kExifExposureTime);
+            info.fNumber = number(kExifFNumber);
+            info.focalLength = number(kExifFocalLength);
+            info.iso = int(std::lround(std::min(number(kExifIsoSpeed), 1e7)));
         }
     }
     return info;
+}
+
+QString formatShutter(double seconds)
+{
+    if (!(seconds > 0))
+        return {};
+    if (seconds < 0.5)
+        return QStringLiteral("1/%1").arg(std::lround(1.0 / seconds));
+    const double r = std::nearbyint(seconds * 10.0) / 10.0;
+    return (r == std::floor(r) ? QString::number(qint64(r)) : QString::number(r, 'f', 1)) + u's';
+}
+
+QString formatAperture(double fNumber)
+{
+    if (!(fNumber > 0))
+        return {};
+    const double r = std::nearbyint(fNumber * 10.0) / 10.0;
+    return QStringLiteral("f/") + (r == std::floor(r) ? QString::number(qint64(r)) : QString::number(r, 'f', 1));
+}
+
+QString cameraName(const QString &make, const QString &model)
+{
+    const QString mk = make.simplified(), md = model.simplified();
+    if (mk.isEmpty())
+        return md;
+    if (md.isEmpty())
+        return mk;
+    // "NIKON CORPORATION" + "NIKON D850" -> "NIKON D850"
+    const QString brand = mk.section(u' ', 0, 0);
+    if (md.startsWith(brand, Qt::CaseInsensitive))
+        return md;
+    return mk + u' ' + md;
 }
 
 QByteArray exifForPublication(const QByteArray &exif, const QString &software)

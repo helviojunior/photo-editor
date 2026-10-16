@@ -95,20 +95,22 @@ QString EditState::settingsHash() const
 {
     // Nos estados reais o Python sempre renormaliza um dict com todas as chaves:
     // exposure é float mesmo sem edição (o "pristine" do hash nunca se aplica aqui).
-    return imaging::settingsHash(values, preset, crop, layers);
+    return imaging::settingsHash(values, preset, crop, layers, false, look);
 }
 
 bool EditState::isNeutral() const
 {
-    return imaging::isNeutral(values, preset, layers);
+    return imaging::isNeutral(values, preset, layers) && look.isIdentity();
 }
 
 QJsonObject EditState::toJson() const
 {
-    return {{QStringLiteral("values"), imaging::valuesToJson(values)},
-            {QStringLiteral("preset"), preset},
-            {QStringLiteral("crop"), imaging::cropToJson(crop)},
-            {QStringLiteral("layers"), imaging::layersToJson(layers)}};
+    QJsonObject obj{{QStringLiteral("values"), imaging::valuesToJson(values)},
+                    {QStringLiteral("preset"), preset},
+                    {QStringLiteral("crop"), imaging::cropToJson(crop)},
+                    {QStringLiteral("layers"), imaging::layersToJson(layers)}};
+    imaging::lookToJson(look, obj);
+    return obj;
 }
 
 // --------------------------------------------------------------------------- //
@@ -367,24 +369,38 @@ std::vector<double> Project::cropRatios(const Photo &p) const
 }
 
 EditState Project::normalizeState(const Photo &p, const imaging::Values &values, const QString &preset,
-                                  const imaging::Crop &crop, const QJsonArray &layers) const
+                                  const imaging::Crop &crop, const QJsonArray &layers, const imaging::Look &look) const
 {
     EditState s;
     s.values = imaging::normalize(values);
     s.preset = imaging::normalizePreset(preset);
     s.crop = imaging::normalizeCrop(crop, p.aspect(), cropRatios(p));
     s.layers = imaging::normalizeLayers(layers);
+    s.look = imaging::normalizeLook(look);
     return s;
+}
+
+EditState Project::stateFromJson(const Photo &p, const QJsonObject &obj) const
+{
+    // Entradas de antes do crop/das camadas/do look não têm a chave:
+    // normalizar dá o quadro inteiro, nenhuma camada e a identidade.
+    return normalizeState(p, imaging::valuesFromJson(obj.value(QStringLiteral("values")).toObject()),
+                          obj.value(QStringLiteral("preset")).toString(),
+                          obj.value(QStringLiteral("crop")).isObject()
+                              ? imaging::cropFromJson(obj.value(QStringLiteral("crop")).toObject())
+                              : imaging::kCropIdentity,
+                          obj.value(QStringLiteral("layers")).toArray(), imaging::lookFromJson(obj));
 }
 
 EditState Project::state(const Photo &p) const
 {
     QSqlQuery q = m_db.exec(QStringLiteral("SELECT exposure, contrast, highlights, shadows, whites, blacks, temperature, "
                                            "tint, vibrance, saturation, preset, crop_scale, crop_cx, crop_cy, crop_angle, "
-                                           "crop_ratio, layers FROM photoeditor_adjustment WHERE photo_id = ?"),
+                                           "crop_ratio, layers, levels, curves, effects FROM photoeditor_adjustment "
+                                           "WHERE photo_id = ?"),
                             {p.id});
     if (!q.next()) {
-        EditState s = normalizeState(p, imaging::kNeutral, {}, imaging::kCropIdentity, {});
+        EditState s = normalizeState(p, imaging::kNeutral, {}, imaging::kCropIdentity, {}, {});
         s.pristine = true;
         return s;
     }
@@ -393,7 +409,11 @@ EditState Project::state(const Photo &p) const
         values[i] = q.value(i).toDouble();
     const imaging::Crop crop{q.value(11).toDouble(), q.value(12).toDouble(), q.value(13).toDouble(),
                              q.value(14).toDouble(), q.value(15).toDouble()};
-    return normalizeState(p, values, q.value(10).toString(), crop, parseArray(q.value(16)));
+    imaging::Look look;
+    look.levels = imaging::levelsFromJson(parseObject(q.value(17)));
+    look.curves = imaging::curvesFromJson(parseObject(q.value(18)));
+    look.effects = imaging::effectsFromJson(parseArray(q.value(19)));
+    return normalizeState(p, values, q.value(10).toString(), crop, parseArray(q.value(16)), look);
 }
 
 void Project::saveState(const Photo &p, const EditState &s)
@@ -404,17 +424,23 @@ void Project::saveState(const Photo &p, const EditState &s)
         m_db.exec(QStringLiteral("UPDATE photoeditor_adjustment SET exposure = ?, contrast = ?, highlights = ?, "
                                  "shadows = ?, whites = ?, blacks = ?, temperature = ?, tint = ?, vibrance = ?, "
                                  "saturation = ?, preset = ?, crop_scale = ?, crop_cx = ?, crop_cy = ?, crop_angle = ?, "
-                                 "crop_ratio = ?, layers = ?, updated = ? WHERE photo_id = ?"),
+                                 "crop_ratio = ?, layers = ?, levels = ?, curves = ?, effects = ?, updated = ? "
+                                 "WHERE photo_id = ?"),
                   {v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], s.preset, s.crop.scale, s.crop.cx,
-                   s.crop.cy, s.crop.angle, s.crop.ratio, toJsonText(imaging::layersToJson(s.layers)), nowTs(), p.id});
+                   s.crop.cy, s.crop.angle, s.crop.ratio, toJsonText(imaging::layersToJson(s.layers)),
+                   toJsonText(imaging::levelsToJson(s.look.levels)), toJsonText(imaging::curvesToJson(s.look.curves)),
+                   toJsonText(imaging::effectsToJson(s.look.effects)), nowTs(), p.id});
     } else {
         m_db.exec(QStringLiteral("INSERT INTO photoeditor_adjustment (id, created, updated, enabled, exposure, contrast, "
                                  "highlights, shadows, whites, blacks, temperature, tint, vibrance, saturation, preset, "
-                                 "photo_id, crop_angle, crop_cx, crop_cy, crop_scale, layers, crop_ratio) VALUES "
-                                 "(?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"),
+                                 "photo_id, crop_angle, crop_cx, crop_cy, crop_scale, layers, crop_ratio, levels, "
+                                 "curves, effects) VALUES "
+                                 "(?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"),
                   {Database::newId(), nowTs(), nowTs(), v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9],
                    s.preset, p.id, s.crop.angle, s.crop.cx, s.crop.cy, s.crop.scale,
-                   toJsonText(imaging::layersToJson(s.layers)), s.crop.ratio});
+                   toJsonText(imaging::layersToJson(s.layers)), s.crop.ratio,
+                   toJsonText(imaging::levelsToJson(s.look.levels)), toJsonText(imaging::curvesToJson(s.look.curves)),
+                   toJsonText(imaging::effectsToJson(s.look.effects))});
     }
 }
 
@@ -422,7 +448,7 @@ EditState Project::applyState(const Photo &p, const EditState &requested, const 
 {
     const EditState before = state(p);
     const EditState after = normalizeState(p, requested.values, requested.preset, requested.crop,
-                                           imaging::layersToJson(requested.layers));
+                                           imaging::layersToJson(requested.layers), requested.look);
     if (after == before)
         return before;
     Transaction tx(m_db);
@@ -433,23 +459,46 @@ EditState Project::applyState(const Photo &p, const EditState &requested, const 
 }
 
 EditState Project::setAdjustments(const Photo &p, const imaging::Values &values, const QString &preset,
-                                  const std::optional<imaging::Crop> &crop, const std::optional<QJsonArray> &layers)
+                                  const std::optional<imaging::Crop> &crop, const std::optional<QJsonArray> &layers,
+                                  const std::optional<imaging::Look> &look)
 {
     const EditState before = state(p);
     const EditState after = normalizeState(p, values, preset, crop.value_or(before.crop),
-                                           layers.value_or(imaging::layersToJson(before.layers)));
+                                           layers.value_or(imaging::layersToJson(before.layers)),
+                                           look.value_or(before.look));
     // O tipo da ação é o do que mudou SOZINHO; qualquer outra combinação é ajuste.
-    const bool vChanged = after.values != before.values;
-    const bool pChanged = after.preset != before.preset;
-    const bool cChanged = !(after.crop == before.crop);
-    const bool lChanged = after.layers != before.layers;
+    // Níveis, curvas e efeitos contam juntos os do restante e os das camadas;
+    // "layer" é o resto da camada (área, valores, preset, criar/apagar).
+    auto withoutLook = [](std::vector<imaging::Layer> layers) {
+        for (auto &l : layers)
+            l.look = {};
+        return layers;
+    };
+    // Pares (antes, depois): o restante e as camadas presentes nos dois lados
+    // (camada criada/apagada já é "layer").
+    std::vector<std::pair<const imaging::Look *, const imaging::Look *>> looks{{&before.look, &after.look}};
+    for (const auto &la : after.layers) {
+        for (const auto &lb : before.layers) {
+            if (lb.id == la.id)
+                looks.emplace_back(&lb.look, &la.look);
+        }
+    }
+    auto lookChanged = [&](auto member) {
+        return std::any_of(looks.begin(), looks.end(),
+                           [&](const auto &pair) { return !((*pair.first).*member == (*pair.second).*member); });
+    };
+    const std::vector<std::pair<bool, QString>> changes{
+        {after.values != before.values, HistoryKind::Adjust},
+        {after.preset != before.preset, HistoryKind::Preset},
+        {!(after.crop == before.crop), HistoryKind::Crop},
+        {withoutLook(after.layers) != withoutLook(before.layers), HistoryKind::Layer},
+        {lookChanged(&imaging::Look::levels), HistoryKind::Levels},
+        {lookChanged(&imaging::Look::curves), HistoryKind::Curves},
+        {lookChanged(&imaging::Look::effects), HistoryKind::Effects},
+    };
     QString kind = HistoryKind::Adjust;
-    if (pChanged && !vChanged && !cChanged && !lChanged)
-        kind = HistoryKind::Preset;
-    else if (cChanged && !vChanged && !pChanged && !lChanged)
-        kind = HistoryKind::Crop;
-    else if (lChanged && !vChanged && !pChanged && !cChanged)
-        kind = HistoryKind::Layer;
+    if (std::count_if(changes.begin(), changes.end(), [](const auto &c) { return c.first; }) == 1)
+        kind = std::find_if(changes.begin(), changes.end(), [](const auto &c) { return c.first; })->second;
     return applyState(p, after, kind);
 }
 
@@ -656,7 +705,7 @@ Photo Project::duplicate(const Photo &p)
               {id, nowTs(), nowTs(), copyName(root, QStringLiteral("_copy")), root.id, root.id});
     const Photo copy = requirePhoto(id);
     const EditState s = state(p);
-    saveState(copy, normalizeState(copy, s.values, s.preset, s.crop, imaging::layersToJson(s.layers)));
+    saveState(copy, normalizeState(copy, s.values, s.preset, s.crop, imaging::layersToJson(s.layers), s.look));
     record(copy, HistoryKind::Duplicate, {{QStringLiteral("status"), PhotoStatus::Deleted}},
            {{QStringLiteral("status"), PhotoStatus::Active}, {QStringLiteral("copy_of"), dashedId(root.id)}});
     tx.commit();
@@ -723,7 +772,7 @@ std::pair<Photo, bool> Project::createInstagramVersion(const Photo &p)
                              "WHERE id = ?"),
               {id, nowTs(), nowTs(), copyName(p, QStringLiteral("_instagram")), root.id, p.id, root.id});
     const Photo version = requirePhoto(id);
-    saveState(version, normalizeState(version, s.values, s.preset, crop, imaging::layersToJson(s.layers)));
+    saveState(version, normalizeState(version, s.values, s.preset, crop, imaging::layersToJson(s.layers), s.look));
     record(version, HistoryKind::Instagram, {{QStringLiteral("status"), PhotoStatus::Deleted}},
            {{QStringLiteral("status"), PhotoStatus::Active}, {QStringLiteral("instagram_of"), dashedId(p.id)}});
     tx.commit();
@@ -842,13 +891,7 @@ void Project::redoEntry(const HistoryEntry &entry)
                       {normalizeId(after.toString())});
         return;
     }
-    const QJsonObject after = entry.after;
-    saveState(p, normalizeState(p, imaging::valuesFromJson(after.value(QStringLiteral("values")).toObject()),
-                                after.value(QStringLiteral("preset")).toString(),
-                                after.value(QStringLiteral("crop")).isObject()
-                                    ? imaging::cropFromJson(after.value(QStringLiteral("crop")).toObject())
-                                    : imaging::kCropIdentity,
-                                after.value(QStringLiteral("layers")).toArray()));
+    saveState(p, stateFromJson(p, entry.after));
 }
 
 void Project::undoEntry(const HistoryEntry &entry)
@@ -884,16 +927,9 @@ void Project::undoEntry(const HistoryEntry &entry)
                       {normalizeId(before.toString())});
         return;
     }
-    // adjust, auto, preset, reset, crop, layer: volta ao ``before``. Entradas
-    // de antes do crop/das camadas não têm a chave: normalizar dá o quadro
-    // inteiro e nenhuma camada.
-    const QJsonObject before = entry.before;
-    saveState(p, normalizeState(p, imaging::valuesFromJson(before.value(QStringLiteral("values")).toObject()),
-                                before.value(QStringLiteral("preset")).toString(),
-                                before.value(QStringLiteral("crop")).isObject()
-                                    ? imaging::cropFromJson(before.value(QStringLiteral("crop")).toObject())
-                                    : imaging::kCropIdentity,
-                                before.value(QStringLiteral("layers")).toArray()));
+    // adjust, auto, preset, reset, crop, layer, levels, curves, effects: volta
+    // ao ``before`` (stateFromJson completa as chaves que faltam).
+    saveState(p, stateFromJson(p, entry.before));
 }
 
 } // namespace pe

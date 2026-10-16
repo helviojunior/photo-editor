@@ -39,6 +39,9 @@ inline const QString Cover = QStringLiteral("cover");
 inline const QString Instagram = QStringLiteral("instagram");
 inline const QString Archive = QStringLiteral("archive");
 inline const QString Restore = QStringLiteral("restore");
+inline const QString Levels = QStringLiteral("levels");
+inline const QString Curves = QStringLiteral("curves");
+inline const QString Effects = QStringLiteral("effects");
 } // namespace HistoryKind
 
 struct Photo
@@ -74,23 +77,26 @@ struct Photo
     QString sourcePath;
 };
 
-/// Estado de edição de uma foto: ajustes, preset, crop e camadas.
+/// Estado de edição de uma foto: ajustes, preset, crop, camadas e o acabamento
+/// (níveis, curvas e efeitos) do restante da foto.
 struct EditState
 {
     imaging::Values values = imaging::kNeutral;
     QString preset;
     imaging::Crop crop = imaging::kCropIdentity;
     std::vector<imaging::Layer> layers;
+    imaging::Look look;
     /// Foto sem linha de ajustes (nunca editada).
     bool pristine = false;
 
     bool operator==(const EditState &o) const
     {
-        return values == o.values && preset == o.preset && crop == o.crop && layers == o.layers;
+        return values == o.values && preset == o.preset && crop == o.crop && layers == o.layers && look == o.look;
     }
     QString settingsHash() const;
     bool isNeutral() const;
-    /// {"values", "preset", "crop", "layers"} — o formato do histórico.
+    /// {"values", "preset", "crop", "layers", "levels", "curves", "effects"} —
+    /// o formato do histórico (entradas antigas sem as três últimas = identidade).
     QJsonObject toJson() const;
 };
 

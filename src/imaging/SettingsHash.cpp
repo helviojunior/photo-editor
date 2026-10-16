@@ -96,7 +96,7 @@ QString sha1Hex(const QByteArray &data)
 }
 
 QString settingsHash(const Values &values, const QString &preset, const Crop &crop, const std::vector<Layer> &layers,
-                     bool pristine)
+                     bool pristine, const Look &look)
 {
     QString payload = QStringLiteral("[") + QString::number(kEngineVersion) + QStringLiteral(", ")
         + valuesDict(effective(values, preset), pristine);
@@ -116,10 +116,15 @@ QString settingsHash(const Values &values, const QString &preset, const Crop &cr
             if (i)
                 payload += QStringLiteral(", ");
             payload += QStringLiteral("[\"") + layers[i].mask + QStringLiteral("\", ")
-                + valuesDict(effective(layers[i].values, layers[i].preset)) + QLatin1Char(']');
+                + valuesDict(effective(layers[i].values, layers[i].preset));
+            if (!layers[i].look.isIdentity())
+                payload += QStringLiteral(", ") + lookHashJson(layers[i].look);
+            payload += QLatin1Char(']');
         }
         payload += QStringLiteral("]}");
     }
+    if (!look.isIdentity())
+        payload += QStringLiteral(", {\"look\": ") + lookHashJson(look) + QLatin1Char('}');
     payload += QLatin1Char(']');
     return sha1Hex(payload.toUtf8()).left(16);
 }

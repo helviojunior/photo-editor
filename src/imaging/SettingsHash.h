@@ -23,8 +23,12 @@ QString pyFloat(double value);
 /// ``pristine``: a foto nunca foi editada (sem linha em photoeditor_adjustment).
 /// O Python montava então os valores com ``exposure`` int 0 em vez de 0.0, o
 /// que muda o JSON e o hash; depois da primeira edição é sempre float.
+///
+/// Níveis, curvas e efeitos (``look``, e o de cada camada) só entram no JSON
+/// quando saem da identidade — como o crop e as camadas —, então o hash das
+/// fotos que não os usam é o mesmo de antes de eles existirem.
 QString settingsHash(const Values &values, const QString &preset, const Crop &crop = kCropIdentity,
-                     const std::vector<Layer> &layers = {}, bool pristine = false);
+                     const std::vector<Layer> &layers = {}, bool pristine = false, const Look &look = {});
 
 /// sha1 hex de um texto UTF-8.
 QString sha1Hex(const QByteArray &data);

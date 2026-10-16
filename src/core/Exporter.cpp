@@ -116,7 +116,7 @@ QByteArray Exporter::renderJob(const ExportJob &job)
     }
     if (rgb.empty())
         throw std::runtime_error("could not read the photo");
-    const cv::Mat out = developImage(rgb, job.state, job.paths.masksDir(), fit);
+    const cv::Mat out = developImage(rgb, job.state, job.paths.masksDir(), fit, imaging::grainSeed(job.photo.id));
     return imaging::encode(out, exif, imaging::softwareTag(), quality);
 }
 

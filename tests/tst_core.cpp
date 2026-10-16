@@ -6,10 +6,12 @@
 #include "core/RecentProjects.h"
 #include "imaging/Exif.h"
 #include "imaging/ImageIO.h"
+#include "imaging/Look.h"
 #include "imaging/Mask.h"
 
 #include <QJsonDocument>
 #include <QSignalSpy>
+#include <QSqlError>
 #include <QTemporaryDir>
 #include <QtTest>
 
@@ -197,6 +199,148 @@ private slots:
         QCOMPARE(project.history(p).front().kind, HistoryKind::Adjust);
     }
 
+    void lookPersistsAndUndoes()
+    {
+        QTemporaryDir dir;
+        const QString root = makeProject(dir, 1);
+        QString photoId;
+        imaging::Look look;
+        look.levels[imaging::ChannelRgb] = imaging::normalizeLevelsChannel({12, 1.3, 240, 5, 250});
+        look.curves[imaging::ChannelRed] = imaging::normalizeCurve({{0, 0.05}, {0.5, 0.6}, {1, 1}});
+        look.effects = imaging::normalizeEffects({{QStringLiteral("grain"), 25}, {QStringLiteral("bw"), 50}});
+        {
+            Project project(root);
+            project.scan();
+            const Photo p = project.visiblePhotos().front();
+            photoId = p.id;
+            const EditState s = project.setAdjustments(p, imaging::kNeutral, {}, std::nullopt, std::nullopt, look);
+            QVERIFY(s.look == look);
+            // Três partes do look de uma vez: "adjust".
+            QCOMPARE(project.history(p).front().kind, HistoryKind::Adjust);
+            const QJsonObject after = project.history(p).front().after;
+            QVERIFY(after.contains(QStringLiteral("levels")));
+            QVERIFY(after.contains(QStringLiteral("curves")));
+            QCOMPARE(after.value(QStringLiteral("effects")).toArray().size(), 2);
+            // Só a curva: "curves"; só os efeitos: "effects"; só os níveis: "levels".
+            imaging::Look next = look;
+            next.curves[imaging::ChannelRed].clear();
+            project.setAdjustments(p, imaging::kNeutral, {}, std::nullopt, std::nullopt, next);
+            QCOMPARE(project.history(p).front().kind, HistoryKind::Curves);
+            next.effects.clear();
+            project.setAdjustments(p, imaging::kNeutral, {}, std::nullopt, std::nullopt, next);
+            QCOMPARE(project.history(p).front().kind, HistoryKind::Effects);
+            next.levels[imaging::ChannelRgb].gamma = 0.9;
+            project.setAdjustments(p, imaging::kNeutral, {}, std::nullopt, std::nullopt, next);
+            QCOMPARE(project.history(p).front().kind, HistoryKind::Levels);
+            QVERIFY(project.undoLast());
+            QVERIFY(project.undoLast());
+            QVERIFY(project.undoLast());
+            QVERIFY(project.state(p).look == look);
+            // Sem o look explícito, o gravado fica (só o slider muda).
+            imaging::Values v = imaging::kNeutral;
+            v[imaging::Exposure] = 0.3;
+            QVERIFY(project.setAdjustments(p, v, {}).look == look);
+            QVERIFY(project.undoLast());
+            // A renderização usa o look: o hash muda e o render existe.
+            QVERIFY(project.state(p).settingsHash() != EditState{}.settingsHash());
+            const QString rendered = render({project.paths(), p, project.state(p), std::nullopt, {}});
+            QVERIFY(rendered.contains(QStringLiteral("/cache/render/")));
+        }
+        {
+            // Reaberto do disco: igual.
+            Project project(root);
+            const Photo p = project.requirePhoto(photoId);
+            QVERIFY(project.state(p).look == look);
+            QVERIFY(project.undoLast());
+            QVERIFY(project.state(p).look.isIdentity());
+            QVERIFY(project.redoLast());
+            QVERIFY(project.state(p).look == look);
+            // A cópia leva o look junto.
+            QVERIFY(project.state(project.duplicate(p)).look == look);
+        }
+    }
+
+    void layerLookPersists()
+    {
+        QTemporaryDir dir;
+        Project project(makeProject(dir, 1));
+        project.scan();
+        const Photo p = project.visiblePhotos().front();
+        cv::Mat mask(10, 10, CV_32F, cv::Scalar(1.0f));
+        const QString key = imaging::saveMask(project.masksDir(), mask);
+        QJsonArray layers{QJsonObject{{QStringLiteral("id"), QStringLiteral("abc123")}, {QStringLiteral("mask"), key},
+                                      {QStringLiteral("values"), QJsonObject{}}, {QStringLiteral("preset"), QString()}}};
+        project.setAdjustments(p, imaging::kNeutral, {}, std::nullopt, layers);
+        EditState s = project.state(p);
+        s.layers[0].look.effects = {{QStringLiteral("vignette"), 70}};
+        project.setAdjustments(p, s.values, s.preset, std::nullopt, imaging::layersToJson(s.layers));
+        QCOMPARE(project.history(p).front().kind, HistoryKind::Effects);
+        QCOMPARE(imaging::effectAmount(project.state(p).layers[0].look.effects, QStringLiteral("vignette")), 70);
+        project.undoLast();
+        QVERIFY(project.state(p).layers[0].look.isIdentity());
+    }
+
+    void presetOnlyMovesSliders()
+    {
+        // O que o EditorController::applyPreset faz: valores + deslocamentos,
+        // preset vazio, histórico "preset".
+        QTemporaryDir dir;
+        Project project(makeProject(dir, 1));
+        project.scan();
+        const Photo p = project.visiblePhotos().front();
+        EditState s = project.state(p);
+        s.values[imaging::Contrast] = 90;
+        s.values = imaging::effective(s.values, QStringLiteral("vivid"));
+        const EditState saved = project.applyState(p, s, HistoryKind::Preset);
+        QCOMPARE(saved.preset, QString());
+        QCOMPARE(saved.values[imaging::Contrast], 100.0);  // limitado
+        QCOMPARE(saved.values[imaging::Vibrance], 30.0);
+        QCOMPARE(project.history(p).front().kind, HistoryKind::Preset);
+        // Foto com preset legado continua renderizando com ele.
+        project.setAdjustments(p, imaging::kNeutral, QStringLiteral("warm"));
+        QCOMPARE(project.state(p).preset, QStringLiteral("warm"));
+        QVERIFY(!project.state(p).isNeutral());
+    }
+
+    void migratesFromStep13()
+    {
+        QTemporaryDir dir;
+        const QString root = makeProject(dir, 1);
+        QString photoId;
+        {
+            Project project(root);
+            project.scan();
+            const Photo p = project.visiblePhotos().front();
+            photoId = p.id;
+            imaging::Values v = imaging::kNeutral;
+            v[imaging::Contrast] = 40;
+            project.setAdjustments(p, v, {});
+        }
+        {
+            // Volta o banco ao passo 13 (sem as colunas do look).
+            QSqlDatabase raw = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), QStringLiteral("step13"));
+            raw.setDatabaseName(root + QStringLiteral("/project_data/db.sqlite3"));
+            QVERIFY(raw.open());
+            QSqlQuery q(raw);
+            for (const char *col : {"levels", "curves", "effects"})
+                QVERIFY2(q.exec(QStringLiteral("ALTER TABLE photoeditor_adjustment DROP COLUMN %1").arg(QLatin1String(col))),
+                         qPrintable(q.lastError().text()));
+            QVERIFY(q.exec(QStringLiteral("PRAGMA user_version = 13")));
+            raw.close();
+        }
+        QSqlDatabase::removeDatabase(QStringLiteral("step13"));
+        Project project(root);
+        QCOMPARE(project.db().schemaVersion(), 14);
+        const Photo p = project.requirePhoto(photoId);
+        QCOMPARE(project.state(p).values[imaging::Contrast], 40.0);
+        QVERIFY(project.state(p).look.isIdentity());
+        QCOMPARE(project.db().scalar(QStringLiteral("SELECT effects FROM photoeditor_adjustment")).toString(),
+                 QStringLiteral("[]"));
+        // Entrada de histórico antiga (sem as chaves): desfazer dá a identidade.
+        QVERIFY(project.undoLast());
+        QVERIFY(project.state(p).look.isIdentity());
+    }
+
     void deleteMovesFileAndUndoRestores()
     {
         QTemporaryDir dir;
@@ -302,6 +446,11 @@ private slots:
             const Photo p = project.requirePhoto(e.value(QStringLiteral("id")).toString());
             const EditState s = project.state(p);
             QCOMPARE(s.settingsHash(), e.value(QStringLiteral("settings")).toString());
+            // Sem níveis/curvas/efeitos o hash é o do Python; com eles, outro.
+            QVERIFY(s.look.isIdentity());
+            EditState leveled = s;
+            leveled.look.levels[imaging::ChannelRgb].inBlack = 8;
+            QVERIFY(leveled.settingsHash() != s.settingsHash());
             QCOMPARE(p.exportedHash, e.value(QStringLiteral("exported_hash")).toString());
             QCOMPARE(Exporter::exportHash(p, s, project.mergeVersion(project.mergeForPhoto(p))), p.exportedHash);
         }

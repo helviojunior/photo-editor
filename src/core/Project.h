@@ -85,11 +85,17 @@ public:
     /// Proporções permitidas: só as do Instagram na versão Instagram.
     std::vector<double> cropRatios(const Photo &p) const;
     EditState normalizeState(const Photo &p, const imaging::Values &values, const QString &preset,
-                             const imaging::Crop &crop, const QJsonArray &layers) const;
-    /// Grava o que o painel mandou. crop/layers ausentes = mantém o gravado.
+                             const imaging::Crop &crop, const QJsonArray &layers,
+                             const imaging::Look &look) const;
+    /// Estado a partir do JSON do histórico (chaves ausentes = identidade).
+    EditState stateFromJson(const Photo &p, const QJsonObject &obj) const;
+    /// Grava o que o painel mandou. crop/layers/look ausentes = mantém o gravado.
+    /// O tipo da ação é o do que mudou sozinho (preset, crop, layer, levels,
+    /// curves, effects); qualquer outra combinação é "adjust".
     EditState setAdjustments(const Photo &p, const imaging::Values &values, const QString &preset,
                              const std::optional<imaging::Crop> &crop = std::nullopt,
-                             const std::optional<QJsonArray> &layers = std::nullopt);
+                             const std::optional<QJsonArray> &layers = std::nullopt,
+                             const std::optional<imaging::Look> &look = std::nullopt);
     EditState applyState(const Photo &p, const EditState &after, const QString &kind);
     EditState reset(const Photo &p);
     /// Auto sobre o preview já recortado (ou só na área da camada).
