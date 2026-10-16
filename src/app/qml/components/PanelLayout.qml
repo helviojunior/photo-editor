@@ -23,7 +23,7 @@ QtObject {
     property real split: defaults.split
     property real panel: defaults.panel
 
-    readonly property var defaults: ({ top: 0.7, split: 0.5, panel: 288 })
+    readonly property var defaults: ({ top: 0.7, split: 0.5, panel: 320 })
     readonly property var limits: ({ top: [0.35, 0.85], split: [0.2, 0.8], panel: [240, 560] })
     /// Passo das setas do teclado sobre a divisória.
     readonly property var steps: ({ top: 0.02, split: 0.02, panel: 16 })

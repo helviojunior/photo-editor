@@ -134,6 +134,41 @@ QtObject {
     readonly property color sliderFill: brand500
     readonly property color sliderHandle: dark ? "#f5f5f5" : "#ffffff"
     readonly property color sliderHandleBorder: dark ? "#737373" : "#a3a3a3"
+    // Trilhos coloridos (ValueSlider.trackGradient): o que o slider faz com a
+    // cor — temperatura azul → âmbar, matiz verde → magenta, saturação cinza → cor.
+    readonly property color trackTempCool: "#3b82f6"
+    readonly property color trackTempWarm: "#f2b233"
+    readonly property color trackTintGreen: "#3fae5a"
+    readonly property color trackTintMagenta: "#c74fc0"
+    readonly property color trackSatLow: "#8a8a8a"
+    readonly property color trackSatMid: "#d9a23b"
+    readonly property color trackSatHigh: "#e5384f"
+
+    // Gráficos de imagem (histograma, níveis, curvas): fundo escuro nos dois
+    // temas, como os painéis de foto — os canais se somam ("lighter") e só
+    // dão branco sobre o escuro.
+    readonly property color graphBackground: neutral900
+    readonly property color graphGrid: Qt.rgba(1, 1, 1, 0.1)
+    readonly property color graphGuide: Qt.rgba(1, 1, 1, 0.28)
+    readonly property color graphText: Qt.rgba(1, 1, 1, 0.7)
+    readonly property color channelRed: "#ff4d4d"
+    readonly property color channelGreen: "#3ddc6a"
+    readonly property color channelBlue: "#4d8dff"
+    readonly property color channelLuma: "#bdbdbd"
+    readonly property color curveRgb: "#f5f5f5"
+    /// Triângulo do gama (meio-tom) dos Níveis.
+    readonly property color levelsMid: "#808080"
+    /// Indicador de recorte do histograma aceso.
+    readonly property color clipOn: "#ffffff"
+    readonly property color clipOff: Qt.rgba(1, 1, 1, 0.22)
+
+    // Miniaturas da biblioteca de efeitos: a cena (céu, sol, morro, chão)
+    // que cada efeito redesenha do seu jeito.
+    readonly property color swatchSkyTop: "#3d7ad6"
+    readonly property color swatchSkyBottom: "#f0b46a"
+    readonly property color swatchSun: "#ffe7a3"
+    readonly property color swatchHill: "#3f7d4a"
+    readonly property color swatchGround: "#7a5634"
 
     // ------------------------------------------------------------------ //
     // Raio, fonte, espaçamento
@@ -186,6 +221,14 @@ QtObject {
             return s.length < 2 ? "0" + s : s;
         }
         return "#" + two(c.r) + two(c.g) + two(c.b);
+    }
+
+    /// "rgba(r, g, b, a)" para o Canvas (fillStyle/strokeStyle); ``a``
+    /// negativo = o alfa da própria cor.
+    function css(c: color, a: real): string {
+        const al = a < 0 ? c.a : a;
+        return "rgba(" + Math.round(c.r * 255) + ", " + Math.round(c.g * 255) + ", "
+            + Math.round(c.b * 255) + ", " + al + ")";
     }
 
     /// Ícone Lucide recolorido (image://icon/<nome>?color=%23rrggbb).

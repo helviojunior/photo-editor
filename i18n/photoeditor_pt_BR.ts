@@ -166,6 +166,53 @@
     </message>
 </context>
 <context>
+    <name>CurvesEditor</name>
+    <message>
+        <source>Channel</source>
+        <translation>Canal</translation>
+    </message>
+    <message>
+        <source>All channels</source>
+        <translation>Todos os canais</translation>
+    </message>
+    <message>
+        <source>Red</source>
+        <translation>Vermelho</translation>
+    </message>
+    <message>
+        <source>Green</source>
+        <translation>Verde</translation>
+    </message>
+    <message>
+        <source>Blue</source>
+        <translation>Azul</translation>
+    </message>
+    <message>
+        <source>Curve</source>
+        <translation>Curva</translation>
+    </message>
+    <message>
+        <source>Input: %1</source>
+        <translation>Entrada: %1</translation>
+    </message>
+    <message>
+        <source>Output: %1</source>
+        <translation>Saída: %1</translation>
+    </message>
+    <message>
+        <source>%1/%2 points</source>
+        <translation>%1/%2 pontos</translation>
+    </message>
+    <message>
+        <source>Click to add a point, drag to move it. Double-click or drag it out of the graph to remove it; the two ends only move.</source>
+        <translation>Clique para criar um ponto e arraste para movê-lo. Duplo clique ou arrastar para fora do gráfico remove o ponto; as duas pontas só se movem.</translation>
+    </message>
+    <message>
+        <source>Reset channel</source>
+        <translation>Redefinir canal</translation>
+    </message>
+</context>
+<context>
     <name>DialogHost</name>
     <message>
         <source>Type %1 to confirm.</source>
@@ -194,46 +241,6 @@
 <context>
     <name>EditPanel</name>
     <message>
-        <source>Exposure</source>
-        <translation>Exposição</translation>
-    </message>
-    <message>
-        <source>Contrast</source>
-        <translation>Contraste</translation>
-    </message>
-    <message>
-        <source>Highlights</source>
-        <translation>Realces</translation>
-    </message>
-    <message>
-        <source>Shadows</source>
-        <translation>Sombras</translation>
-    </message>
-    <message>
-        <source>Whites</source>
-        <translation>Brancos</translation>
-    </message>
-    <message>
-        <source>Blacks</source>
-        <translation>Pretos</translation>
-    </message>
-    <message>
-        <source>Temperature</source>
-        <translation>Temperatura</translation>
-    </message>
-    <message>
-        <source>Tint</source>
-        <translation>Matiz</translation>
-    </message>
-    <message>
-        <source>Vibrance</source>
-        <translation>Vibratilidade</translation>
-    </message>
-    <message>
-        <source>Saturation</source>
-        <translation>Saturação</translation>
-    </message>
-    <message>
         <source>4:5 — portrait (1080×1350)</source>
         <translation>4:5 — retrato (1080×1350)</translation>
     </message>
@@ -244,22 +251,6 @@
     <message>
         <source>1.91:1 — landscape (1080×566)</source>
         <translation>1,91:1 — paisagem (1080×566)</translation>
-    </message>
-    <message>
-        <source>Light</source>
-        <translation>Luz</translation>
-    </message>
-    <message>
-        <source>Color</source>
-        <translation>Cor</translation>
-    </message>
-    <message>
-        <source>Auto</source>
-        <translation>Auto</translation>
-    </message>
-    <message>
-        <source>Reset</source>
-        <translation>Resetar</translation>
     </message>
     <message>
         <source>Done</source>
@@ -294,12 +285,52 @@
         <translation>Desfazer recorte</translation>
     </message>
     <message>
-        <source>Presets</source>
-        <translation>Presets</translation>
-    </message>
-    <message>
         <source>Crop mode</source>
         <translation>Modo recorte</translation>
+    </message>
+    <message>
+        <source>Rest of the photo</source>
+        <translation>Restante da foto</translation>
+    </message>
+    <message>
+        <source>Whole photo</source>
+        <translation>Foto inteira</translation>
+    </message>
+    <message>
+        <source>Selection %1</source>
+        <translation>Seleção %1</translation>
+    </message>
+    <message>
+        <source>Adjustments</source>
+        <translation>Ajustes</translation>
+    </message>
+    <message>
+        <source>General</source>
+        <translation>Ajustes</translation>
+    </message>
+    <message>
+        <source>General adjustments</source>
+        <translation>Ajustes gerais</translation>
+    </message>
+    <message>
+        <source>Levels</source>
+        <translation>Níveis</translation>
+    </message>
+    <message>
+        <source>Curves</source>
+        <translation>Curvas</translation>
+    </message>
+    <message>
+        <source>Effects</source>
+        <translation>Efeitos</translation>
+    </message>
+    <message>
+        <source>Effects library</source>
+        <translation>Biblioteca de efeitos</translation>
+    </message>
+    <message>
+        <source>Editing: %1</source>
+        <translation>Editando: %1</translation>
     </message>
 </context>
 <context>
@@ -430,6 +461,25 @@
     <message>
         <source>Restore</source>
         <translation>Restaurar</translation>
+    </message>
+    <message>
+        <source>Click a white or neutral area of the photo</source>
+        <translation>Clique numa área branca/neutra da foto</translation>
+    </message>
+</context>
+<context>
+    <name>EffectsLibrary</name>
+    <message>
+        <source>Applied effects</source>
+        <translation>Efeitos aplicados</translation>
+    </message>
+    <message>
+        <source>None yet. Turn on one or more effects above — they can be combined.</source>
+        <translation>Nenhum ainda. Ligue um ou mais efeitos acima — eles se combinam.</translation>
+    </message>
+    <message>
+        <source>Applied in this order: %1</source>
+        <translation>Aplicados nesta ordem: %1</translation>
     </message>
 </context>
 <context>
@@ -630,6 +680,120 @@
     <message>
         <source>Empty trash</source>
         <translation>Esvaziar lixeira</translation>
+    </message>
+</context>
+<context>
+    <name>GeneralAdjustments</name>
+    <message>
+        <source>Exposure</source>
+        <translation>Exposição</translation>
+    </message>
+    <message>
+        <source>Contrast</source>
+        <translation>Contraste</translation>
+    </message>
+    <message>
+        <source>Highlights</source>
+        <translation>Realces</translation>
+    </message>
+    <message>
+        <source>Shadows</source>
+        <translation>Sombras</translation>
+    </message>
+    <message>
+        <source>Whites</source>
+        <translation>Brancos</translation>
+    </message>
+    <message>
+        <source>Blacks</source>
+        <translation>Pretos</translation>
+    </message>
+    <message>
+        <source>Temperature</source>
+        <translation>Temperatura</translation>
+    </message>
+    <message>
+        <source>Tint</source>
+        <translation>Matiz</translation>
+    </message>
+    <message>
+        <source>Vibrance</source>
+        <translation>Vibratilidade</translation>
+    </message>
+    <message>
+        <source>Saturation</source>
+        <translation>Saturação</translation>
+    </message>
+    <message>
+        <source>ISO %1</source>
+        <translation>ISO %1</translation>
+    </message>
+    <message>
+        <source>%1 mm</source>
+        <translation>%1 mm</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>Auto</translation>
+    </message>
+    <message>
+        <source>Reset</source>
+        <translation>Resetar</translation>
+    </message>
+    <message>
+        <source>Presets</source>
+        <translation>Presets</translation>
+    </message>
+    <message>
+        <source>Applies the preset to the sliders below — fine-tune from there</source>
+        <translation>Aplica o preset nos sliders abaixo — faça o ajuste fino a partir deles</translation>
+    </message>
+    <message>
+        <source>Older preset still on top of the sliders: %1</source>
+        <translation>Preset antigo ainda aplicado por cima dos sliders: %1</translation>
+    </message>
+    <message>
+        <source>Remove the older preset</source>
+        <translation>Remover o preset antigo</translation>
+    </message>
+    <message>
+        <source>White balance</source>
+        <translation>Balanço de branco</translation>
+    </message>
+    <message>
+        <source>Cancel the white balance picker</source>
+        <translation>Cancelar o conta-gotas do balanço de branco</translation>
+    </message>
+    <message>
+        <source>Select white balance point</source>
+        <translation>Selecionar ponto de branco</translation>
+    </message>
+    <message>
+        <source>Click a white or neutral gray area of the Original photo. Esc cancels.</source>
+        <translation>Clique numa área branca ou cinza neutra da foto Original. Esc cancela.</translation>
+    </message>
+    <message>
+        <source>Light</source>
+        <translation>Luz</translation>
+    </message>
+    <message>
+        <source>Color</source>
+        <translation>Cor</translation>
+    </message>
+</context>
+<context>
+    <name>Histogram</name>
+    <message>
+        <source>Histogram</source>
+        <translation>Histograma</translation>
+    </message>
+    <message>
+        <source>Clipped shadows: %1%</source>
+        <translation>Sombras recortadas: %1%</translation>
+    </message>
+    <message>
+        <source>Clipped highlights: %1%</source>
+        <translation>Realces recortados: %1%</translation>
     </message>
 </context>
 <context>
@@ -974,10 +1138,6 @@
         <translation>Concluir seleção</translation>
     </message>
     <message>
-        <source>Cancel selection or crop</source>
-        <translation>Cancelar seleção ou recorte</translation>
-    </message>
-    <message>
         <source>Smaller brush</source>
         <translation>Pincel menor</translation>
     </message>
@@ -1073,6 +1233,34 @@
         <source>Empty trash</source>
         <translation>Esvaziar lixeira</translation>
     </message>
+    <message>
+        <source>White balance picker</source>
+        <translation>Conta-gotas do balanço de branco</translation>
+    </message>
+    <message>
+        <source>Edit panel</source>
+        <translation>Painel de edição</translation>
+    </message>
+    <message>
+        <source>General tab</source>
+        <translation>Aba Ajustes</translation>
+    </message>
+    <message>
+        <source>Levels tab</source>
+        <translation>Aba Níveis</translation>
+    </message>
+    <message>
+        <source>Curves tab</source>
+        <translation>Aba Curvas</translation>
+    </message>
+    <message>
+        <source>Effects tab</source>
+        <translation>Aba Efeitos</translation>
+    </message>
+    <message>
+        <source>Cancel selection, crop or picker</source>
+        <translation>Cancelar seleção, crop ou conta-gotas</translation>
+    </message>
 </context>
 <context>
     <name>LayersPanel</name>
@@ -1111,6 +1299,69 @@
     <message>
         <source>Select an area to extract as a layer</source>
         <translation>Selecionar uma área para extrair como camada</translation>
+    </message>
+</context>
+<context>
+    <name>LevelsEditor</name>
+    <message>
+        <source>Channel</source>
+        <translation>Canal</translation>
+    </message>
+    <message>
+        <source>All channels</source>
+        <translation>Todos os canais</translation>
+    </message>
+    <message>
+        <source>Red</source>
+        <translation>Vermelho</translation>
+    </message>
+    <message>
+        <source>Green</source>
+        <translation>Verde</translation>
+    </message>
+    <message>
+        <source>Blue</source>
+        <translation>Azul</translation>
+    </message>
+    <message>
+        <source>Input levels</source>
+        <translation>Níveis de entrada</translation>
+    </message>
+    <message>
+        <source>Input black</source>
+        <translation>Preto de entrada</translation>
+    </message>
+    <message>
+        <source>Gamma (midtones)</source>
+        <translation>Gama (meios-tons)</translation>
+    </message>
+    <message>
+        <source>Input white</source>
+        <translation>Branco de entrada</translation>
+    </message>
+    <message>
+        <source>Output levels</source>
+        <translation>Níveis de saída</translation>
+    </message>
+    <message>
+        <source>Output black</source>
+        <translation>Preto de saída</translation>
+    </message>
+    <message>
+        <source>Output white</source>
+        <translation>Branco de saída</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>Auto</translation>
+    </message>
+    <message>
+        <source>Sets black and white points from the histogram of this channel (0.1% clipped on each end)</source>
+        <translation>Define os pontos de preto e branco pelo histograma deste canal (0,1% recortado em cada ponta)</translation>
+    </message>
+    <message>
+        <source>Reset channel</source>
+        <translation>Redefinir canal</translation>
     </message>
 </context>
 <context>
@@ -1238,6 +1489,34 @@
     <message>
         <source>Open logs folder</source>
         <translation>Abrir pasta de logs</translation>
+    </message>
+    <message>
+        <source>Select white balance point</source>
+        <translation>Selecionar ponto de branco</translation>
+    </message>
+    <message>
+        <source>Edit panel: General</source>
+        <translation>Painel de edição: Ajustes</translation>
+    </message>
+    <message>
+        <source>Edit panel: Levels</source>
+        <translation>Painel de edição: Níveis</translation>
+    </message>
+    <message>
+        <source>Edit panel: Curves</source>
+        <translation>Painel de edição: Curvas</translation>
+    </message>
+    <message>
+        <source>Edit panel: Effects</source>
+        <translation>Painel de edição: Efeitos</translation>
+    </message>
+    <message>
+        <source>Effect: turn off %1</source>
+        <translation>Efeito: desligar %1</translation>
+    </message>
+    <message>
+        <source>Effect: %1</source>
+        <translation>Efeito: %1</translation>
     </message>
 </context>
 <context>
@@ -1733,6 +2012,42 @@
             <numerusform>%n foto excluída definitivamente.</numerusform>
             <numerusform>%n fotos excluídas definitivamente.</numerusform>
         </translation>
+    </message>
+    <message>
+        <source>The chosen area is too dark or too blown out for white balance. Pick a light, neutral area.</source>
+        <translation>A área escolhida está escura ou estourada demais para o balanço de branco. Escolha uma área clara e neutra.</translation>
+    </message>
+    <message>
+        <source>White balance</source>
+        <translation>Balanço de branco</translation>
+    </message>
+    <message>
+        <source>Levels</source>
+        <translation>Níveis</translation>
+    </message>
+    <message>
+        <source>Curves</source>
+        <translation>Curvas</translation>
+    </message>
+    <message>
+        <source>Effects</source>
+        <translation>Efeitos</translation>
+    </message>
+    <message>
+        <source>Sepia</source>
+        <translation>Sépia</translation>
+    </message>
+    <message>
+        <source>Fade</source>
+        <translation>Fade</translation>
+    </message>
+    <message>
+        <source>Vignette</source>
+        <translation>Vinheta</translation>
+    </message>
+    <message>
+        <source>Grain</source>
+        <translation>Grão</translation>
     </message>
 </context>
 <context>

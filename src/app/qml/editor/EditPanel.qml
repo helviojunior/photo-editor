@@ -1,25 +1,34 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
+import QtCore
 import PhotoEditor
 
-// Painel de edição (EditPanel.jsx): Auto, Reset, crop, camadas, presets e os
-// sliders do motor.
+// Painel de edição (EditPanel.jsx): crop, camadas e, em abas, os ajustes da
+// camada ativa — Ajustes (histograma, Auto, presets, balanço de branco,
+// luz e cor), Níveis, Curvas e Efeitos. A aba escolhida fica lembrada
+// (QSettings, "editPanel/tab"); Alt+1..4 trocam (Keymap tabGeneral...).
 //
 // Na versão Instagram o crop ganha a escolha da proporção — 4:5, 1:1 ou
 // 1,91:1 — e o giro fica no limite dela: o quadro nunca sai do que o feed aceita.
 //
-// Sliders e presets editam a camada ATIVA (App.editor.activeLayer); sem
-// camada ativa, os ajustes da própria foto. Arrastar muda o rascunho
-// (setValue — a "Editada" acompanha); soltar grava (commit) — uma entrada no
-// histórico por gesto, não uma por pixel arrastado.
+// Tudo nas abas edita a camada ATIVA (App.editor.activeLayer — o nome dela
+// aparece logo abaixo das abas); sem camada ativa, os ajustes da própria
+// foto. Arrastar muda o rascunho (a "Editada" acompanha); soltar grava
+// (commit) — uma entrada no histórico por gesto, não uma por pixel arrastado.
 //
-// O crop é do EditorPage (ele guarda o baseScale): o painel pede por sinais.
+// O crop e o conta-gotas são do EditorPage (é ele que mexe na Original): o
+// painel pede por sinais.
 ColumnLayout {
     id: panel
 
     property bool cropMode: false
     property bool disabled: false
+    /// Conta-gotas do balanço de branco ligado (estado do EditorPage).
+    property bool whitePicking: false
+    /// Aba atual: "general" | "levels" | "curves" | "effects".
+    property string tab: "general"
+    readonly property var tabs: ["general", "levels", "curves", "effects"]
 
     signal cropToggled()
     /// Mudança do quadro: mode "rotate" | "ratio" | "reset".
@@ -28,27 +37,20 @@ ColumnLayout {
     /// O quadro mudou de tamanho por fora (proporção, desfazer recorte).
     signal cropRestarted()
     signal selectRequested(string layerId)
+    signal whitePickToggled()
+
+    property Settings store: Settings {
+        category: "editPanel"
+        property alias tab: panel.tab
+    }
+    Component.onCompleted: {
+        if (!panel.tabs.includes(panel.tab))
+            panel.tab = "general";
+    }
 
     readonly property var current: App.editor.current
     readonly property bool isInstagram: current.isInstagram === true
     readonly property var crop: App.editor.crop
-    readonly property var values: App.editor.values
-
-    function sliderLabel(name) {
-        switch (name) {
-        case "exposure": return qsTr("Exposure");
-        case "contrast": return qsTr("Contrast");
-        case "highlights": return qsTr("Highlights");
-        case "shadows": return qsTr("Shadows");
-        case "whites": return qsTr("Whites");
-        case "blacks": return qsTr("Blacks");
-        case "temperature": return qsTr("Temperature");
-        case "tint": return qsTr("Tint");
-        case "vibrance": return qsTr("Vibrance");
-        case "saturation": return qsTr("Saturation");
-        }
-        return name;
-    }
 
     function ratioLabel(id) {
         switch (id) {
@@ -59,45 +61,17 @@ ColumnLayout {
         return id;
     }
 
-    function groupLabel(group) {
-        return group === "light" ? qsTr("Light") : group === "color" ? qsTr("Color") : group;
+    readonly property string layerName: {
+        const layers = App.editor.layers;
+        if (App.editor.activeLayer === "")
+            return layers.length ? qsTr("Rest of the photo") : qsTr("Whole photo");
+        const i = layers.findIndex((l) => l.id === App.editor.activeLayer);
+        return qsTr("Selection %1").arg(i + 1);
     }
 
     spacing: 16
     enabled: !disabled
     opacity: disabled ? 0.6 : 1
-
-    // Auto | Reset
-    GridLayout {
-        Layout.fillWidth: true
-        columns: 2
-        columnSpacing: 8
-
-        Button {
-            id: autoButton
-            Layout.fillWidth: true
-            Layout.preferredWidth: 1
-            variant: "outline"
-            size: "sm"
-            iconName: "wand-sparkles"
-            text: qsTr("Auto")
-            onClicked: App.editor.autoAdjust()
-
-            Tip {
-                text: qsTr("Auto") + Keymap.hint("auto")
-                visible: autoButton.hovered
-            }
-        }
-        Button {
-            Layout.fillWidth: true
-            Layout.preferredWidth: 1
-            variant: "outline"
-            size: "sm"
-            iconName: "rotate-ccw"
-            text: qsTr("Reset")
-            onClicked: App.editor.reset()
-        }
-    }
 
     // Crop
     ColumnLayout {
@@ -244,62 +218,62 @@ ColumnLayout {
         onSelectRequested: (layerId) => panel.selectRequested(layerId)
     }
 
-    // Presets
+    // Abas
     ColumnLayout {
         Layout.fillWidth: true
         spacing: 8
 
-        SectionTitle {
-            text: qsTr("Presets")
+        Segmented {
+            Layout.fillWidth: true
+            segmentHeight: 30
+            accessibleName: qsTr("Adjustments")
+            value: panel.tab
+            options: [
+                { value: "general", text: qsTr("General"), tip: qsTr("General adjustments") + Keymap.hint("tabGeneral") },
+                { value: "levels", text: qsTr("Levels"), tip: qsTr("Levels") + Keymap.hint("tabLevels") },
+                { value: "curves", text: qsTr("Curves"), tip: qsTr("Curves") + Keymap.hint("tabCurves") },
+                { value: "effects", text: qsTr("Effects"), tip: qsTr("Effects library") + Keymap.hint("tabEffects"),
+                  marked: App.editor.effects.length > 0 }
+            ]
+            onActivated: (v) => panel.tab = v
         }
-        Flow {
+
+        // A camada que as abas editam.
+        RowLayout {
             Layout.fillWidth: true
             spacing: 6
 
-            Repeater {
-                model: App.editor.presets
-
-                PillButton {
-                    required property var modelData
-                    text: Messages.presetName(modelData.id)
-                    active: App.editor.preset === modelData.id
-                    onClicked: App.editor.togglePreset(modelData.id)
-                }
+            Icon {
+                name: "layers"
+                size: 12
+                color: App.editor.activeLayer !== "" ? Theme.brand400 : Theme.mutedForeground
+            }
+            Text {
+                Layout.fillWidth: true
+                text: qsTr("Editing: %1").arg(panel.layerName)
+                font.pixelSize: Theme.fontXs
+                color: App.editor.activeLayer !== "" ? Theme.foreground : Theme.mutedForeground
+                elide: Text.ElideRight
             }
         }
     }
 
-    // Luz / Cor
-    Repeater {
-        model: ["light", "color"]
-
-        ColumnLayout {
-            id: group
-            required property string modelData
-            Layout.fillWidth: true
-            spacing: 0
-
-            SectionTitle {
-                Layout.bottomMargin: 4
-                text: panel.groupLabel(group.modelData)
-            }
-
-            Repeater {
-                model: App.editor.sliders.filter((s) => s.group === group.modelData)
-
-                ValueSlider {
-                    required property var modelData
-                    Layout.fillWidth: true
-                    implicitHeight: 52
-                    label: panel.sliderLabel(modelData.name)
-                    from: modelData.min
-                    to: modelData.max
-                    stepSize: modelData.step
-                    value: panel.values[modelData.name] || 0
-                    onMoved: (v) => App.editor.setValue(modelData.name, v)
-                    onReleased: App.editor.commit()
-                }
-            }
-        }
+    GeneralAdjustments {
+        Layout.fillWidth: true
+        visible: panel.tab === "general"
+        whitePicking: panel.whitePicking
+        onWhitePickToggled: panel.whitePickToggled()
+    }
+    LevelsEditor {
+        Layout.fillWidth: true
+        visible: panel.tab === "levels"
+    }
+    CurvesEditor {
+        Layout.fillWidth: true
+        visible: panel.tab === "curves"
+    }
+    EffectsLibrary {
+        Layout.fillWidth: true
+        visible: panel.tab === "effects"
     }
 }

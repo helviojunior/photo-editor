@@ -10,6 +10,11 @@ import PhotoEditor
 // para App.editor.stroke / App.merge.stroke, que devolve a máscara nova. O
 // traço fica desenhado no canvas até ela chegar. Alt força subtrair.
 //
+// ``picking`` é o conta-gotas do balanço de branco: cursor em cruz, o
+// quadradinho do tamanho da amostra (1% do lado maior, como o C++ mede) e um
+// clique emite ``picked(x, y)`` em fração da foto INTEIRA mostrada — a
+// mesma conta do pincel (a caixa é a foto, sem crop). Esc é de quem usa.
+//
 // Sem ``editable`` só mostra a foto com a máscara (mais apagada com
 // ``faint``) — é o que se vê com uma camada ativa, ou a foto pura sem máscara.
 //
@@ -32,8 +37,12 @@ Rectangle {
     property bool editable: false
     property bool busy: false
     property Brush brush: null
+    /// Conta-gotas do balanço de branco.
+    property bool picking: false
+    property string pickHint: ""
 
     signal stroked(var points, real radius, string mode)
+    signal picked(real x, real y)
 
     readonly property real photoAspect: photo.sourceAspect > 0 ? photo.sourceAspect : (aspect > 0 ? aspect : 1)
     // Maior caixa na proporção da foto que cabe com 8px de respiro (useFitSize).
@@ -47,6 +56,38 @@ Rectangle {
     PaneCaption {
         text: pane.label
         maximumWidth: pane.width - 48
+    }
+
+    // Dica do conta-gotas, no alto da foto.
+    Rectangle {
+        visible: pane.picking && pane.pickHint !== ""
+        z: 21
+        anchors.horizontalCenter: parent.horizontalCenter
+        y: 36
+        width: Math.min(hintRow.implicitWidth + 20, pane.width - 16)
+        height: hintRow.implicitHeight + 10
+        radius: height / 2
+        color: Theme.imageLabel
+
+        Row {
+            id: hintRow
+            anchors.centerIn: parent
+            spacing: 6
+            Icon {
+                anchors.verticalCenter: parent.verticalCenter
+                name: "pipette"
+                size: 14
+                color: Theme.white
+            }
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                width: Math.min(implicitWidth, pane.width - 56)
+                text: pane.pickHint
+                font.pixelSize: Theme.fontSm
+                color: Theme.white
+                elide: Text.ElideRight
+            }
+        }
     }
 
     Spinner {
@@ -153,6 +194,44 @@ Rectangle {
                 color: "transparent"
                 border.width: 2
                 border.color: Theme.white
+            }
+        }
+
+        // Conta-gotas: a área amostrada segue o cursor.
+        Rectangle {
+            readonly property real side: Math.max(6, 0.01 * Math.max(pane.boxWidth, pane.boxHeight))
+            visible: pane.picking && pickMouse.containsMouse
+            x: pickMouse.mouseX - side / 2 - 1
+            y: pickMouse.mouseY - side / 2 - 1
+            width: side + 2
+            height: side + 2
+            color: "transparent"
+            border.width: 1
+            border.color: Theme.black
+
+            Rectangle {
+                anchors.fill: parent
+                anchors.margins: 1
+                color: "transparent"
+                border.width: 1
+                border.color: Theme.white
+            }
+        }
+
+        MouseArea {
+            id: pickMouse
+            anchors.fill: parent
+            z: 10
+            visible: pane.picking
+            enabled: pane.picking
+            hoverEnabled: true
+            acceptedButtons: Qt.LeftButton
+            cursorShape: Qt.CrossCursor
+            onClicked: (event) => {
+                if (pane.boxWidth <= 0 || pane.boxHeight <= 0)
+                    return;
+                pane.picked(Math.min(1, Math.max(0, event.x / pane.boxWidth)),
+                            Math.min(1, Math.max(0, event.y / pane.boxHeight)));
             }
         }
 

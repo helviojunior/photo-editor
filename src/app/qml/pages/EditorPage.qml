@@ -28,7 +28,8 @@ import PhotoEditor
 // de vez — só os botões, com confirmação digitada), Ctrl/Cmd+Shift+R
 // restaura, Ctrl/Cmd+Z
 // desfaz, Ctrl/Cmd+Shift+Z (ou +Y) refaz, Ctrl/Cmd+D duplica, A Auto, C crop,
-// S seleção (dentro dela, conclui), L próxima camada, I versão Instagram;
+// S seleção (dentro dela, conclui), L próxima camada, I versão Instagram,
+// W conta-gotas do balanço de branco (Esc cancela), Alt+1..4 as abas do painel;
 // na seleção Enter conclui, Esc cancela e [ ] mudam o pincel. Valem só com o
 // editor na tela, sem diálogo aberto e sem foco num campo de texto; só as
 // setas repetem com a tecla segurada. ``run(id)`` é o que cada um faz — a
@@ -59,6 +60,9 @@ Item {
     // parte dele — o quadro só encolhe o quanto o ângulo exige.
     property real baseScale: 1
     property string _photoId: ""
+    /// Conta-gotas do balanço de branco: o cursor vira cruz na ORIGINAL e um
+    /// clique mede (App.editor.pickWhite). Um clique e sai; Esc cancela.
+    property bool whitePicking: false
 
     // --------------------------------------------------------------------- //
     // Ações
@@ -69,6 +73,7 @@ Item {
         if (id === _photoId)
             return;
         _photoId = id;
+        whitePicking = false;
         cropMode = hasCurrent && editable && current.isInstagram === true;
         if (cropMode)
             baseScale = App.editor.crop.scale;
@@ -80,8 +85,23 @@ Item {
         if (on && (!hasCurrent || selecting || !editable))
             return;
         cropMode = on;
-        if (on)
+        if (on) {
             baseScale = App.editor.crop.scale;
+            whitePicking = false;
+        }
+    }
+
+    function setWhitePicking(on) {
+        if (on && (!hasCurrent || selecting || !editable))
+            return;
+        if (on)
+            cropMode = false;
+        whitePicking = on;
+    }
+
+    function pickWhite(x, y) {
+        whitePicking = false;
+        App.editor.pickWhite(x, y);
     }
 
     /// Quadro novo do CropEditor/painel; o giro parte sempre do baseScale.
@@ -110,6 +130,7 @@ Item {
         if (!layerId && App.editor.layers.length >= App.editor.maxLayers)
             return;
         cropMode = false;
+        whitePicking = false;
         brush.mode = "add";
         App.editor.beginSelection(layerId);
     }
@@ -187,11 +208,18 @@ Item {
         case "reset": App.editor.reset(); break;
         case "crop": setCropMode(!cropMode); break;
         case "nextLayer": App.editor.cycleLayer(); break;
+        case "whitePicker": setWhitePicking(!whitePicking); break;
+        case "tabGeneral": editPanel.tab = "general"; break;
+        case "tabLevels": editPanel.tab = "levels"; break;
+        case "tabCurves": editPanel.tab = "curves"; break;
+        case "tabEffects": editPanel.tab = "effects"; break;
         case "selectArea": selecting ? applySelection() : startSelect(""); break;
         case "applySelection": applySelection(); break;
         case "cancel":
             if (selecting)
                 App.editor.cancelSelection();
+            else if (whitePicking)
+                whitePicking = false;
             else
                 cropMode = false;
             break;
@@ -209,6 +237,9 @@ Item {
         target: App.editor
         function onCurrentChanged() {
             page.photoChanged();
+        }
+        function onViewChanged() {
+            page.whitePicking = false;
         }
     }
 
@@ -375,6 +406,26 @@ Item {
         onActivated: page.run("nextLayer")
     }
     Shortcut {
+        sequences: Keymap.keys("whitePicker")
+        autoRepeat: false
+        enabled: page._editKeys && !page.selecting && page.hasCurrent
+        onActivated: page.run("whitePicker")
+    }
+    // Abas do painel de edição (Alt+1..4).
+    Repeater {
+        model: ["tabGeneral", "tabLevels", "tabCurves", "tabEffects"]
+        delegate: Item {
+            id: tabKey
+            required property string modelData
+            Shortcut {
+                sequences: Keymap.keys(tabKey.modelData)
+                autoRepeat: false
+                enabled: page._editKeys && !page.selecting && Keymap.keys(tabKey.modelData).length > 0
+                onActivated: page.run(tabKey.modelData)
+            }
+        }
+    }
+    Shortcut {
         sequences: Keymap.keys("selectArea")
         autoRepeat: false
         enabled: page._editKeys && page.hasCurrent
@@ -389,7 +440,7 @@ Item {
     Shortcut {
         sequences: Keymap.keys("cancel")
         autoRepeat: false
-        enabled: page.keysActive && (page.selecting || page.cropMode)
+        enabled: page.keysActive && (page.selecting || page.cropMode || page.whitePicking)
         onActivated: page.run("cancel")
     }
     Shortcut {
@@ -552,6 +603,9 @@ Item {
                     maskUrl: page.selecting ? App.editor.selectionMaskUrl
                            : page.editable ? App.editor.activeLayerMaskUrl : ""
                     faint: !page.selecting
+                    picking: page.whitePicking
+                    pickHint: qsTr("Click a white or neutral area of the photo")
+                    onPicked: (x, y) => page.pickWhite(x, y)
                     onStroked: (points, radius, mode) => App.editor.stroke(points, radius, mode, brush.smart)
                 }
             }
@@ -785,11 +839,14 @@ Item {
                     }
 
                     EditPanel {
+                        id: editPanel
                         Layout.fillWidth: true
                         Layout.margins: 16
                         visible: !page.selecting && page.editable
                         disabled: !page.hasCurrent
                         cropMode: page.cropMode
+                        whitePicking: page.whitePicking
+                        onWhitePickToggled: page.setWhitePicking(!page.whitePicking)
                         onCropToggled: page.setCropMode(!page.cropMode)
                         onCropEdited: (crop, mode) => page.updateCrop(crop, mode)
                         onCropCommitted: App.editor.commitCrop()

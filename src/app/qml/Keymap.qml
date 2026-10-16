@@ -65,10 +65,17 @@ QtObject {
         { id: "reset", group: qsTr("Editing"), name: qsTr("Reset adjustments"), icon: "rotate-ccw", keys: [] },
         { id: "crop", group: qsTr("Editing"), name: qsTr("Crop"), icon: "crop", keys: ["C"] },
         { id: "nextLayer", group: qsTr("Editing"), name: qsTr("Next layer"), icon: "layers", keys: ["L"] },
+        { id: "whitePicker", group: qsTr("Editing"), name: qsTr("White balance picker"), icon: "pipette", keys: ["W"] },
+
+        // Abas do painel de edição.
+        { id: "tabGeneral", group: qsTr("Edit panel"), name: qsTr("General tab"), icon: "sliders-horizontal", keys: ["Alt+1"] },
+        { id: "tabLevels", group: qsTr("Edit panel"), name: qsTr("Levels tab"), icon: "chart-column", keys: ["Alt+2"] },
+        { id: "tabCurves", group: qsTr("Edit panel"), name: qsTr("Curves tab"), icon: "spline", keys: ["Alt+3"] },
+        { id: "tabEffects", group: qsTr("Edit panel"), name: qsTr("Effects tab"), icon: "sparkles", keys: ["Alt+4"] },
 
         { id: "selectArea", group: qsTr("Selection"), name: qsTr("Select area (applies when selecting)"), icon: "brush", keys: ["S"] },
         { id: "applySelection", group: qsTr("Selection"), name: qsTr("Apply selection"), icon: "check", keys: ["Return", "Enter"] },
-        { id: "cancel", group: qsTr("Selection"), name: qsTr("Cancel selection or crop"), icon: "x", keys: ["Esc"] },
+        { id: "cancel", group: qsTr("Selection"), name: qsTr("Cancel selection, crop or picker"), icon: "x", keys: ["Esc"] },
         { id: "brushSmaller", group: qsTr("Selection"), name: qsTr("Smaller brush"), icon: "brush", keys: ["["] },
         { id: "brushLarger", group: qsTr("Selection"), name: qsTr("Larger brush"), icon: "brush", keys: ["]"] },
 

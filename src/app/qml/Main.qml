@@ -210,6 +210,11 @@ QQC.ApplicationWindow {
                 editorAction("crop", qsTr("Crop mode"));
                 editorAction("selectArea", qsTr("Select area"));
                 editorAction("nextLayer");
+                editorAction("whitePicker", qsTr("Select white balance point"));
+                editorAction("tabGeneral", qsTr("Edit panel: General"));
+                editorAction("tabLevels", qsTr("Edit panel: Levels"));
+                editorAction("tabCurves", qsTr("Edit panel: Curves"));
+                editorAction("tabEffects", qsTr("Edit panel: Effects"));
                 editorAction("instagram", App.editor.current.isInstagram === true
                     ? qsTr("Back to the photo") : qsTr("Instagram version"));
                 editorAction("duplicate");
@@ -243,8 +248,19 @@ QQC.ApplicationWindow {
                 const id = preset.id;
                 add(qsTr("Preset: %1").arg(Messages.presetName(id)), "", "palette", () => {
                     window.showEditor();
-                    App.editor.togglePreset(id);
+                    App.editor.applyPreset(id);
                 });
+            }
+            // Efeitos: liga/desliga na camada ativa (o nome diz o que vai acontecer).
+            const activeEffects = editable ? App.editor.effects.map((e) => e.id) : [];
+            for (const effect of (editable ? App.editor.effectCatalog : [])) {
+                const id = effect.id;
+                const name = Messages.effectName(id);
+                add(activeEffects.includes(id) ? qsTr("Effect: turn off %1").arg(name) : qsTr("Effect: %1").arg(name),
+                    "", "sparkles", () => {
+                        window.showEditor();
+                        App.editor.toggleEffect(id);
+                    });
             }
         }
         add(qsTr("Open project…"), "openProject", "folder-open", () => projectFlows.openDialog());

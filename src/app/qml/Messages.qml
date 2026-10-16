@@ -60,6 +60,10 @@ QtObject {
         case "error.restoreConflict":
             return qsTr("Cannot restore %1: there is already a file with that name in raw/.").arg(name);
 
+        // Conta-gotas do balanço de branco
+        case "wb.badSample":
+            return qsTr("The chosen area is too dark or too blown out for white balance. Pick a light, neutral area.");
+
         // Camadas e merge
         case "layers.maskNotFound":
             return qsTr("The selection no longer exists. Start a new one.");
@@ -134,6 +138,7 @@ QtObject {
         case "project.openFailed": return qsTr("Could not open the project");
         case "project.rawFailed": return qsTr("Could not create raw/");
         case "instagram.unavailable": return qsTr("Instagram unavailable");
+        case "wb.badSample": return qsTr("White balance");
         }
         if (String(key).startsWith("instagram."))
             return qsTr("Instagram");
@@ -171,8 +176,26 @@ QtObject {
         case "duplicate": return qsTr("Duplicate");
         case "cover": return qsTr("Cover");
         case "instagram": return qsTr("Instagram version");
+        case "levels": return qsTr("Levels");
+        case "curves": return qsTr("Curves");
+        case "effects": return qsTr("Effects");
         }
         return String(kind || "");
+    }
+
+    /// Nome de um efeito da biblioteca (App.editor.effectCatalog[].id): a aba
+    /// Efeitos e a paleta de comandos.
+    function effectName(id) {
+        switch (id) {
+        case "bw": return qsTr("B&W");
+        case "sepia": return qsTr("Sepia");
+        case "vintage": return qsTr("Vintage");
+        case "fade": return qsTr("Fade");
+        case "matte": return qsTr("Matte");
+        case "vignette": return qsTr("Vignette");
+        case "grain": return qsTr("Grain");
+        }
+        return String(id || "");
     }
 
     /// Nome de um preset de revelação (App.editor.presets[].id): o painel de

@@ -20,7 +20,7 @@ set_target_properties(photoeditor PROPERTIES OUTPUT_NAME PhotoEditor)
 
 file(GLOB PHOTOEDITOR_QML RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS
     qml/*.qml qml/components/*.qml qml/pages/*.qml qml/editor/*.qml qml/dialogs/*.qml
-    qml/dialogs/*.js)
+    qml/dialogs/*.js qml/editor/*.js)
 file(GLOB PHOTOEDITOR_ICONS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS icons/*.svg)
 file(GLOB PHOTOEDITOR_ASSETS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS
     assets/*.png assets/logo/*.png fonts/*.ttf)

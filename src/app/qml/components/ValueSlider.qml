@@ -23,6 +23,10 @@ import PhotoEditor
 // - Clicar não rouba o foco do teclado (focusPolicy Tab): as setas da
 //   página (trocar de foto) continuam valendo depois de arrastar.
 // - É controlado: ``value`` vem de quem usa; o arraste só emite moved().
+// - ``trackGradient`` (2 ou 3 cores, da esquerda para a direita) pinta o
+//   trilho com o que o ajuste faz — temperatura azul → âmbar, matiz verde →
+//   magenta — no lugar do preenchimento no acento:
+//       trackGradient: [Theme.trackTempCool, Theme.trackTempWarm]
 Item {
     id: root
 
@@ -43,6 +47,10 @@ Item {
         return (root.showSign && root.value > 0 ? "+" : "") + text + root.suffix;
     }
     property bool resetOnDoubleClick: true
+    /// Cores do trilho (2 ou 3; vazio = trilho neutro com preenchimento).
+    property var trackGradient: []
+    readonly property bool _gradient: trackGradient !== undefined && trackGradient !== null
+        && trackGradient.length >= 2
     property bool disabled: false
     readonly property bool pressed: slider.pressed
 
@@ -140,6 +148,7 @@ Item {
                     width: parent.width
                     height: 4
                     radius: 2
+                    visible: !root._gradient
                     color: Theme.sliderTrack
                 }
                 Rectangle {
@@ -147,7 +156,33 @@ Item {
                     width: slider.visualPosition * parent.width
                     height: 4
                     radius: 2
+                    visible: !root._gradient
                     color: Theme.sliderFill
+                }
+                // Trilho colorido: o gradiente inteiro, sem preenchimento.
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width
+                    height: 6
+                    radius: 3
+                    visible: root._gradient
+                    gradient: Gradient {
+                        orientation: Gradient.Horizontal
+                        GradientStop {
+                            position: 0
+                            color: root._gradient ? root.trackGradient[0] : "transparent"
+                        }
+                        GradientStop {
+                            position: 0.5
+                            color: !root._gradient ? "transparent"
+                                 : root.trackGradient.length > 2 ? root.trackGradient[1]
+                                 : Qt.tint(root.trackGradient[0], Theme.alpha(root.trackGradient[1], 0.5))
+                        }
+                        GradientStop {
+                            position: 1
+                            color: root._gradient ? root.trackGradient[root.trackGradient.length - 1] : "transparent"
+                        }
+                    }
                 }
             }
 
