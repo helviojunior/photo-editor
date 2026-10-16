@@ -945,6 +945,62 @@ void EditorController::undo()
     });
 }
 
+void EditorController::redo()
+{
+    guarded([&]() {
+        const auto entry = m_project->redoLast();
+        if (!entry) {
+            setStatus(QStringLiteral("status.nothingToRedo"));
+            return;
+        }
+        auto photo = m_project->photo(entry->photoId);
+        setStatus(QStringLiteral("status.redone"),
+                  {{QStringLiteral("kind"), entry->kind},
+                   {QStringLiteral("name"), photo ? photo->fileName : QString()}});
+        // Refazer uma exclusão tira a foto da filmstrip: fica a vizinha.
+        reload(photo && photo->isActive() ? entry->photoId : QString());
+    });
+    emit historyChanged();
+}
+
+bool EditorController::canUndo() const
+{
+    try {
+        return m_project && m_project->nextUndo().has_value();
+    } catch (const std::exception &) {
+        return false;
+    }
+}
+
+bool EditorController::canRedo() const
+{
+    try {
+        return m_project && m_project->nextRedo().has_value();
+    } catch (const std::exception &) {
+        return false;
+    }
+}
+
+QString EditorController::undoKind() const
+{
+    try {
+        const auto e = m_project ? m_project->nextUndo() : std::nullopt;
+        return e ? e->kind : QString();
+    } catch (const std::exception &) {
+        return {};
+    }
+}
+
+QString EditorController::redoKind() const
+{
+    try {
+        const auto e = m_project ? m_project->nextRedo() : std::nullopt;
+        return e ? e->kind : QString();
+    } catch (const std::exception &) {
+        return {};
+    }
+}
+
 void EditorController::rescan()
 {
     guarded([&]() {

@@ -618,6 +618,93 @@ std::optional<HistoryEntry> Project::undoLast()
     return entry;
 }
 
+std::optional<HistoryEntry> Project::nextUndo() const
+{
+    QSqlQuery q = m_db.exec(QStringLiteral("SELECT id, photo_id, kind, \"before\", \"after\", created, undone_at FROM "
+                                           "photoeditor_historyentry WHERE undone_at IS NULL ORDER BY created DESC "
+                                           "LIMIT 1"));
+    if (!q.next())
+        return std::nullopt;
+    return HistoryEntry{q.value(0).toString(), q.value(1).toString(), q.value(2).toString(), parseObject(q.value(3)),
+                        parseObject(q.value(4)), Database::parseTimestamp(q.value(5)), {}};
+}
+
+std::optional<HistoryEntry> Project::nextRedo() const
+{
+    // A desfeita mais recente — e só se nenhuma ação nova veio depois dela.
+    QSqlQuery q = m_db.exec(QStringLiteral(
+        "SELECT h.id, h.photo_id, h.kind, h.\"before\", h.\"after\", h.created, h.undone_at FROM "
+        "photoeditor_historyentry h WHERE h.undone_at IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "
+        "photoeditor_historyentry n WHERE n.created > h.undone_at) ORDER BY h.undone_at DESC LIMIT 1"));
+    if (!q.next())
+        return std::nullopt;
+    return HistoryEntry{q.value(0).toString(), q.value(1).toString(), q.value(2).toString(), parseObject(q.value(3)),
+                        parseObject(q.value(4)), Database::parseTimestamp(q.value(5)),
+                        Database::parseTimestamp(q.value(6))};
+}
+
+std::optional<HistoryEntry> Project::redoLast()
+{
+    auto entry = nextRedo();
+    if (!entry)
+        return std::nullopt;
+    Transaction tx(m_db);
+    redoEntry(*entry);
+    m_db.exec(QStringLiteral("UPDATE photoeditor_historyentry SET undone_at = NULL, updated = ? WHERE id = ?"),
+              {nowTs(), entry->id});
+    tx.commit();
+    entry->undoneAt = {};
+    qCInfo(lcProject) << "Redone" << entry->kind << "on" << entry->photoId;
+    return entry;
+}
+
+void Project::redoEntry(const HistoryEntry &entry)
+{
+    // O espelho do undoEntry: volta ao ``after`` da ação.
+    const Photo p = requirePhoto(entry.photoId);
+    const QString &kind = entry.kind;
+    if (kind == HistoryKind::Delete) {
+        if (p.isCopy()) {
+            m_db.exec(QStringLiteral("UPDATE photoeditor_photo SET status = 'deleted', updated = ? WHERE id = ?"),
+                      {nowTs(), p.id});
+            return;
+        }
+        const QString source = m_paths.rawPath(p.fileName);
+        if (!QFileInfo(source).isFile())
+            throw ActionError(QStringLiteral("error.photoFileMissing"), {{QStringLiteral("name"), p.fileName}});
+        QDir().mkpath(m_paths.deletedDir());
+        const QString target = freeName(m_paths.deletedDir(), p.fileName);
+        if (!moveFile(source, m_paths.deletedPath(target)))
+            throw ActionError(QStringLiteral("error.photoFileMissing"), {{QStringLiteral("name"), p.fileName}});
+        m_db.exec(QStringLiteral("UPDATE photoeditor_photo SET status = 'deleted', deleted_file_name = ?, updated = ? "
+                                 "WHERE id = ?"),
+                  {target, nowTs(), p.id});
+        return;
+    }
+    if (kind == HistoryKind::Duplicate || kind == HistoryKind::Instagram) {
+        if (p.isInstagram() && instagramVersionOf(requirePhoto(p.instagramOf)))
+            throw ActionError(QStringLiteral("instagram.versionExists"));
+        m_db.exec(QStringLiteral("UPDATE photoeditor_photo SET status = 'active', updated = ? WHERE id = ?"),
+                  {nowTs(), p.id});
+        return;
+    }
+    if (kind == HistoryKind::Cover) {
+        const QJsonValue after = entry.after.value(QStringLiteral("cover"));
+        m_db.exec(QStringLiteral("UPDATE photoeditor_photo SET is_cover = 0 WHERE is_cover = 1"));
+        if (after.isString() && !after.toString().isEmpty())
+            m_db.exec(QStringLiteral("UPDATE photoeditor_photo SET is_cover = 1 WHERE id = ?"),
+                      {normalizeId(after.toString())});
+        return;
+    }
+    const QJsonObject after = entry.after;
+    saveState(p, normalizeState(p, imaging::valuesFromJson(after.value(QStringLiteral("values")).toObject()),
+                                after.value(QStringLiteral("preset")).toString(),
+                                after.value(QStringLiteral("crop")).isObject()
+                                    ? imaging::cropFromJson(after.value(QStringLiteral("crop")).toObject())
+                                    : imaging::kCropIdentity,
+                                after.value(QStringLiteral("layers")).toArray()));
+}
+
 void Project::undoEntry(const HistoryEntry &entry)
 {
     const Photo p = requirePhoto(entry.photoId);

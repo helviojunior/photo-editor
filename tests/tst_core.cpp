@@ -89,6 +89,34 @@ private slots:
         QVERIFY(!project.undoLast());
     }
 
+    void redoReappliesUntilANewAction()
+    {
+        QTemporaryDir dir;
+        Project project(makeProject(dir, 2));
+        project.scan();
+        const Photo p = project.visiblePhotos().front();
+        imaging::Values v = imaging::kNeutral;
+        v[imaging::Contrast] = 25;
+        project.setAdjustments(p, v, {});
+        project.deletePhoto(project.visiblePhotos().back());
+        QVERIFY(!project.nextRedo());
+        project.undoLast();  // volta a exclusão
+        project.undoLast();  // volta o ajuste
+        QCOMPARE(project.state(p).values[imaging::Contrast], 0.0);
+        QCOMPARE(project.nextRedo()->kind, HistoryKind::Adjust);
+        project.redoLast();
+        QCOMPARE(project.state(p).values[imaging::Contrast], 25.0);
+        QCOMPARE(project.nextRedo()->kind, HistoryKind::Delete);
+        project.redoLast();
+        QCOMPARE(project.visiblePhotos().size(), size_t(1));
+        QVERIFY(!project.nextRedo());
+        // Desfeito de novo e depois uma ação nova: o refazer é descartado.
+        project.undoLast();
+        QVERIFY(project.nextRedo());
+        project.setCover(project.requirePhoto(p.id), true);
+        QVERIFY(!project.nextRedo());
+    }
+
     void sliderWithLayersIsAnAdjustment()
     {
         QTemporaryDir dir;

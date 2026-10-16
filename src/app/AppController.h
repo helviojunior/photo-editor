@@ -101,6 +101,10 @@ public:
     Q_INVOKABLE void openMerge(const QString &mergeId);
     /// Texto para a área de transferência (legenda do Instagram).
     Q_INVOKABLE void copyText(const QString &text);
+    /// Atalho no formato da plataforma ("Ctrl+K" -> "⌘K" no macOS).
+    Q_INVOKABLE QString shortcutText(const QString &sequence) const;
+    /// Duas sequências são o mesmo atalho ("Ctrl+Shift+Z" == "Shift+Ctrl+Z")?
+    Q_INVOKABLE bool sameShortcut(const QString &a, const QString &b) const;
     /// Tamanho legível ("1.2 GB"), base 1024, 1 casa abaixo de 100.
     Q_INVOKABLE QString formatBytes(qint64 bytes) const;
 

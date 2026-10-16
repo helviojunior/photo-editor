@@ -85,6 +85,13 @@ class EditorController : public QObject
     Q_PROPERTY(bool selectionBusy READ selectionBusy NOTIFY selectionChanged)
     Q_PROPERTY(bool smartAvailable READ smartAvailable CONSTANT)
 
+    // Desfazer/refazer (globais: a última ação de qualquer foto)
+    Q_PROPERTY(bool canUndo READ canUndo NOTIFY historyChanged)
+    Q_PROPERTY(bool canRedo READ canRedo NOTIFY historyChanged)
+    /// Tipo da ação que o desfazer/refazer atingiria ("adjust", "delete"...)
+    Q_PROPERTY(QString undoKind READ undoKind NOTIFY historyChanged)
+    Q_PROPERTY(QString redoKind READ redoKind NOTIFY historyChanged)
+
     // Histórico e exportação
     /// [{kind, created, undone}] da foto atual, a mais recente primeiro
     Q_PROPERTY(QVariantList history READ history NOTIFY historyChanged)
@@ -143,6 +150,10 @@ public:
     bool smartAvailable() const;
 
     QVariantList history() const;
+    bool canUndo() const;
+    bool canRedo() const;
+    QString undoKind() const;
+    QString redoKind() const;
     QVariantMap exportStatus() const;
     bool hasInstagramVersions() const;
 
@@ -202,6 +213,8 @@ public:
     /// I: cria/abre a versão Instagram; dentro dela, volta à foto de origem.
     Q_INVOKABLE void toggleInstagram();
     Q_INVOKABLE void undo();
+    /// Refaz a última ação desfeita (enquanto nenhuma ação nova a descartou).
+    Q_INVOKABLE void redo();
     Q_INVOKABLE void rescan();
     Q_INVOKABLE void startExport();
 

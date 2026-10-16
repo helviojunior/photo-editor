@@ -108,6 +108,12 @@ public:
     void record(const Photo &p, const QString &kind, const QJsonObject &before, const QJsonObject &after);
     /// Desfaz a última ação ainda não desfeita (de qualquer foto).
     std::optional<HistoryEntry> undoLast();
+    /// Refaz a última ação desfeita — só enquanto nenhuma ação nova aconteceu
+    /// depois do desfazer (uma ação nova descarta o "refazer", como em todo editor).
+    std::optional<HistoryEntry> redoLast();
+    /// O que o próximo desfazer/refazer faria (sem fazer).
+    std::optional<HistoryEntry> nextUndo() const;
+    std::optional<HistoryEntry> nextRedo() const;
     std::vector<HistoryEntry> history(const Photo &p) const;
 
     // --- merges (services/merges.py) --------------------------------------- //
@@ -146,6 +152,7 @@ private:
     std::vector<Photo> queryPhotos(const QString &where, std::initializer_list<QVariant> params = {}) const;
     void saveState(const Photo &p, const EditState &state);
     void undoEntry(const HistoryEntry &entry);
+    void redoEntry(const HistoryEntry &entry);
     QString copyName(const Photo &root, const QString &suffix) const;
     MergeRecord mergeFromQuery(const QSqlQuery &q) const;
 

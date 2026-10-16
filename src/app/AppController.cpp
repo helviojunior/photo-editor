@@ -14,6 +14,7 @@
 #include <QFileInfo>
 #include <QFutureWatcher>
 #include <QGuiApplication>
+#include <QKeySequence>
 #include <QLoggingCategory>
 #include <QProcess>
 #include <QSettings>
@@ -216,6 +217,17 @@ void AppController::removeRecent(const QString &path)
     if (m_recentDb)
         m_recentDb->remove(QDir::fromNativeSeparators(path));
     reloadRecent();
+}
+
+QString AppController::shortcutText(const QString &sequence) const
+{
+    return QKeySequence(sequence, QKeySequence::PortableText).toString(QKeySequence::NativeText);
+}
+
+bool AppController::sameShortcut(const QString &a, const QString &b) const
+{
+    const QKeySequence ka(a, QKeySequence::PortableText);
+    return !ka.isEmpty() && ka == QKeySequence(b, QKeySequence::PortableText);
 }
 
 QString AppController::formatBytes(qint64 bytes) const
