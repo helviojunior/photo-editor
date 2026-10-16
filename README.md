@@ -253,6 +253,7 @@ instaladores é pelo `make` (com Docker, sem instalar Qt na máquina):
 ```bash
 make test        # testes
 make run         # abre o app
+make local       # instalador só deste sistema e arquitetura, em dist/
 make help        # todos os alvos (make dmg, make windows, make linux, make dist...)
 ```
 

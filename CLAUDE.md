@@ -255,6 +255,9 @@ novo de build, teste ou empacotamento entra como alvo nele).
 | windows-x64 | `make windows`, cross-compile llvm-mingw | `.msi` (wixl) |
 | windows-arm64 | `make windows-native` num Windows ARM (só há Qt arm64 para MSVC) + `make msi-stage` | `.msi` |
 
+`make local` gera só o instalador do sistema e da arquitetura da máquina
+(escolhe sozinho entre os alvos acima); `make dist`, todos os que saem de Docker.
+
 - **CI no GitHub:** só o `release.yml` (ao publicar a Release) chama o
   `package.yml`, que roda os alvos do `make` e anexa instaladores + `.sha256`.
   Workflows só chamam o `make`.

@@ -75,7 +75,7 @@ linux_image    = $(if $(filter arm64,$(1)),$(LINUX_BUILDER)-arm64,$(LINUX_BUILDE
 linux_platform = $(if $(filter arm64,$(1)),linux/arm64,linux/amd64)
 LINUX_RUN      = $(BUILDER_RUN) --platform $(call linux_platform,$(HOST_ARCH)) $(call linux_image,$(HOST_ARCH))
 
-.PHONY: default help version version-refresh model art art-preview checksums \
+.PHONY: default local package help version version-refresh model art art-preview checksums \
         deps configure build run test shell translations \
         linux-builder linux-build linux linux-all \
         macos-sdk macos-builder dmg dmg-all dmg-art macos-shell \
@@ -249,12 +249,17 @@ dist:			## Todos os instaladores que saem de Docker (Linux x64/arm64, macOS, Win
 	$(MAKE) windows
 	$(MAKE) checksums
 
-package:		## Instalador(es) desta máquina: dmg no Mac, linux no Linux
+local:			## Instalador só do sistema e da arquitetura DESTA máquina, em dist/
+	@echo "==> Alvo local: $(HOST_TARGET)"
 	@case "$(HOST_TARGET)" in \
-		macos-*) $(MAKE) dmg ;; \
-		linux-*) $(MAKE) linux ;; \
-		*) $(MAKE) windows ;; \
+		macos-*) $(MAKE) dmg ARCHS=$(HOST_ARCH) ;; \
+		linux-*) $(MAKE) linux ARCHS=$(HOST_ARCH) ;; \
+		windows-arm64) $(MAKE) windows-native TARGET=windows-arm64 && $(MAKE) msi-stage TARGET=windows-arm64 ;; \
+		windows-*) $(MAKE) windows ;; \
+		*) echo "Plataforma desconhecida: $(HOST_TARGET)"; exit 1 ;; \
 	esac
+
+package: local		## Alias de `make local`
 
 clean:			## Apaga dist/ e o volume com as pastas de build
 	rm -rf dist $(ART_OUT) .cache/art .cache/stage
