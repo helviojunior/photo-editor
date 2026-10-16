@@ -6,15 +6,24 @@ import PhotoEditor
 // das fotos e os mesmos comandos dos atalhos, para quem não tem teclado.
 // Publicar abre o diálogo (sinal para o EditorPage); Exportar, desfazer e
 // refazer ficam no cabeçalho (AppHeader).
+//
+// À esquerda, a troca de visualização (Fotos | Arquivadas | Lixeira). Fora
+// das Fotos nada se edita: a barra fica só com restaurar, mandar para a
+// lixeira (das arquivadas) ou excluir de vez (da lixeira) e a navegação. As
+// exclusões definitivas pedem confirmação digitada — quem abre é o EditorPage.
 Rectangle {
     id: bar
 
     signal publishRequested()
+    signal purgeRequested()
+    signal emptyTrashRequested()
 
     readonly property var current: App.editor.current
     readonly property bool hasCurrent: current.id !== undefined && current.id !== ""
     readonly property bool picking: App.editor.picking
     readonly property bool isInstagram: current.isInstagram === true
+    readonly property string view: App.editor.view
+    readonly property bool editable: view === "photos"
     readonly property var sortOptions: [
         { value: "date_asc", text: qsTr("Date/time ↑ (oldest first)") },
         { value: "date_desc", text: qsTr("Date/time ↓ (newest first)") },
@@ -40,7 +49,14 @@ Rectangle {
         anchors.bottomMargin: 1
         spacing: 16
 
+        // Barra estreita: a troca de visualização fica só com ícones, para
+        // sobrar espaço à mensagem da última ação.
+        ViewSwitcher {
+            compact: bar.width < 1400
+        }
+
         Text {
+            visible: bar.hasCurrent || App.editor.photos.count > 0
             text: bar.hasCurrent
                 ? qsTr("Photo %1 of %2").arg(bar.current.position).arg(bar.current.total)
                 : qsTr("Loading…")
@@ -95,7 +111,7 @@ Rectangle {
             }
             Button {
                 id: mergeButton
-                visible: !bar.picking
+                visible: !bar.picking && bar.editable
                 size: "sm"
                 variant: "ghost"
                 iconName: "combine"
@@ -106,6 +122,23 @@ Rectangle {
                 Tip {
                     text: qsTr("Select photos to merge: the first is the base, the others become layers")
                     visible: mergeButton.hovered
+                }
+            }
+
+            // Arquivadas e lixeira: de volta para as fotos
+            Button {
+                visible: !bar.editable
+                size: "sm"
+                variant: "ghost"
+                iconName: "archive-restore"
+                text: qsTr("Restore")
+                disabled: !bar.hasCurrent
+                onClicked: App.editor.restoreCurrent()
+
+                HoverHandler { id: restoreHover }
+                Tip {
+                    text: qsTr("Restore photo") + Keymap.hint("restorePhoto")
+                    visible: restoreHover.hovered
                 }
             }
 
@@ -122,6 +155,7 @@ Rectangle {
                 onClicked: App.editor.next()
             }
             ToolButton {
+                visible: bar.editable
                 iconName: "instagram"
                 tooltip: (bar.isInstagram ? qsTr("Back to the photo")
                        : bar.current.hasInstagram ? qsTr("Open the Instagram version")
@@ -131,12 +165,14 @@ Rectangle {
                 onClicked: App.editor.toggleInstagram()
             }
             ToolButton {
+                visible: bar.editable
                 iconName: "copy"
                 tooltip: qsTr("Duplicate photo (virtual copy)") + Keymap.hint("duplicate")
                 enabled: bar.hasCurrent && !bar.picking && !bar.isInstagram
                 onClicked: App.editor.duplicateCurrent()
             }
             ToolButton {
+                visible: bar.editable
                 iconName: "star"
                 tooltip: bar.current.isCover ? qsTr("Cover photo — click to unset")
                                              : qsTr("Set as cover (exported as capa.jpg)")
@@ -146,12 +182,42 @@ Rectangle {
                 onClicked: App.editor.toggleCover()
             }
             ToolButton {
+                visible: bar.editable
+                iconName: "archive"
+                tooltip: qsTr("Archive photo") + Keymap.hint("archivePhoto")
+                enabled: bar.hasCurrent && !bar.picking
+                onClicked: App.editor.archiveCurrent()
+            }
+            ToolButton {
+                visible: bar.view !== "trash"
                 iconName: "trash-2"
-                tooltip: qsTr("Delete photo") + Keymap.hint("deletePhoto")
+                tooltip: qsTr("Move to trash") + Keymap.hint("deletePhoto")
                 enabled: bar.hasCurrent
                 onClicked: App.editor.deleteCurrent()
             }
+
+            // Lixeira: as duas saídas sem volta
             Button {
+                visible: bar.view === "trash"
+                size: "sm"
+                variant: "destructive"
+                iconName: "trash-2"
+                text: qsTr("Delete permanently")
+                disabled: !bar.hasCurrent
+                onClicked: bar.purgeRequested()
+            }
+            Button {
+                visible: bar.view === "trash"
+                size: "sm"
+                variant: "destructive"
+                iconName: "trash-2"
+                text: qsTr("Empty trash")
+                disabled: App.editor.trashCount === 0
+                onClicked: bar.emptyTrashRequested()
+            }
+
+            Button {
+                visible: bar.editable
                 size: "sm"
                 variant: "ghost"
                 iconName: "refresh-cw"
@@ -160,6 +226,7 @@ Rectangle {
             }
             Button {
                 id: publishButton
+                visible: bar.editable
                 size: "sm"
                 variant: "outline"
                 iconName: "instagram"

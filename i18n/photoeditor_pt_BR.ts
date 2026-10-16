@@ -166,6 +166,17 @@
     </message>
 </context>
 <context>
+    <name>DialogHost</name>
+    <message>
+        <source>Type %1 to confirm.</source>
+        <translation>Digite %1 para confirmar.</translation>
+    </message>
+    <message>
+        <source>Confirmation text</source>
+        <translation>Texto de confirmação</translation>
+    </message>
+</context>
+<context>
     <name>Dialogs</name>
     <message>
         <source>Cancel</source>
@@ -340,6 +351,85 @@
     <message>
         <source>Back to the photo</source>
         <translation>Voltar à foto</translation>
+    </message>
+    <message>
+        <source>Delete permanently?</source>
+        <translation>Excluir definitivamente?</translation>
+    </message>
+    <message>
+        <source>&lt;b&gt;%1&lt;/b&gt; will be deleted from the disk and from the catalog, with its adjustments and copies. This cannot be undone.</source>
+        <translation>&lt;b&gt;%1&lt;/b&gt; será apagada do disco e do catálogo, com os ajustes e as cópias. Isso não pode ser desfeito.</translation>
+    </message>
+    <message>
+        <source>Delete permanently</source>
+        <translation>Excluir definitivamente</translation>
+    </message>
+    <message>
+        <source>delete</source>
+        <comment>word typed to confirm a permanent deletion</comment>
+        <translation>excluir</translation>
+    </message>
+    <message>
+        <source>Empty the trash?</source>
+        <translation>Esvaziar a lixeira?</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n photo(s) will be deleted from the disk and from the catalog, with their adjustments and copies. This cannot be undone.</source>
+        <translation>
+            <numerusform>%n foto será apagada do disco e do catálogo, com os ajustes e as cópias. Isso não pode ser desfeito.</numerusform>
+            <numerusform>%n fotos serão apagadas do disco e do catálogo, com os ajustes e as cópias. Isso não pode ser desfeito.</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Empty trash</source>
+        <translation>Esvaziar lixeira</translation>
+    </message>
+    <message numerus="yes">
+        <source>Type %1 to permanently delete %n photo(s).</source>
+        <translation>
+            <numerusform>Digite %1 para excluir definitivamente %n foto.</numerusform>
+            <numerusform>Digite %1 para excluir definitivamente %n fotos.</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>No archived photos</source>
+        <translation>Nenhuma foto arquivada</translation>
+    </message>
+    <message>
+        <source>Press %1 on a photo to archive it.</source>
+        <translation>Pressione %1 numa foto para arquivá-la.</translation>
+    </message>
+    <message>
+        <source>Archive a photo to keep it out of the filmstrip and the export.</source>
+        <translation>Arquive uma foto para tirá-la da filmstrip e da exportação.</translation>
+    </message>
+    <message>
+        <source>The trash is empty</source>
+        <translation>A lixeira está vazia</translation>
+    </message>
+    <message>
+        <source>Photos moved to the trash wait here until you restore them or delete them permanently.</source>
+        <translation>As fotos enviadas para a lixeira ficam aqui até serem restauradas ou excluídas definitivamente.</translation>
+    </message>
+    <message>
+        <source>In the trash</source>
+        <translation>Na lixeira</translation>
+    </message>
+    <message>
+        <source>Archived photo — restore it to edit</source>
+        <translation>Foto arquivada — restaure para editar</translation>
+    </message>
+    <message>
+        <source>It can still be restored. Deleting permanently cannot be undone.</source>
+        <translation>Ainda pode ser restaurada. Excluir definitivamente não pode ser desfeito.</translation>
+    </message>
+    <message>
+        <source>Archived photos stay out of the filmstrip and the export. Their adjustments are kept.</source>
+        <translation>Fotos arquivadas ficam fora da filmstrip e da exportação. Os ajustes são mantidos.</translation>
+    </message>
+    <message>
+        <source>Restore</source>
+        <translation>Restaurar</translation>
     </message>
 </context>
 <context>
@@ -518,8 +608,28 @@
         <translation>Editar para o Instagram</translation>
     </message>
     <message>
-        <source>Delete photo</source>
-        <translation>Excluir foto</translation>
+        <source>Restore</source>
+        <translation>Restaurar</translation>
+    </message>
+    <message>
+        <source>Restore photo</source>
+        <translation>Restaurar foto</translation>
+    </message>
+    <message>
+        <source>Archive photo</source>
+        <translation>Arquivar foto</translation>
+    </message>
+    <message>
+        <source>Move to trash</source>
+        <translation>Mover para a lixeira</translation>
+    </message>
+    <message>
+        <source>Delete permanently</source>
+        <translation>Excluir definitivamente</translation>
+    </message>
+    <message>
+        <source>Empty trash</source>
+        <translation>Esvaziar lixeira</translation>
     </message>
 </context>
 <context>
@@ -804,10 +914,6 @@
         <translation>Foto anterior (no recorte, gira o quadro)</translation>
     </message>
     <message>
-        <source>Delete photo</source>
-        <translation>Excluir foto</translation>
-    </message>
-    <message>
         <source>Duplicate photo</source>
         <translation>Duplicar foto</translation>
     </message>
@@ -934,6 +1040,38 @@
     <message>
         <source>Light or dark theme</source>
         <translation>Tema claro ou escuro</translation>
+    </message>
+    <message>
+        <source>Archive photo</source>
+        <translation>Arquivar foto</translation>
+    </message>
+    <message>
+        <source>Move to trash</source>
+        <translation>Mover para a lixeira</translation>
+    </message>
+    <message>
+        <source>Restore photo</source>
+        <translation>Restaurar foto</translation>
+    </message>
+    <message>
+        <source>Show photos</source>
+        <translation>Mostrar fotos</translation>
+    </message>
+    <message>
+        <source>Show archived photos</source>
+        <translation>Mostrar fotos arquivadas</translation>
+    </message>
+    <message>
+        <source>Show trash</source>
+        <translation>Mostrar lixeira</translation>
+    </message>
+    <message>
+        <source>Delete permanently</source>
+        <translation>Excluir definitivamente</translation>
+    </message>
+    <message>
+        <source>Empty trash</source>
+        <translation>Esvaziar lixeira</translation>
     </message>
 </context>
 <context>
@@ -1569,6 +1707,33 @@
         <source>Nothing to redo.</source>
         <translation>Nada para refazer.</translation>
     </message>
+    <message>
+        <source>Archive</source>
+        <translation>Arquivar</translation>
+    </message>
+    <message>
+        <source>Restore</source>
+        <translation>Restaurar</translation>
+    </message>
+    <message>
+        <source>Archived: %1</source>
+        <translation>Arquivada: %1</translation>
+    </message>
+    <message>
+        <source>Restored: %1</source>
+        <translation>Restaurada: %1</translation>
+    </message>
+    <message>
+        <source>Permanently deleted: %1</source>
+        <translation>Excluída definitivamente: %1</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n photo(s) permanently deleted.</source>
+        <translation>
+            <numerusform>%n foto excluída definitivamente.</numerusform>
+            <numerusform>%n fotos excluídas definitivamente.</numerusform>
+        </translation>
+    </message>
 </context>
 <context>
     <name>Modal</name>
@@ -1800,6 +1965,29 @@
     <message>
         <source>Double-click to reset</source>
         <translation>Duplo clique para zerar</translation>
+    </message>
+</context>
+<context>
+    <name>ViewSwitcher</name>
+    <message>
+        <source>Photos</source>
+        <translation>Fotos</translation>
+    </message>
+    <message>
+        <source>Archived</source>
+        <translation>Arquivadas</translation>
+    </message>
+    <message>
+        <source>Trash</source>
+        <translation>Lixeira</translation>
+    </message>
+    <message>
+        <source>Filmstrip view</source>
+        <translation>Visualização da filmstrip</translation>
+    </message>
+    <message>
+        <source>%1 (%2)</source>
+        <translation>%1 (%2)</translation>
     </message>
 </context>
 </TS>

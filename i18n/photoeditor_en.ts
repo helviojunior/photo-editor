@@ -2,6 +2,23 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="en">
 <context>
+    <name>EditorPage</name>
+    <message numerus="yes">
+        <source>%n photo(s) will be deleted from the disk and from the catalog, with their adjustments and copies. This cannot be undone.</source>
+        <translation>
+            <numerusform>%n photo will be deleted from the disk and from the catalog, with its adjustments and copies. This cannot be undone.</numerusform>
+            <numerusform>%n photos will be deleted from the disk and from the catalog, with their adjustments and copies. This cannot be undone.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>Type %1 to permanently delete %n photo(s).</source>
+        <translation>
+            <numerusform>Type %1 to permanently delete %n photo.</numerusform>
+            <numerusform>Type %1 to permanently delete %n photos.</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
     <name>ExportDialog</name>
     <message numerus="yes">
         <source>%n Instagram version(s) in %1.</source>
@@ -18,6 +35,16 @@
         <translation>
             <numerusform>%n photo</numerusform>
             <numerusform>%n photos</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>Messages</name>
+    <message numerus="yes">
+        <source>%n photo(s) permanently deleted.</source>
+        <translation>
+            <numerusform>%n photo permanently deleted.</numerusform>
+            <numerusform>%n photos permanently deleted.</numerusform>
         </translation>
     </message>
 </context>

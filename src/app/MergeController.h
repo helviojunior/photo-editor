@@ -102,6 +102,7 @@ private:
     void fail(const std::exception &e);
     QString cutoutUrl(const QString &photoId, const QString &mask) const;
     QString previewUrl(const pe::Photo &p) const;
+    QString thumbUrl(const pe::Photo &p) const;
     QString maskUrl(const QString &key) const;
 
     EditorController *m_editor;

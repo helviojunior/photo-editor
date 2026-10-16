@@ -17,8 +17,16 @@ import PhotoEditor
 // O painel da esquerda muda com o modo: crop (o quadro sobre a original),
 // seleção (o pincel), camada ativa (a área dela por cima) ou só a original.
 //
+// A filmstrip mostra uma de três visualizações (App.editor.view): as fotos,
+// as arquivadas ou a lixeira. Só nas fotos se edita; nas outras o painel
+// mostra a foto, um aviso de onde ela está e o Restaurar — sem sliders, crop
+// nem seleção (a Editada continua mostrando os ajustes gravados).
+//
 // Atalhos (padrões do Keymap, trocáveis no editor de atalhos): → ← trocam de
-// foto (no crop giram o quadro de 15 em 15°), Del/Backspace exclui, Ctrl/Cmd+Z
+// foto (no crop giram o quadro de 15 em 15°), Backspace arquiva, Del manda
+// para a lixeira (das fotos e das arquivadas; na lixeira nenhuma tecla exclui
+// de vez — só os botões, com confirmação digitada), Ctrl/Cmd+Shift+R
+// restaura, Ctrl/Cmd+Z
 // desfaz, Ctrl/Cmd+Shift+Z (ou +Y) refaz, Ctrl/Cmd+D duplica, A Auto, C crop,
 // S seleção (dentro dela, conclui), L próxima camada, I versão Instagram;
 // na seleção Enter conclui, Esc cancela e [ ] mudam o pincel. Valem só com o
@@ -32,7 +40,15 @@ Item {
     readonly property bool hasCurrent: current.id !== undefined && current.id !== ""
     readonly property bool selecting: App.editor.selecting
     readonly property bool mobile: width < 1024
-    readonly property bool empty: App.editor.photos.count === 0
+    readonly property string view: App.editor.view
+    readonly property bool editable: view === "photos"
+    /// A visualização atual não tem foto nenhuma.
+    readonly property bool listEmpty: App.editor.photos.count === 0
+    /// O projeto não tem foto nenhuma, em lugar nenhum: a tela inteira vira o
+    /// convite para pôr JPEGs em raw/. Com arquivadas ou lixeira, a barra
+    /// fica (é por ela que se chega até elas).
+    readonly property bool empty: listEmpty && editable
+        && App.editor.archivedCount === 0 && App.editor.trashCount === 0
 
     /// Modo crop: o quadro vai sobre a ORIGINAL e a editada mostra o recorte
     /// ao vivo. Sai ao trocar de foto e com Esc; a versão Instagram ABRE nele.
@@ -53,7 +69,7 @@ Item {
         if (id === _photoId)
             return;
         _photoId = id;
-        cropMode = hasCurrent && current.isInstagram === true;
+        cropMode = hasCurrent && editable && current.isInstagram === true;
         if (cropMode)
             baseScale = App.editor.crop.scale;
         if (selecting)
@@ -61,7 +77,7 @@ Item {
     }
 
     function setCropMode(on) {
-        if (on && (!hasCurrent || selecting))
+        if (on && (!hasCurrent || selecting || !editable))
             return;
         cropMode = on;
         if (on)
@@ -89,7 +105,7 @@ Item {
 
     /// Modo seleção: camada nova ('') ou a área de uma existente.
     function startSelect(layerId) {
-        if (!hasCurrent)
+        if (!hasCurrent || !editable)
             return;
         if (!layerId && App.editor.layers.length >= App.editor.maxLayers)
             return;
@@ -114,13 +130,52 @@ Item {
         publishDialog.open();
     }
 
+    /// Exclusão DEFINITIVA da foto atual da lixeira: só depois de digitar a palavra.
+    function confirmPurge() {
+        if (view !== "trash" || !hasCurrent)
+            return;
+        Dialogs.confirm({
+            title: qsTr("Delete permanently?"),
+            description: qsTr("<b>%1</b> will be deleted from the disk and from the catalog, with its adjustments and copies. This cannot be undone.")
+                .arg(Messages.escapeHtml(current.fileName)),
+            variant: "danger",
+            confirmLabel: qsTr("Delete permanently"),
+            requireText: qsTr("delete", "word typed to confirm a permanent deletion"),
+            onConfirm: () => App.editor.purgeCurrent()
+        });
+    }
+
+    /// Esvaziar a lixeira: digita-se o NÚMERO de fotos (de propósito diferente
+    /// da palavra de uma foto só — quem apaga 40 vê o 40).
+    function confirmEmptyTrash() {
+        const n = App.editor.trashCount;
+        if (n <= 0)
+            return;
+        Dialogs.confirm({
+            title: qsTr("Empty the trash?"),
+            description: qsTr("%n photo(s) will be deleted from the disk and from the catalog, with their adjustments and copies. This cannot be undone.", "", n),
+            variant: "danger",
+            confirmLabel: qsTr("Empty trash"),
+            requireText: String(n),
+            requirePrompt: qsTr("Type %1 to permanently delete %n photo(s).", "", n).arg("<b>" + n + "</b>"),
+            onConfirm: () => App.editor.emptyTrash()
+        });
+    }
+
     /// Uma ação do editor pelo id do Keymap: o que os atalhos e a paleta de
     /// comandos (Main.qml) disparam. Quem chama confere as condições.
     function run(id) {
         switch (id) {
         case "nextPhoto": cropMode ? rotateCrop(1) : App.editor.next(); break;
         case "previousPhoto": cropMode ? rotateCrop(-1) : App.editor.previous(); break;
-        case "deletePhoto": App.editor.deleteCurrent(); break;
+        case "deletePhoto": if (view !== "trash") App.editor.deleteCurrent(); break;
+        case "archivePhoto": if (editable) App.editor.archiveCurrent(); break;
+        case "restorePhoto": if (!editable) App.editor.restoreCurrent(); break;
+        case "purgePhoto": confirmPurge(); break;
+        case "emptyTrash": confirmEmptyTrash(); break;
+        case "showPhotos": App.editor.view = "photos"; break;
+        case "showArchived": App.editor.view = "archived"; break;
+        case "showTrash": App.editor.view = "trash"; break;
         case "duplicate": App.editor.duplicateCurrent(); break;
         case "cover": App.editor.toggleCover(); break;
         case "instagram": App.editor.toggleInstagram(); break;
@@ -190,6 +245,8 @@ Item {
     // As teclas vêm do Keymap (trocáveis no editor de atalhos); as condições
     // de cada uma ficam aqui.
     readonly property bool _photoKeys: keysActive && !selecting && !App.editor.picking && hasCurrent
+    /// Teclas que editam: só na visualização das fotos.
+    readonly property bool _editKeys: keysActive && editable
     Shortcut {
         sequences: Keymap.keys("nextPhoto")
         enabled: page.keysActive && !page._arrowFocus && !page.selecting
@@ -200,41 +257,85 @@ Item {
         enabled: page.keysActive && !page._arrowFocus && !page.selecting
         onActivated: page.run("previousPhoto")
     }
-    // Pintando, nada exclui: um Backspace perdido não pode jogar a foto fora.
+    // Pintando, nada exclui nem arquiva: um Backspace perdido não pode jogar
+    // a foto fora. Na lixeira nenhuma tecla apaga — excluir de vez é só pelos
+    // botões, com confirmação digitada.
     Shortcut {
         sequences: Keymap.keys("deletePhoto")
         autoRepeat: false
-        enabled: page._photoKeys
+        enabled: page._photoKeys && page.view !== "trash"
         onActivated: page.run("deletePhoto")
+    }
+    Shortcut {
+        sequences: Keymap.keys("archivePhoto")
+        autoRepeat: false
+        enabled: page._photoKeys && page.editable
+        onActivated: page.run("archivePhoto")
+    }
+    Shortcut {
+        sequences: Keymap.keys("restorePhoto")
+        autoRepeat: false
+        enabled: page._photoKeys && !page.editable
+        onActivated: page.run("restorePhoto")
+    }
+    Shortcut {
+        sequences: Keymap.keys("purgePhoto")
+        autoRepeat: false
+        enabled: page._photoKeys && page.view === "trash"
+        onActivated: page.run("purgePhoto")
+    }
+    Shortcut {
+        sequences: Keymap.keys("emptyTrash")
+        autoRepeat: false
+        enabled: page.keysActive && page.view === "trash" && App.editor.trashCount > 0
+        onActivated: page.run("emptyTrash")
+    }
+    Shortcut {
+        sequences: Keymap.keys("showPhotos")
+        autoRepeat: false
+        enabled: page.keysActive && !page.selecting
+        onActivated: page.run("showPhotos")
+    }
+    Shortcut {
+        sequences: Keymap.keys("showArchived")
+        autoRepeat: false
+        enabled: page.keysActive && !page.selecting
+        onActivated: page.run("showArchived")
+    }
+    Shortcut {
+        sequences: Keymap.keys("showTrash")
+        autoRepeat: false
+        enabled: page.keysActive && !page.selecting
+        onActivated: page.run("showTrash")
     }
     Shortcut {
         sequences: Keymap.keys("duplicate")
         autoRepeat: false
-        enabled: page._photoKeys && page.current.isInstagram !== true
+        enabled: page._photoKeys && page.editable && page.current.isInstagram !== true
         onActivated: page.run("duplicate")
     }
     Shortcut {
         sequences: Keymap.keys("cover")
         autoRepeat: false
-        enabled: page._photoKeys && page.current.isInstagram !== true
+        enabled: page._photoKeys && page.editable && page.current.isInstagram !== true
         onActivated: page.run("cover")
     }
     Shortcut {
         sequences: Keymap.keys("instagram")
         autoRepeat: false
-        enabled: page._photoKeys
+        enabled: page._photoKeys && page.editable
         onActivated: page.run("instagram")
     }
     Shortcut {
         sequences: Keymap.keys("rescan")
         autoRepeat: false
-        enabled: page.keysActive && !page.selecting
+        enabled: page._editKeys && !page.selecting
         onActivated: page.run("rescan")
     }
     Shortcut {
         sequences: Keymap.keys("merge")
         autoRepeat: false
-        enabled: page.keysActive && !page.selecting && App.editor.photos.count >= 2
+        enabled: page._editKeys && !page.selecting && App.editor.photos.count >= 2
         onActivated: page.run("merge")
     }
     Shortcut {
@@ -252,31 +353,31 @@ Item {
     Shortcut {
         sequences: Keymap.keys("auto")
         autoRepeat: false
-        enabled: page.keysActive && !page.selecting && page.hasCurrent
+        enabled: page._editKeys && !page.selecting && page.hasCurrent
         onActivated: page.run("auto")
     }
     Shortcut {
         sequences: Keymap.keys("reset")
         autoRepeat: false
-        enabled: page.keysActive && !page.selecting && page.hasCurrent
+        enabled: page._editKeys && !page.selecting && page.hasCurrent
         onActivated: page.run("reset")
     }
     Shortcut {
         sequences: Keymap.keys("crop")
         autoRepeat: false
-        enabled: page.keysActive && !page.selecting && page.hasCurrent
+        enabled: page._editKeys && !page.selecting && page.hasCurrent
         onActivated: page.run("crop")
     }
     Shortcut {
         sequences: Keymap.keys("nextLayer")
         autoRepeat: false
-        enabled: page.keysActive && !page.selecting && !page.cropMode
+        enabled: page._editKeys && !page.selecting && !page.cropMode
         onActivated: page.run("nextLayer")
     }
     Shortcut {
         sequences: Keymap.keys("selectArea")
         autoRepeat: false
-        enabled: page.keysActive && page.hasCurrent
+        enabled: page._editKeys && page.hasCurrent
         onActivated: page.run("selectArea")
     }
     Shortcut {
@@ -303,25 +404,29 @@ Item {
     }
 
     // --------------------------------------------------------------------- //
-    // Catálogo vazio
+    // Vazio: o catálogo inteiro (a tela toda) ou só a visualização atual
     // --------------------------------------------------------------------- //
 
-    ColumnLayout {
-        anchors.centerIn: parent
-        width: Math.min(parent.width - 48, 640)
-        visible: page.empty
+    component EmptyState: ColumnLayout {
+        id: emptyState
+
+        property string iconName: ""
+        property string title: ""
+        property string hint: ""
+        property bool showRescan: false
+
         spacing: 12
 
         Icon {
             Layout.alignment: Qt.AlignHCenter
-            name: "image-off"
+            name: emptyState.iconName
             size: 40
             color: Theme.mutedForeground
         }
         Text {
             Layout.fillWidth: true
             horizontalAlignment: Text.AlignHCenter
-            text: qsTr("No photos in the catalog")
+            text: emptyState.title
             font.pixelSize: Theme.fontLg
             font.weight: Font.DemiBold
             color: Theme.foreground
@@ -329,19 +434,54 @@ Item {
         }
         Text {
             Layout.fillWidth: true
+            visible: emptyState.hint !== ""
             horizontalAlignment: Text.AlignHCenter
-            text: qsTr("Put the original JPEGs in the raw/ folder of the project and rescan.")
+            text: emptyState.hint
             font.pixelSize: Theme.fontBase
             color: Theme.mutedForeground
             wrapMode: Text.Wrap
         }
         Button {
             Layout.alignment: Qt.AlignHCenter
+            visible: emptyState.showRescan
             variant: "outline"
             iconName: "refresh-cw"
             text: qsTr("Rescan")
             onClicked: App.editor.rescan()
         }
+    }
+
+    readonly property var emptyContent: {
+        if (view === "archived") {
+            const key = Keymap.label("archivePhoto");
+            return {
+                icon: "archive",
+                title: qsTr("No archived photos"),
+                hint: key !== "" ? qsTr("Press %1 on a photo to archive it.").arg(key)
+                                 : qsTr("Archive a photo to keep it out of the filmstrip and the export.")
+            };
+        }
+        if (view === "trash")
+            return {
+                icon: "trash-2",
+                title: qsTr("The trash is empty"),
+                hint: qsTr("Photos moved to the trash wait here until you restore them or delete them permanently.")
+            };
+        return {
+            icon: "image-off",
+            title: qsTr("No photos in the catalog"),
+            hint: qsTr("Put the original JPEGs in the raw/ folder of the project and rescan.")
+        };
+    }
+
+    EmptyState {
+        anchors.centerIn: parent
+        width: Math.min(parent.width - 48, 640)
+        visible: page.empty
+        iconName: page.emptyContent.icon
+        title: page.emptyContent.title
+        hint: page.emptyContent.hint
+        showRescan: true
     }
 
     // --------------------------------------------------------------------- //
@@ -409,7 +549,8 @@ Item {
                     editable: page.selecting
                     brush: brush
                     busy: page.selecting && App.editor.selectionBusy
-                    maskUrl: page.selecting ? App.editor.selectionMaskUrl : App.editor.activeLayerMaskUrl
+                    maskUrl: page.selecting ? App.editor.selectionMaskUrl
+                           : page.editable ? App.editor.activeLayerMaskUrl : ""
                     faint: !page.selecting
                     onStroked: (points, radius, mode) => App.editor.stroke(points, radius, mode, brush.smart)
                 }
@@ -521,7 +662,7 @@ Item {
                         Button {
                             Layout.fillWidth: true
                             Layout.topMargin: 4
-                            visible: page.current.isMergeBase === true
+                            visible: page.editable && page.current.isMergeBase === true
                             variant: "outline"
                             size: "sm"
                             iconName: "combine"
@@ -551,12 +692,76 @@ Item {
                         Button {
                             Layout.fillWidth: true
                             Layout.topMargin: 4
-                            visible: page.current.isInstagram === true
+                            visible: page.editable && page.current.isInstagram === true
                             variant: "outline"
                             size: "sm"
                             iconName: "chevron-left"
                             text: qsTr("Back to the photo") + Keymap.hint("instagram")
                             onClicked: App.editor.toggleInstagram()
+                        }
+
+                        // Arquivada ou na lixeira: onde ela está e o caminho de volta.
+                        Rectangle {
+                            id: placeBanner
+
+                            readonly property bool trash: page.view === "trash"
+
+                            Layout.fillWidth: true
+                            Layout.topMargin: 8
+                            visible: !page.editable
+                            implicitHeight: bannerColumn.implicitHeight + 24
+                            radius: Theme.radiusMd
+                            color: trash ? Theme.alpha(Theme.amber400, 0.12) : Theme.muted
+                            border.color: trash ? Theme.alpha(Theme.amber400, 0.4) : Theme.border
+                            Accessible.role: Accessible.AlertMessage
+                            Accessible.name: bannerTitle.text + "\n" + bannerText.text
+
+                            ColumnLayout {
+                                id: bannerColumn
+                                anchors.fill: parent
+                                anchors.margins: 12
+                                spacing: 8
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 8
+                                    Icon {
+                                        Layout.alignment: Qt.AlignTop
+                                        Layout.topMargin: 1
+                                        name: placeBanner.trash ? "trash-2" : "archive"
+                                        size: 16
+                                        color: placeBanner.trash ? Theme.warning : Theme.foreground
+                                    }
+                                    Text {
+                                        id: bannerTitle
+                                        Layout.fillWidth: true
+                                        text: placeBanner.trash ? qsTr("In the trash")
+                                                                : qsTr("Archived photo — restore it to edit")
+                                        font.pixelSize: Theme.fontBase
+                                        font.weight: Font.DemiBold
+                                        color: Theme.foreground
+                                        wrapMode: Text.Wrap
+                                    }
+                                }
+                                Text {
+                                    id: bannerText
+                                    Layout.fillWidth: true
+                                    text: placeBanner.trash
+                                        ? qsTr("It can still be restored. Deleting permanently cannot be undone.")
+                                        : qsTr("Archived photos stay out of the filmstrip and the export. Their adjustments are kept.")
+                                    font.pixelSize: Theme.fontSm
+                                    color: Theme.mutedForeground
+                                    wrapMode: Text.Wrap
+                                }
+                                Button {
+                                    Layout.fillWidth: true
+                                    variant: "outline"
+                                    size: "sm"
+                                    iconName: "archive-restore"
+                                    text: qsTr("Restore") + Keymap.hint("restorePhoto")
+                                    onClicked: App.editor.restoreCurrent()
+                                }
+                            }
                         }
                     }
                     Separator {
@@ -582,7 +787,7 @@ Item {
                     EditPanel {
                         Layout.fillWidth: true
                         Layout.margins: 16
-                        visible: !page.selecting
+                        visible: !page.selecting && page.editable
                         disabled: !page.hasCurrent
                         cropMode: page.cropMode
                         onCropToggled: page.setCropMode(!page.cropMode)
@@ -594,6 +799,7 @@ Item {
 
                     Separator {
                         Layout.fillWidth: true
+                        visible: page.editable
                     }
                     PhotoHistory {
                         Layout.fillWidth: true
@@ -628,6 +834,28 @@ Item {
             color: Theme.border
         }
 
+        // Visualização vazia (arquivadas, lixeira ou fotos com o resto em
+        // outra visualização): cobre fotos e painel; a filmstrip e a barra
+        // ficam, que é por ela que se troca de visualização.
+        Rectangle {
+            visible: page.listEmpty
+            // Acima dos splitters (z 20) de fotos e painel; o da filmstrip
+            // continua acessível logo abaixo.
+            z: 21
+            width: scroller.width
+            height: page.mobile ? scroller.stripTop : scroller.topHeight
+            color: Theme.background
+
+            EmptyState {
+                anchors.centerIn: parent
+                width: Math.min(parent.width - 48, 640)
+                iconName: page.emptyContent.icon
+                title: page.emptyContent.title
+                hint: page.emptyContent.hint
+                showRescan: page.editable
+            }
+        }
+
         // Filmstrip
         Rectangle {
             y: scroller.stripTop
@@ -639,6 +867,8 @@ Item {
                 id: toolbar
                 width: parent.width
                 onPublishRequested: publishDialog.open()
+                onPurgeRequested: page.confirmPurge()
+                onEmptyTrashRequested: page.confirmEmptyTrash()
             }
 
             Filmstrip {

@@ -45,6 +45,9 @@ T.Popup {
     /// Botões do rodapé empilhados em largura total (muitas opções ou
     /// rótulos longos); padrão: lado a lado, centralizados.
     property bool footerVertical: false
+    /// Mostra a área de conteúdo; por padrão, quando há filhos nela. Quem tem
+    /// conteúdo só às vezes (o campo de confirmação do DialogHost) liga aqui.
+    property bool showContent: body.children.length > 0
 
     readonly property var variantStyle: {
         switch (variant) {
@@ -159,8 +162,8 @@ T.Popup {
             ColumnLayout {
                 id: body
                 Layout.fillWidth: true
-                Layout.topMargin: children.length > 0 ? 8 : 0
-                visible: children.length > 0
+                Layout.topMargin: modal.showContent ? 8 : 0
+                visible: modal.showContent
                 spacing: 8
             }
 

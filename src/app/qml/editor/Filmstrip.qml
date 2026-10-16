@@ -14,17 +14,22 @@ import PhotoEditor
 // No modo de marcar fotos (App.editor.picking, o merge) clicar marca/desmarca
 // em vez de abrir, cada foto ganha o círculo de seleção (regra 2.3) e a
 // primeira marcada leva o selo de base.
+//
+// Nas arquivadas e na lixeira (App.editor.view) cada foto aparece como está —
+// inclusive uma versão Instagram, que ali não tem a origem para representá-la
+// — e só com os selos de cópia e capa: nada que convide a editar.
 ListView {
     id: strip
 
     readonly property var current: App.editor.current
     readonly property bool picking: App.editor.picking
+    readonly property bool editable: App.editor.view === "photos"
     /// Linha da foto atual na faixa (na versão Instagram, a da origem).
     readonly property int stripIndex: {
         const c = current;
         if (!c || !c.id)
             return -1;
-        if (c.isInstagram)
+        if (c.isInstagram && editable)
             return App.editor.photos.indexOf(c.instagramOf);
         return App.editor.currentIndex;
     }
@@ -100,9 +105,11 @@ ListView {
         readonly property real thumbHeight: Math.max(0, height - 16)
         readonly property real thumbWidth: thumbHeight / (aspect > 0 ? aspect : 2 / 3)
 
-        width: isInstagram ? 0 : thumbWidth + 8
+        readonly property bool hidden: isInstagram && strip.editable
+
+        width: hidden ? 0 : thumbWidth + 8
         height: strip.height
-        visible: !isInstagram
+        visible: !hidden
 
         Accessible.role: strip.picking ? Accessible.CheckBox : Accessible.Button
         Accessible.name: fileName
@@ -137,7 +144,7 @@ ListView {
             Image {
                 anchors.fill: parent
                 // A versão Instagram não aparece na faixa: nem pede a imagem.
-                source: cell.isInstagram ? "" : cell.thumbUrl
+                source: cell.hidden ? "" : cell.thumbUrl
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
                 cache: true
@@ -155,7 +162,7 @@ ListView {
 
             // MERGE / COPIA (embaixo, à esquerda)
             Rectangle {
-                visible: !strip.picking && (cell.isMergeBase || cell.isCopy)
+                visible: !strip.picking && ((strip.editable && cell.isMergeBase) || cell.isCopy)
                 x: 4
                 y: parent.height - height - 4
                 width: kindLabel.implicitWidth + 12
@@ -165,7 +172,7 @@ ListView {
                 Text {
                     id: kindLabel
                     anchors.centerIn: parent
-                    text: cell.isMergeBase ? qsTr("Merge") : qsTr("Copy")
+                    text: strip.editable && cell.isMergeBase ? qsTr("Merge") : qsTr("Copy")
                     font.pixelSize: Theme.fontTiny
                     font.weight: Font.DemiBold
                     font.capitalization: Font.AllUppercase
@@ -176,7 +183,7 @@ ListView {
             // Tem versão Instagram (em cima, à esquerda)
             Rectangle {
                 id: instagramBadge
-                visible: !strip.picking && cell.hasInstagram
+                visible: !strip.picking && strip.editable && cell.hasInstagram
                 x: 4
                 y: 4
                 width: 16

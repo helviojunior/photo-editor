@@ -117,6 +117,67 @@ private slots:
         QVERIFY(!project.nextRedo());
     }
 
+    void archiveRestoreAndUndo()
+    {
+        QTemporaryDir dir;
+        Project project(makeProject(dir, 3));
+        project.scan();
+        const Photo p = project.visiblePhotos().front();
+        project.archivePhoto(p);
+        QVERIFY(!QFileInfo::exists(project.paths().rawPath(p.fileName)));
+        QVERIFY(QFileInfo::exists(project.paths().archivedPath(p.fileName)));
+        QCOMPARE(project.visiblePhotos().size(), size_t(2));
+        QCOMPARE(project.archivedPhotos().size(), size_t(1));
+        // O caminho atual aponta para archived/ (preview e exportação leem dali).
+        QCOMPARE(project.requirePhoto(p.id).sourcePath, project.paths().archivedPath(p.fileName));
+        // Rescan não a dá por sumida.
+        QCOMPARE(project.scan().missing, 0);
+        QCOMPARE(project.requirePhoto(p.id).status, PhotoStatus::Archived);
+        // Desfazer volta para raw/; refazer arquiva de novo.
+        project.undoLast();
+        QVERIFY(QFileInfo::exists(project.paths().rawPath(p.fileName)));
+        project.redoLast();
+        QVERIFY(QFileInfo::exists(project.paths().archivedPath(p.fileName)));
+        // Excluir do arquivo: vai para deleted/; desfazer volta ao ARQUIVO.
+        project.deletePhoto(project.requirePhoto(p.id));
+        QVERIFY(QFileInfo::exists(project.paths().deletedPath(p.fileName)));
+        project.undoLast();
+        QCOMPARE(project.requirePhoto(p.id).status, PhotoStatus::Archived);
+        QVERIFY(QFileInfo::exists(project.paths().archivedPath(p.fileName)));
+        // Restaurar: de volta à filmstrip.
+        project.restorePhoto(project.requirePhoto(p.id));
+        QVERIFY(QFileInfo::exists(project.paths().rawPath(p.fileName)));
+        QCOMPARE(project.visiblePhotos().size(), size_t(3));
+        QCOMPARE(project.history(p).front().kind, HistoryKind::Restore);
+    }
+
+    void purgeAndEmptyTrash()
+    {
+        QTemporaryDir dir;
+        Project project(makeProject(dir, 3));
+        project.scan();
+        auto photos = project.visiblePhotos();
+        const Photo a = photos[0], b = photos[1];
+        const Photo copy = project.duplicate(a);
+        project.deletePhoto(a);
+        project.deletePhoto(b);
+        QCOMPARE(project.trashedPhotos().size(), size_t(2));
+        // Excluir definitivamente uma: arquivo, linha e a cópia virtual dela.
+        QVERIFY(project.purge(project.requirePhoto(a.id)) >= 2);
+        QVERIFY(!QFileInfo::exists(project.paths().deletedPath(a.fileName)));
+        QVERIFY(!project.photo(a.id));
+        QVERIFY(!project.photo(copy.id));
+        QVERIFY(project.history(b).size() > 0);
+        // Esvaziar a lixeira leva o resto; o desfazer não acha mais nada delas.
+        QCOMPARE(project.emptyTrash(), 1);
+        QVERIFY(!QFileInfo::exists(project.paths().deletedPath(b.fileName)));
+        QVERIFY(project.trashedPhotos().empty());
+        QCOMPARE(project.visiblePhotos().size(), size_t(1));
+        QVERIFY(!project.undoLast());
+        // Foto ativa nunca é apagada por purge.
+        QCOMPARE(project.purge(project.visiblePhotos().front()), 0);
+    }
+
     void sliderWithLayersIsAnAdjustment()
     {
         QTemporaryDir dir;
@@ -289,7 +350,7 @@ private slots:
         }
         QSqlDatabase::removeDatabase(QStringLiteral("old"));
         Project project(root);
-        QCOMPARE(project.db().schemaVersion(), 12);
+        QCOMPARE(project.db().schemaVersion(), Database::latestSchemaVersion());
         QVERIFY(project.db().scalar(QStringLiteral("SELECT count(*) FROM pragma_table_info('photoeditor_photo') WHERE "
                                                    "name = 'instagram_of_id'"))
                     .toInt()

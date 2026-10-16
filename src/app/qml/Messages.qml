@@ -160,6 +160,8 @@ QtObject {
     function actionName(kind) {
         switch (kind) {
         case "delete": return qsTr("Delete");
+        case "archive": return qsTr("Archive");
+        case "restore": return qsTr("Restore");
         case "adjust": return qsTr("Adjustment");
         case "auto": return qsTr("Auto");
         case "preset": return qsTr("Preset");
@@ -195,6 +197,14 @@ QtObject {
         switch (key) {
         case "status.deleted":
             return qsTr("%1 moved to deleted/.").arg(name);
+        case "status.archived":
+            return qsTr("Archived: %1").arg(name);
+        case "status.restored":
+            return qsTr("Restored: %1").arg(name);
+        case "status.purged":
+            return qsTr("Permanently deleted: %1").arg(name);
+        case "status.trashEmptied":
+            return qsTr("%n photo(s) permanently deleted.", "", p.count !== undefined ? Number(p.count) : 0);
         case "status.duplicated":
             return qsTr("%1 created: same file, its own adjustments.").arg(name);
         case "status.instagramCreated":

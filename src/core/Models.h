@@ -22,6 +22,7 @@ namespace PhotoStatus {
 inline const QString Active = QStringLiteral("active");
 inline const QString Deleted = QStringLiteral("deleted");
 inline const QString Missing = QStringLiteral("missing");
+inline const QString Archived = QStringLiteral("archived");
 } // namespace PhotoStatus
 
 /// Tipos de ação do histórico (HistoryEntry.kind).
@@ -36,6 +37,8 @@ inline const QString Layer = QStringLiteral("layer");
 inline const QString Duplicate = QStringLiteral("duplicate");
 inline const QString Cover = QStringLiteral("cover");
 inline const QString Instagram = QStringLiteral("instagram");
+inline const QString Archive = QStringLiteral("archive");
+inline const QString Restore = QStringLiteral("restore");
 } // namespace HistoryKind
 
 struct Photo
@@ -44,6 +47,7 @@ struct Photo
     QDateTime created;
     QString fileName;
     QString deletedFileName;
+    QString archivedFileName;
     QString status = PhotoStatus::Active;
     qint64 sizeBytes = 0;
     qint64 mtimeNs = 0;
@@ -57,12 +61,17 @@ struct Photo
     QString instagramOf;  ///< versão Instagram: id da foto de origem
 
     bool isActive() const { return status == PhotoStatus::Active; }
+    bool isArchived() const { return status == PhotoStatus::Archived; }
+    bool isDeleted() const { return status == PhotoStatus::Deleted; }
     bool isCopy() const { return !copyOf.isEmpty(); }
     bool isInstagram() const { return !instagramOf.isEmpty(); }
     /// Altura/largura na orientação de exibição — o que o crop preserva.
     double aspect() const { return width && height ? static_cast<double>(height) / width : 1.0; }
     /// Nome do arquivo em raw/ (a cópia lê o da original).
     QString sourceFileName;
+    /// Caminho ATUAL do JPEG: raw/, archived/ ou deleted/, conforme o status de
+    /// quem é dono do arquivo (a original, numa cópia). Montado na leitura do catálogo.
+    QString sourcePath;
 };
 
 /// Estado de edição de uma foto: ajustes, preset, crop e camadas.

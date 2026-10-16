@@ -96,7 +96,20 @@ public:
     EditState runAuto(const Photo &p, const QString &layerId = {});
 
     // --- ações ------------------------------------------------------------- //
+    /// Lixeira: o JPEG vai para deleted/ (de raw/ ou de archived/). Desfazível.
     void deletePhoto(const Photo &p);
+    /// Arquivo: o JPEG vai de raw/ para archived/; sai da filmstrip e do Exportar.
+    void archivePhoto(const Photo &p);
+    /// Da lixeira ou do arquivo de volta para raw/ (a filmstrip).
+    void restorePhoto(const Photo &p);
+    /// EXCLUSÃO DEFINITIVA de uma foto da lixeira (arquivo, catálogo, cópias,
+    /// histórico, merges, exportações). Sem desfazer. Devolve as linhas removidas.
+    int purge(const Photo &p);
+    /// purge de toda a lixeira; devolve quantas fotos saíram.
+    int emptyTrash();
+    std::vector<Photo> archivedPhotos() const;
+    std::vector<Photo> trashedPhotos() const;
+    int countWithStatus(const QString &status) const;
     Photo duplicate(const Photo &p);
     Photo setCover(const Photo &p, bool on);
     std::optional<Photo> cover() const;
@@ -151,6 +164,11 @@ private:
     Photo photoFromQuery(const QSqlQuery &q) const;
     std::vector<Photo> queryPhotos(const QString &where, std::initializer_list<QVariant> params = {}) const;
     void saveState(const Photo &p, const EditState &state);
+    /// Move o JPEG para a pasta do ``status`` (raw/, archived/, deleted/) e
+    /// grava status e nome no catálogo; devolve o nome no destino.
+    QString moveTo(const Photo &p, const QString &status);
+    QJsonObject placeJson(const QString &status, const QString &name) const;
+    void changeStatus(const Photo &p, const QString &status, const QString &kind);
     void undoEntry(const HistoryEntry &entry);
     void redoEntry(const HistoryEntry &entry);
     QString copyName(const Photo &root, const QString &suffix) const;

@@ -35,6 +35,11 @@ class EditorController : public QObject
     QML_ANONYMOUS
 
     // Filmstrip
+    /// O que a filmstrip mostra: "photos" (as vivas, editáveis), "archived"
+    /// (arquivadas) ou "trash" (lixeira). Fora de "photos" nada se edita.
+    Q_PROPERTY(QString view READ view WRITE setView NOTIFY viewChanged)
+    Q_PROPERTY(int archivedCount READ archivedCount NOTIFY countsChanged)
+    Q_PROPERTY(int trashCount READ trashCount NOTIFY countsChanged)
     Q_PROPERTY(PhotoListModel *photos READ photos CONSTANT)
     Q_PROPERTY(int currentIndex READ currentIndex WRITE setCurrentIndex NOTIFY currentChanged)
     /// {id, fileName, width, height, aspect, capturedAt, isCopy, isInstagram,
@@ -113,6 +118,12 @@ public:
     pe::Exporter *exporter() const { return m_exporter.get(); }
 
     PhotoListModel *photos() { return &m_model; }
+    QString view() const { return m_view; }
+    void setView(const QString &view);
+    int archivedCount() const { return m_archivedCount; }
+    int trashCount() const { return m_trashCount; }
+    /// Só na visualização "photos" a foto é editável.
+    bool editable() const { return m_view == QLatin1String("photos"); }
     int currentIndex() const { return m_index; }
     void setCurrentIndex(int index);
     QVariantMap current() const;
@@ -207,7 +218,16 @@ public:
     Q_INVOKABLE void cancelSelection();
 
     // --- ações -------------------------------------------------------------- //
+    /// Del: para a lixeira (das fotos ou do arquivo).
     Q_INVOKABLE void deleteCurrent();
+    /// Backspace: para o arquivo (archived/).
+    Q_INVOKABLE void archiveCurrent();
+    /// Do arquivo ou da lixeira de volta para a filmstrip.
+    Q_INVOKABLE void restoreCurrent();
+    /// Exclusão DEFINITIVA da foto atual da lixeira (sem desfazer).
+    Q_INVOKABLE void purgeCurrent();
+    /// Exclusão DEFINITIVA de toda a lixeira (sem desfazer).
+    Q_INVOKABLE void emptyTrash();
     Q_INVOKABLE void duplicateCurrent();
     Q_INVOKABLE void toggleCover();
     /// I: cria/abre a versão Instagram; dentro dela, volta à foto de origem.
@@ -225,6 +245,8 @@ public:
 
 signals:
     void currentChanged();
+    void viewChanged();
+    void countsChanged();
     void sortModeChanged();
     void statusMessageChanged();
     void editedUrlChanged();
@@ -250,7 +272,7 @@ private:
     void setStatus(const QString &key, const QVariantMap &params = {});
     void setBusy(bool busy);
     void fail(const std::exception &e);
-    void registerThumbnails();
+    void registerThumbnails(const std::vector<pe::Photo> &photos);
     QString maskUrl(const QString &key) const;
     template<typename Fn>
     void guarded(Fn &&fn);
@@ -260,6 +282,9 @@ private:
     std::unique_ptr<pe::imaging::Segmenter> m_segmenter;
     PhotoListModel m_model;
     int m_index = -1;
+    QString m_view = QStringLiteral("photos");
+    int m_archivedCount = 0;
+    int m_trashCount = 0;
     QString m_sortMode;
     QString m_status;
     QVariantMap m_statusParams;

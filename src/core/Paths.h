@@ -46,6 +46,8 @@ public:
     QString rawDir() const;
     QString projectDataDir() const;
     QString deletedDir() const;
+    /// Fotos arquivadas (Backspace): fora da filmstrip, guardadas.
+    QString archivedDir() const;
     QString publishDir() const;
     QString instagramDir() const;
     QString database() const;
@@ -56,6 +58,7 @@ public:
 
     QString rawPath(const QString &fileName) const;
     QString deletedPath(const QString &fileName) const;
+    QString archivedPath(const QString &fileName) const;
 
     /// Pasta escolhida -> raiz do projeto (escolher a própria raw/ vale a de cima).
     static QString projectRoot(const QString &chosen);

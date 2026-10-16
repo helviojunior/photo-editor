@@ -19,6 +19,13 @@ import QtQuick
 //
 //   Dialogs.alert({ title: qsTr("Could not save"), variant: "danger" }, () => ...)
 //
+// Ação sem volta (excluir definitivamente): ``requireText`` pede que a pessoa
+// digite aquela palavra (ou número) antes de o botão de confirmar acender;
+// ``requirePrompt`` troca a frase padrão ("Type <b>X</b> to confirm.").
+//
+//   Dialogs.confirm({ ..., variant: "danger", requireText: qsTr("delete"),
+//                     onConfirm: () => App.editor.purgeCurrent() })
+//
 //   Dialogs.choose({
 //       title: ..., description: ..., variant: "warning",
 //       buttons: [{ id: "move", label: qsTr("Move"), variant: "default", primary: true },
@@ -41,6 +48,11 @@ QtObject {
     /// Uma ação de ``onConfirm`` em andamento (botões travados, sem Esc).
     property bool busy: false
     property string busyButton: ""
+    /// O que a pessoa digitou no campo de ``requireText`` (o DialogHost escreve).
+    property string typed: ""
+    /// O diálogo atual não pede texto, ou o digitado confere (sem caixa nem espaços nas pontas).
+    readonly property bool typedOk: !current || !current.requireText
+        || typed.trim().toLowerCase() === String(current.requireText).trim().toLowerCase()
 
     property var _queue: []
 
@@ -60,6 +72,8 @@ QtObject {
             ],
             action: o.onConfirm || null,
             actionButton: "confirm",
+            requireText: o.requireText !== undefined ? String(o.requireText) : "",
+            requirePrompt: o.requirePrompt || "",
             resolve: (id) => {
                 if (id === "confirm") {
                     if (onAccepted)
@@ -119,12 +133,16 @@ QtObject {
         }
         busy = false;
         busyButton = "";
+        typed = "";
         current = dialog;
     }
 
     function _press(id) {
         const d = current;
         if (!d || busy)
+            return;
+        // Texto de confirmação pendente: o botão está apagado, e o Enter também não passa.
+        if (id === d.actionButton && !typedOk)
             return;
         if (d.action && id === d.actionButton) {
             _run(d, id);
@@ -170,6 +188,7 @@ QtObject {
         const d = current;
         busy = false;
         busyButton = "";
+        typed = "";
         current = null;
         if (d && d.resolve)
             d.resolve(id === "" ? (d.buttons.length === 1 ? d.buttons[0].id : "") : id);

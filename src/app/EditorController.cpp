@@ -143,6 +143,7 @@ void EditorController::setProject(Project *project)
     }
     m_chain->pool.waitForDone();
     m_project = project;
+    m_view = QStringLiteral("photos");
     m_selecting = false;
     m_picking = false;
     m_picked.clear();
@@ -175,8 +176,13 @@ void EditorController::reload(const QString &focusId)
         loadCurrent();
         return;
     }
-    std::vector<Photo> photos = m_project->visiblePhotos();
+    std::vector<Photo> photos = m_view == QLatin1String("archived") ? m_project->archivedPhotos()
+        : m_view == QLatin1String("trash")                         ? m_project->trashedPhotos()
+                                                                   : m_project->visiblePhotos();
     sortPhotos(photos, m_sortMode);
+    m_archivedCount = m_project->countWithStatus(PhotoStatus::Archived);
+    m_trashCount = m_project->countWithStatus(PhotoStatus::Deleted);
+    emit countsChanged();
     QSet<QString> bases, withInstagram;
     for (const auto &m : m_project->liveMerges())
         bases.insert(m.base);
@@ -184,9 +190,11 @@ void EditorController::reload(const QString &focusId)
         if (p.isInstagram())
             withInstagram.insert(p.instagramOf);
     }
+    // Antes do reset: os delegates da faixa pedem os thumbnails assim que o
+    // modelo muda, e um pedido que chega antes do registro vira "image unavailable".
+    registerThumbnails(photos);
     m_model.reset(std::move(photos), bases, withInstagram);
     m_model.setPicked(m_picked);
-    registerThumbnails();
     int index = keep.isEmpty() ? -1 : m_model.indexOf(keep);
     if (index < 0) {
         // A foto saiu (excluída): fica a que ocupou o lugar dela.
@@ -198,10 +206,10 @@ void EditorController::reload(const QString &focusId)
     loadCurrent();
 }
 
-void EditorController::registerThumbnails()
+void EditorController::registerThumbnails(const std::vector<Photo> &photos)
 {
     const ProjectPaths paths = m_project->paths();
-    for (const Photo &p : m_model.photos()) {
+    for (const Photo &p : photos) {
         const QString key = QStringLiteral("%1-%2").arg(p.id).arg(p.mtimeNs);
         ImageRegistry::instance().put(QStringLiteral("thumb"), key,
                                       [paths, p]() { return imagefiles::load(ensureThumbnail(paths, p)); });
@@ -237,8 +245,10 @@ void EditorController::selectPhoto(const QString &id)
 
 void EditorController::next()
 {
+    // Na filmstrip as versões Instagram ficam escondidas (abrem pelo I); no
+    // arquivo e na lixeira elas são itens como qualquer outro.
     for (int i = m_index + 1; i < m_model.count(); ++i) {
-        if (!m_model.at(i).isInstagram()) {
+        if (!editable() || !m_model.at(i).isInstagram()) {
             setCurrentIndex(i);
             return;
         }
@@ -248,11 +258,27 @@ void EditorController::next()
 void EditorController::previous()
 {
     for (int i = m_index - 1; i >= 0; --i) {
-        if (!m_model.at(i).isInstagram()) {
+        if (!editable() || !m_model.at(i).isInstagram()) {
             setCurrentIndex(i);
             return;
         }
     }
+}
+
+void EditorController::setView(const QString &view)
+{
+    const QString v = (view == QLatin1String("archived") || view == QLatin1String("trash")) ? view : QStringLiteral("photos");
+    if (v == m_view)
+        return;
+    commit();
+    if (m_selecting)
+        cancelSelection();
+    setPicking(false);
+    m_view = v;
+    m_index = 0;
+    m_activeLayer.clear();
+    emit viewChanged();
+    reload(QStringLiteral("-"));  // nenhuma foto preferida: começa da primeira
 }
 
 void EditorController::setSortMode(const QString &mode)
@@ -301,7 +327,12 @@ QVariantMap EditorController::current() const
     if (!p)
         return {};
     int position = 0, total = 0;
-    for (int i = 0; i < m_model.count(); ++i) {
+    if (!editable()) {
+        // Arquivo e lixeira: todos os itens contam, versões Instagram inclusive.
+        position = m_index + 1;
+        total = m_model.count();
+    }
+    for (int i = 0; editable() && i < m_model.count(); ++i) {
         const Photo &q = m_model.at(i);
         if (q.isInstagram())
             continue;
@@ -309,7 +340,7 @@ QVariantMap EditorController::current() const
         if (i <= m_index || q.id == p->instagramOf)
             position = total;
     }
-    if (p->isInstagram()) {
+    if (editable() && p->isInstagram()) {
         const int origin = m_model.indexOf(p->instagramOf);
         position = 0;
         for (int i = 0; i <= origin && i < m_model.count(); ++i) {
@@ -330,6 +361,7 @@ QVariantMap EditorController::current() const
         {QStringLiteral("instagramOf"), p->instagramOf},
         {QStringLiteral("hasInstagram"), m_model.data(idx, PhotoListModel::HasInstagramRole)},
         {QStringLiteral("isCover"), p->isCover},
+        {QStringLiteral("status"), p->status},
         {QStringLiteral("isMergeBase"), m_merge.has_value() && !p->isInstagram()},
         {QStringLiteral("mergeId"), m_merge ? m_merge->merge.id : QString()},
         {QStringLiteral("instagramName"), p->isInstagram() ? QStringLiteral("instagram/") + p->fileName : QString()},
@@ -573,7 +605,7 @@ void EditorController::cycleLayer()
 void EditorController::setValue(const QString &name, double value)
 {
     const auto slider = imaging::sliderByName(name);
-    if (!slider || !currentPhoto())
+    if (!slider || !currentPhoto() || !editable())
         return;
     draftValues()[*slider] = imaging::clampValue(*slider, value);
     emit stateChanged();
@@ -611,7 +643,7 @@ void EditorController::commit()
 
 void EditorController::togglePreset(const QString &id)
 {
-    if (!currentPhoto())
+    if (!currentPhoto() || !editable())
         return;
     QString &preset = draftPreset();
     preset = preset == id ? QString() : imaging::normalizePreset(id);
@@ -621,7 +653,7 @@ void EditorController::togglePreset(const QString &id)
 void EditorController::autoAdjust()
 {
     const Photo *p = currentPhoto();
-    if (!p)
+    if (!p || !editable())
         return;
     setBusy(true);
     guarded([&]() { m_project->runAuto(*p, m_activeLayer); });
@@ -632,7 +664,7 @@ void EditorController::autoAdjust()
 void EditorController::reset()
 {
     const Photo *p = currentPhoto();
-    if (!p)
+    if (!p || !editable())
         return;
     guarded([&]() { m_project->reset(*p); });
     m_activeLayer.clear();
@@ -656,7 +688,7 @@ double EditorController::cropMaxScaleFor(double angle) const
 void EditorController::setCrop(const QVariantMap &crop)
 {
     const Photo *p = currentPhoto();
-    if (!p)
+    if (!p || !editable())
         return;
     m_draft.crop = imaging::normalizeCrop(cropFrom(crop, m_draft.crop), p->aspect(), m_project->cropRatios(*p));
     emit stateChanged();
@@ -726,7 +758,7 @@ double EditorController::selectionCoverage() const
 void EditorController::beginSelection(const QString &layerId)
 {
     const Photo *p = currentPhoto();
-    if (!p || !m_project)
+    if (!p || !m_project || !editable())
         return;
     if (layerId.isEmpty() && static_cast<int>(m_draft.layers.size()) >= imaging::kMaxLayers)
         return;
@@ -866,7 +898,7 @@ void EditorController::cancelSelection()
 void EditorController::deleteCurrent()
 {
     const Photo *p = currentPhoto();
-    if (!p)
+    if (!p || m_view == QLatin1String("trash"))
         return;
     const QString name = p->fileName;
     bool ok = false;
@@ -880,10 +912,67 @@ void EditorController::deleteCurrent()
     reload();
 }
 
+void EditorController::archiveCurrent()
+{
+    const Photo *p = currentPhoto();
+    if (!p || !editable())
+        return;
+    const QString name = p->fileName;
+    bool ok = false;
+    guarded([&]() {
+        m_project->archivePhoto(*p);
+        ok = true;
+    });
+    if (!ok)
+        return;
+    setStatus(QStringLiteral("status.archived"), {{QStringLiteral("name"), name}});
+    reload();
+}
+
+void EditorController::restoreCurrent()
+{
+    const Photo *p = currentPhoto();
+    if (!p || editable())
+        return;
+    const QString name = p->fileName;
+    bool ok = false;
+    guarded([&]() {
+        m_project->restorePhoto(*p);
+        ok = true;
+    });
+    if (!ok)
+        return;
+    setStatus(QStringLiteral("status.restored"), {{QStringLiteral("name"), name}});
+    reload();
+}
+
+void EditorController::purgeCurrent()
+{
+    const Photo *p = currentPhoto();
+    if (!p || m_view != QLatin1String("trash"))
+        return;
+    const QString name = p->fileName;
+    guarded([&]() { m_project->purge(*p); });
+    setStatus(QStringLiteral("status.purged"), {{QStringLiteral("name"), name}});
+    reload();
+    emit historyChanged();
+}
+
+void EditorController::emptyTrash()
+{
+    if (!m_project)
+        return;
+    int count = 0;
+    guarded([&]() { count = m_project->emptyTrash(); });
+    setStatus(QStringLiteral("status.trashEmptied"), {{QStringLiteral("count"), count}});
+    reload();
+    emit historyChanged();
+}
+
 void EditorController::duplicateCurrent()
 {
     const Photo *p = currentPhoto();
-    if (!p)
+    if (!p || !editable())
         return;
     guarded([&]() {
         const Photo copy = m_project->duplicate(*p);
@@ -895,7 +984,7 @@ void EditorController::duplicateCurrent()
 void EditorController::toggleCover()
 {
     const Photo *p = currentPhoto();
-    if (!p)
+    if (!p || !editable())
         return;
     guarded([&]() {
         const bool on = !p->isCover;
@@ -910,7 +999,7 @@ void EditorController::toggleCover()
 void EditorController::toggleInstagram()
 {
     const Photo *p = currentPhoto();
-    if (!p)
+    if (!p || !editable())
         return;
     if (p->isInstagram()) {
         selectPhoto(p->instagramOf);

@@ -44,12 +44,20 @@ QtObject {
     readonly property var actions: [
         { id: "nextPhoto", group: qsTr("Photos"), name: qsTr("Next photo (rotates the frame in crop)"), icon: "chevron-right", keys: ["Right"] },
         { id: "previousPhoto", group: qsTr("Photos"), name: qsTr("Previous photo (rotates the frame in crop)"), icon: "chevron-left", keys: ["Left"] },
-        { id: "deletePhoto", group: qsTr("Photos"), name: qsTr("Delete photo"), icon: "trash-2", keys: ["Del", "Backspace"] },
+        // No Mac o ⌫ é o Backspace (arquivar) e o fn+⌫ é o Del (lixeira).
+        { id: "archivePhoto", group: qsTr("Photos"), name: qsTr("Archive photo"), icon: "archive", keys: ["Backspace"] },
+        { id: "deletePhoto", group: qsTr("Photos"), name: qsTr("Move to trash"), icon: "trash-2", keys: ["Del"] },
+        { id: "restorePhoto", group: qsTr("Photos"), name: qsTr("Restore photo"), icon: "archive-restore", keys: ["Ctrl+Shift+R"] },
         { id: "duplicate", group: qsTr("Photos"), name: qsTr("Duplicate photo"), icon: "copy", keys: ["Ctrl+D"] },
         { id: "cover", group: qsTr("Photos"), name: qsTr("Set or unset cover"), icon: "star", keys: [] },
         { id: "instagram", group: qsTr("Photos"), name: qsTr("Instagram version"), icon: "instagram", keys: ["I"] },
         { id: "rescan", group: qsTr("Photos"), name: qsTr("Rescan raw/"), icon: "refresh-cw", keys: [] },
         { id: "merge", group: qsTr("Photos"), name: qsTr("Select photos to merge"), icon: "combine", keys: [] },
+        { id: "showPhotos", group: qsTr("Photos"), name: qsTr("Show photos"), icon: "image", keys: [] },
+        { id: "showArchived", group: qsTr("Photos"), name: qsTr("Show archived photos"), icon: "archive", keys: [] },
+        { id: "showTrash", group: qsTr("Photos"), name: qsTr("Show trash"), icon: "trash-2", keys: [] },
+        { id: "purgePhoto", group: qsTr("Photos"), name: qsTr("Delete permanently"), icon: "trash-2", keys: [] },
+        { id: "emptyTrash", group: qsTr("Photos"), name: qsTr("Empty trash"), icon: "trash-2", keys: [] },
 
         { id: "undo", group: qsTr("Editing"), name: qsTr("Undo"), icon: "undo-2", keys: ["Ctrl+Z"] },
         { id: "redo", group: qsTr("Editing"), name: qsTr("Redo"), icon: "redo-2", keys: ["Ctrl+Shift+Z", "Ctrl+Y"] },

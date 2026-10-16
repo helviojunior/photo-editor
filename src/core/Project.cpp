@@ -24,7 +24,9 @@ namespace {
 const QString kPhotoColumns = QStringLiteral(
     "p.id, p.created, p.file_name, p.deleted_file_name, p.status, p.size_bytes, p.mtime_ns, p.width, p.height, "
     "p.orientation, p.captured_at, p.exported_hash, p.is_cover, p.copy_of_id, p.instagram_of_id, "
-    "COALESCE(o.file_name, p.file_name)");
+    "COALESCE(o.file_name, p.file_name), p.archived_file_name, "
+    "COALESCE(o.status, p.status), COALESCE(o.deleted_file_name, p.deleted_file_name), "
+    "COALESCE(o.archived_file_name, p.archived_file_name)");
 
 const QString kPhotoFrom = QStringLiteral(
     " FROM photoeditor_photo p LEFT JOIN photoeditor_photo o ON o.id = p.copy_of_id ");
@@ -175,6 +177,17 @@ Photo Project::photoFromQuery(const QSqlQuery &q) const
     p.copyOf = q.value(13).toString();
     p.instagramOf = q.value(14).toString();
     p.sourceFileName = q.value(15).toString();
+    p.archivedFileName = q.value(16).toString();
+    // Onde o JPEG está agora: depende do status de quem é dono dele.
+    const QString ownerStatus = q.value(17).toString();
+    const QString ownerDeleted = q.value(18).toString();
+    const QString ownerArchived = q.value(19).toString();
+    if (ownerStatus == PhotoStatus::Deleted)
+        p.sourcePath = m_paths.deletedPath(ownerDeleted.isEmpty() ? p.sourceFileName : ownerDeleted);
+    else if (ownerStatus == PhotoStatus::Archived)
+        p.sourcePath = m_paths.archivedPath(ownerArchived.isEmpty() ? p.sourceFileName : ownerArchived);
+    else
+        p.sourcePath = m_paths.rawPath(p.sourceFileName);
     return p;
 }
 
@@ -223,7 +236,22 @@ std::vector<Photo> Project::visiblePhotos() const
 
 QString Project::rawPathOf(const Photo &p) const
 {
-    return m_paths.rawPath(p.sourceFileName.isEmpty() ? p.fileName : p.sourceFileName);
+    return p.sourcePath.isEmpty() ? m_paths.rawPath(p.fileName) : p.sourcePath;
+}
+
+std::vector<Photo> Project::archivedPhotos() const
+{
+    return queryPhotos(QStringLiteral("p.status = 'archived'"));
+}
+
+std::vector<Photo> Project::trashedPhotos() const
+{
+    return queryPhotos(QStringLiteral("p.status = 'deleted'"));
+}
+
+int Project::countWithStatus(const QString &status) const
+{
+    return m_db.scalar(QStringLiteral("SELECT count(*) FROM photoeditor_photo WHERE status = ?"), {status}).toInt();
 }
 
 // --------------------------------------------------------------------------- //
@@ -268,7 +296,7 @@ ScanSummary Project::scan()
             if (it->status != PhotoStatus::Active) {
                 // Voltou para raw/ por fora do editor (movida à mão).
                 m_db.exec(QStringLiteral("UPDATE photoeditor_photo SET status = 'active', deleted_file_name = '', "
-                                         "updated = ? WHERE id = ?"),
+                                         "archived_file_name = '', updated = ? WHERE id = ?"),
                           {nowTs(), it->id});
                 ++summary.restored;
             }
@@ -311,6 +339,9 @@ ScanSummary Project::scan()
             continue;
         if (p.status == PhotoStatus::Deleted
             && QFileInfo(m_paths.deletedPath(p.deletedFileName.isEmpty() ? p.fileName : p.deletedFileName)).isFile())
+            continue;
+        if (p.status == PhotoStatus::Archived
+            && QFileInfo(m_paths.archivedPath(p.archivedFileName.isEmpty() ? p.fileName : p.archivedFileName)).isFile())
             continue;
         if (p.status != PhotoStatus::Missing) {
             m_db.exec(QStringLiteral("UPDATE photoeditor_photo SET status = 'missing', updated = ? WHERE id = ?"),
@@ -432,38 +463,164 @@ EditState Project::reset(const Photo &p)
 // Exclusão, cópia, capa, versão Instagram
 // --------------------------------------------------------------------------- //
 
-void Project::deletePhoto(const Photo &p)
+QString Project::moveTo(const Photo &p, const QString &status)
 {
+    // Cópia virtual não tem arquivo: só o status muda.
     if (p.isCopy()) {
-        Transaction tx(m_db);
-        m_db.exec(QStringLiteral("UPDATE photoeditor_photo SET status = 'deleted', updated = ? WHERE id = ?"),
-                  {nowTs(), p.id});
-        record(p, HistoryKind::Delete, {{QStringLiteral("status"), PhotoStatus::Active}},
-               {{QStringLiteral("status"), PhotoStatus::Deleted}, {QStringLiteral("copy"), true}});
-        tx.commit();
-        qCInfo(lcProject) << "Deleted duplicate" << p.fileName;
-        return;
+        m_db.exec(QStringLiteral("UPDATE photoeditor_photo SET status = ?, updated = ? WHERE id = ?"),
+                  {status, nowTs(), p.id});
+        return {};
     }
-    const QString source = m_paths.rawPath(p.fileName);
+    const QString source = p.sourcePath.isEmpty() ? m_paths.rawPath(p.fileName) : p.sourcePath;
     if (!QFileInfo(source).isFile())
         throw ActionError(QStringLiteral("error.photoFileMissing"), {{QStringLiteral("name"), p.fileName}});
-    QDir().mkpath(m_paths.deletedDir());
-    const QString target = freeName(m_paths.deletedDir(), p.fileName);
-    Transaction tx(m_db);
-    if (!moveFile(source, m_paths.deletedPath(target)))
+    QString dir, name;
+    if (status == PhotoStatus::Active) {
+        // De volta a raw/ com o nome original; ocupado = conflito (nunca sobrescreve).
+        dir = m_paths.rawDir();
+        name = p.fileName;
+        if (QFileInfo::exists(QDir(dir).filePath(name)))
+            throw ActionError(QStringLiteral("error.restoreConflict"), {{QStringLiteral("name"), p.fileName}});
+    } else {
+        dir = status == PhotoStatus::Archived ? m_paths.archivedDir() : m_paths.deletedDir();
+        QDir().mkpath(dir);
+        name = freeName(dir, p.fileName);
+    }
+    const QString target = QDir(dir).filePath(name);
+    if (!moveFile(source, target))
         throw ActionError(QStringLiteral("error.photoFileMissing"), {{QStringLiteral("name"), p.fileName}});
     try {
-        m_db.exec(QStringLiteral("UPDATE photoeditor_photo SET status = 'deleted', deleted_file_name = ?, updated = ? "
-                                 "WHERE id = ?"),
-                  {target, nowTs(), p.id});
-        record(p, HistoryKind::Delete, {{QStringLiteral("status"), PhotoStatus::Active}},
-               {{QStringLiteral("status"), PhotoStatus::Deleted}, {QStringLiteral("deleted_file_name"), target}});
-        tx.commit();
+        m_db.exec(QStringLiteral("UPDATE photoeditor_photo SET status = ?, deleted_file_name = ?, archived_file_name = ?, "
+                                 "updated = ? WHERE id = ?"),
+                  {status, status == PhotoStatus::Deleted ? name : QString(),
+                   status == PhotoStatus::Archived ? name : QString(), nowTs(), p.id});
     } catch (...) {
-        moveFile(m_paths.deletedPath(target), source);
+        moveFile(target, source);
         throw;
     }
-    qCInfo(lcProject) << "Deleted" << p.fileName << "-> deleted/" + target;
+    return name;
+}
+
+QJsonObject Project::placeJson(const QString &status, const QString &name) const
+{
+    QJsonObject o{{QStringLiteral("status"), status}};
+    if (status == PhotoStatus::Deleted && !name.isEmpty())
+        o.insert(QStringLiteral("deleted_file_name"), name);
+    if (status == PhotoStatus::Archived && !name.isEmpty())
+        o.insert(QStringLiteral("archived_file_name"), name);
+    return o;
+}
+
+void Project::changeStatus(const Photo &p, const QString &status, const QString &kind)
+{
+    // Excluir, arquivar e restaurar: o arquivo muda de pasta e o histórico
+    // guarda de onde veio (o desfazer leva de volta para lá).
+    if (p.status == status)
+        return;
+    const QString beforeName = p.isDeleted() ? p.deletedFileName : (p.isArchived() ? p.archivedFileName : QString());
+    Transaction tx(m_db);
+    const QString name = moveTo(p, status);
+    QJsonObject after = placeJson(status, name);
+    if (p.isCopy())
+        after.insert(QStringLiteral("copy"), true);
+    record(p, kind, placeJson(p.status, beforeName), after);
+    tx.commit();
+    qCInfo(lcProject) << kind << p.fileName << p.status << "->" << status;
+}
+
+void Project::deletePhoto(const Photo &p)
+{
+    changeStatus(p, PhotoStatus::Deleted, HistoryKind::Delete);
+}
+
+void Project::archivePhoto(const Photo &p)
+{
+    if (!p.isActive())
+        return;
+    changeStatus(p, PhotoStatus::Archived, HistoryKind::Archive);
+}
+
+void Project::restorePhoto(const Photo &p)
+{
+    if (p.isInstagram() && instagramVersionOf(requirePhoto(p.instagramOf)))
+        throw ActionError(QStringLiteral("instagram.versionExists"));
+    changeStatus(p, PhotoStatus::Active, HistoryKind::Restore);
+}
+
+int Project::purge(const Photo &photo)
+{
+    // EXCLUSÃO DEFINITIVA (sem desfazer): o arquivo em deleted/, a linha do
+    // catálogo e tudo que depende dela — cópias virtuais e versões Instagram
+    // (leem o mesmo arquivo), histórico, ajustes, participação em merges e o
+    // que já tinha sido exportado para publicar/.
+    if (!photo.isDeleted())
+        return 0;
+    int removed = 0;
+    std::vector<Photo> family{photo};
+    for (const Photo &dep : queryPhotos(QStringLiteral("p.copy_of_id = ? OR p.instagram_of_id = ?"), {photo.id, photo.id}))
+        family.push_back(dep);
+    Transaction tx(m_db);
+    for (const Photo &p : family) {
+        // Exportações que o editor escreveu para ela.
+        if (!p.exportedHash.isEmpty()) {
+            if (p.isInstagram()) {
+                QFile::remove(QDir(m_paths.instagramDir()).filePath(p.fileName));
+            } else {
+                QFile::remove(QDir(m_paths.publishDir()).filePath(p.fileName));
+                QFile::remove(QDir(m_paths.publishDir()).filePath(mergeExportName(p)));
+            }
+        }
+        // Merges: base some = merge some; camada some = sai da lista.
+        for (const auto &m : std::vector<MergeRecord>([&] {
+                 std::vector<MergeRecord> all;
+                 QSqlQuery q = m_db.exec(QStringLiteral("SELECT id, base_id, layers, base_mask, base_opacity FROM "
+                                                        "photoeditor_merge"));
+                 while (q.next())
+                     all.push_back(mergeFromQuery(q));
+                 return all;
+             }())) {
+            if (m.base == p.id) {
+                m_db.exec(QStringLiteral("DELETE FROM photoeditor_merge WHERE id = ?"), {m.id});
+                continue;
+            }
+            MergeRecord changed = m;
+            std::erase_if(changed.layers, [&](const MergeLayer &e) { return e.photo == p.id; });
+            if (changed.layers.size() == m.layers.size())
+                continue;
+            if (changed.layers.empty())
+                m_db.exec(QStringLiteral("DELETE FROM photoeditor_merge WHERE id = ?"), {m.id});
+            else
+                saveMerge(changed);
+        }
+        m_db.exec(QStringLiteral("DELETE FROM photoeditor_historyentry WHERE photo_id = ?"), {p.id});
+        m_db.exec(QStringLiteral("DELETE FROM photoeditor_adjustment WHERE photo_id = ?"), {p.id});
+    }
+    // Dependentes antes da original (as FKs apontam para ela).
+    for (auto it = family.rbegin(); it != family.rend(); ++it) {
+        m_db.exec(QStringLiteral("DELETE FROM photoeditor_photo WHERE id = ?"), {it->id});
+        ++removed;
+    }
+    tx.commit();
+    if (!photo.isCopy()) {
+        const QString file = m_paths.deletedPath(photo.deletedFileName.isEmpty() ? photo.fileName : photo.deletedFileName);
+        if (QFileInfo(file).isFile() && !QFile::remove(file))
+            qCWarning(lcProject) << "Could not remove" << file;
+    }
+    qCInfo(lcProject) << "Purged" << photo.fileName << "(" << removed << "catalog rows)";
+    return removed;
+}
+
+int Project::emptyTrash()
+{
+    int count = 0;
+    for (const Photo &p : trashedPhotos()) {
+        // Já levada junto com a original (cópia/versão de uma foto da lixeira).
+        if (!photo(p.id))
+            continue;
+        purge(*photo(p.id));
+        ++count;
+    }
+    return count;
 }
 
 QString Project::copyName(const Photo &root, const QString &suffix) const
@@ -663,22 +820,11 @@ void Project::redoEntry(const HistoryEntry &entry)
     // O espelho do undoEntry: volta ao ``after`` da ação.
     const Photo p = requirePhoto(entry.photoId);
     const QString &kind = entry.kind;
-    if (kind == HistoryKind::Delete) {
-        if (p.isCopy()) {
-            m_db.exec(QStringLiteral("UPDATE photoeditor_photo SET status = 'deleted', updated = ? WHERE id = ?"),
-                      {nowTs(), p.id});
-            return;
-        }
-        const QString source = m_paths.rawPath(p.fileName);
-        if (!QFileInfo(source).isFile())
-            throw ActionError(QStringLiteral("error.photoFileMissing"), {{QStringLiteral("name"), p.fileName}});
-        QDir().mkpath(m_paths.deletedDir());
-        const QString target = freeName(m_paths.deletedDir(), p.fileName);
-        if (!moveFile(source, m_paths.deletedPath(target)))
-            throw ActionError(QStringLiteral("error.photoFileMissing"), {{QStringLiteral("name"), p.fileName}});
-        m_db.exec(QStringLiteral("UPDATE photoeditor_photo SET status = 'deleted', deleted_file_name = ?, updated = ? "
-                                 "WHERE id = ?"),
-                  {target, nowTs(), p.id});
+    if (kind == HistoryKind::Delete || kind == HistoryKind::Archive || kind == HistoryKind::Restore) {
+        const QString target = entry.after.value(QStringLiteral("status")).toString(PhotoStatus::Deleted);
+        if (target == PhotoStatus::Active && p.isInstagram() && instagramVersionOf(requirePhoto(p.instagramOf)))
+            throw ActionError(QStringLiteral("instagram.versionExists"));
+        moveTo(p, target);
         return;
     }
     if (kind == HistoryKind::Duplicate || kind == HistoryKind::Instagram) {
@@ -709,8 +855,10 @@ void Project::undoEntry(const HistoryEntry &entry)
 {
     const Photo p = requirePhoto(entry.photoId);
     const QString &kind = entry.kind;
-    if (kind == HistoryKind::Delete) {
-        if (p.isInstagram()) {
+    if (kind == HistoryKind::Delete || kind == HistoryKind::Archive || kind == HistoryKind::Restore) {
+        // Volta para onde estava antes (entradas antigas: "active").
+        const QString target = entry.before.value(QStringLiteral("status")).toString(PhotoStatus::Active);
+        if (target == PhotoStatus::Active && p.isInstagram() && !p.isActive()) {
             const bool other = m_db.scalar(QStringLiteral("SELECT count(*) FROM photoeditor_photo WHERE "
                                                           "instagram_of_id = ? AND status = 'active'"),
                                            {p.instagramOf})
@@ -720,25 +868,7 @@ void Project::undoEntry(const HistoryEntry &entry)
             if (other)
                 throw ActionError(QStringLiteral("instagram.versionExists"));
         }
-        if (p.isCopy()) {
-            m_db.exec(QStringLiteral("UPDATE photoeditor_photo SET status = 'active', updated = ? WHERE id = ?"),
-                      {nowTs(), p.id});
-            return;
-        }
-        QString name = entry.after.value(QStringLiteral("deleted_file_name")).toString();
-        if (name.isEmpty())
-            name = p.deletedFileName.isEmpty() ? p.fileName : p.deletedFileName;
-        const QString source = m_paths.deletedPath(name);
-        const QString target = m_paths.rawPath(p.fileName);
-        if (QFileInfo::exists(target))
-            throw ActionError(QStringLiteral("error.restoreConflict"), {{QStringLiteral("name"), p.fileName}});
-        if (!QFileInfo(source).isFile())
-            throw ActionError(QStringLiteral("error.photoFileMissing"), {{QStringLiteral("name"), name}});
-        if (!moveFile(source, target))
-            throw ActionError(QStringLiteral("error.photoFileMissing"), {{QStringLiteral("name"), name}});
-        m_db.exec(QStringLiteral("UPDATE photoeditor_photo SET status = 'active', deleted_file_name = '', updated = ? "
-                                 "WHERE id = ?"),
-                  {nowTs(), p.id});
+        moveTo(p, target);
         return;
     }
     if (kind == HistoryKind::Duplicate || kind == HistoryKind::Instagram) {

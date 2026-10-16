@@ -131,6 +131,17 @@ QString MergeController::previewUrl(const Photo &p) const
     return QStringLiteral("image://photo/preview/") + key;
 }
 
+QString MergeController::thumbUrl(const Photo &p) const
+{
+    // As camadas de um merge não estão na filmstrip: o editor não registrou a
+    // miniatura delas — registra-se aqui.
+    const QString key = QStringLiteral("%1-%2").arg(p.id).arg(p.mtimeNs);
+    const ProjectPaths paths = m_merge->paths;
+    ImageRegistry::instance().put(QStringLiteral("thumb"), key,
+                                  [paths, p]() { return imagefiles::load(ensureThumbnail(paths, p)); });
+    return QStringLiteral("image://photo/thumb/") + key;
+}
+
 QString MergeController::maskUrl(const QString &key) const
 {
     if (key.isEmpty() || !m_merge)
@@ -169,7 +180,7 @@ QVariantMap MergeController::base() const
             {QStringLiteral("width"), b.width},
             {QStringLiteral("height"), b.height},
             {QStringLiteral("previewUrl"), previewUrl(b)},
-            {QStringLiteral("thumbUrl"), QStringLiteral("image://photo/thumb/%1-%2").arg(b.id).arg(b.mtimeNs)}};
+            {QStringLiteral("thumbUrl"), thumbUrl(b)}};
 }
 
 QVariantMap MergeController::baseLayer() const
@@ -201,7 +212,7 @@ QVariantList MergeController::layers() const
             {QStringLiteral("fileName"), it->fileName},
             {QStringLiteral("active"), m_active == e.photo},
             {QStringLiteral("available"), it->isActive()},
-            {QStringLiteral("thumbUrl"), QStringLiteral("image://photo/thumb/%1-%2").arg(it->id).arg(it->mtimeNs)},
+            {QStringLiteral("thumbUrl"), thumbUrl(*it)},
             {QStringLiteral("previewUrl"), previewUrl(*it)},
             {QStringLiteral("mask"), e.mask},
             {QStringLiteral("hasMask"), !e.mask.isEmpty()},

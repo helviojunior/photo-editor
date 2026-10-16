@@ -96,6 +96,11 @@ QString ProjectPaths::deletedDir() const
     return QDir(m_root).filePath(QStringLiteral("deleted"));
 }
 
+QString ProjectPaths::archivedDir() const
+{
+    return QDir(m_root).filePath(QStringLiteral("archived"));
+}
+
 QString ProjectPaths::publishDir() const
 {
     // Nome em português: é o pedido do fluxo de publicação do evento.
@@ -135,6 +140,11 @@ QString ProjectPaths::rawPath(const QString &fileName) const
 QString ProjectPaths::deletedPath(const QString &fileName) const
 {
     return QDir(deletedDir()).filePath(fileName);
+}
+
+QString ProjectPaths::archivedPath(const QString &fileName) const
+{
+    return QDir(archivedDir()).filePath(fileName);
 }
 
 QString ProjectPaths::projectRoot(const QString &chosen)

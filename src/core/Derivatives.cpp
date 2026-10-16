@@ -25,7 +25,7 @@ QString cacheName(const ProjectPaths &paths, const QString &kind, const Photo &p
 
 QString rawOf(const ProjectPaths &paths, const Photo &p)
 {
-    return paths.rawPath(p.sourceFileName.isEmpty() ? p.fileName : p.sourceFileName);
+    return p.sourcePath.isEmpty() ? paths.rawPath(p.fileName) : p.sourcePath;
 }
 
 /// Dois pedidos do mesmo derivado ao mesmo tempo (filmstrip + painel) fariam

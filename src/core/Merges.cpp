@@ -303,13 +303,13 @@ std::pair<cv::Mat, QByteArray> renderFull(const MergeSnapshot &s)
 {
     const Photo &base = s.photos.value(s.merge.base);
     const QString masks = s.paths.masksDir();
-    const QString basePath = s.paths.rawPath(base.sourceFileName.isEmpty() ? base.fileName : base.sourceFileName);
+    const QString basePath = base.sourcePath.isEmpty() ? s.paths.rawPath(base.fileName) : base.sourcePath;
     const auto header = imaging::readJpegHeader(basePath);
     const QByteArray exif = header ? header->exif : QByteArray();
     cv::Mat canvas = imaging::loadRgb(basePath);
     const cv::Size size = sizeOf(canvas);
     auto rawOf = [&](const Photo &p) {
-        return s.paths.rawPath(p.sourceFileName.isEmpty() ? p.fileName : p.sourceFileName);
+        return p.sourcePath.isEmpty() ? s.paths.rawPath(p.fileName) : p.sourcePath;
     };
     if (baseFades(s)) {
         if (const auto entry = backdropSource(s)) {

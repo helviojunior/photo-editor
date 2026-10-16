@@ -108,8 +108,8 @@ QByteArray Exporter::renderJob(const ExportJob &job)
     if (job.merge && !job.mergeVersion.isEmpty()) {
         std::tie(rgb, exif) = merges::renderFull(*job.merge);
     } else {
-        const QString raw = job.paths.rawPath(job.photo.sourceFileName.isEmpty() ? job.photo.fileName
-                                                                                 : job.photo.sourceFileName);
+        const QString raw = job.photo.sourcePath.isEmpty() ? job.paths.rawPath(job.photo.fileName)
+                                                           : job.photo.sourcePath;
         auto loaded = imaging::load(raw, frame, longSide);
         rgb = loaded.rgb;
         exif = loaded.exif;

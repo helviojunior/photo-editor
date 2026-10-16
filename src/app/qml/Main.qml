@@ -199,25 +199,47 @@ QQC.ApplicationWindow {
         if (App.hasProject) {
             const editorAction = (id, name, icon) => add(name || Keymap.action(id).name, id,
                                                          icon || Keymap.action(id).icon, () => window.runEditor(id));
+            // Só nas fotos se edita; arquivadas e lixeira têm os comandos delas.
+            const view = App.editor.view;
+            const editable = view === "photos";
             editorAction("nextPhoto", qsTr("Next photo"));
             editorAction("previousPhoto", qsTr("Previous photo"));
-            editorAction("auto", qsTr("Auto adjust"));
-            editorAction("reset");
-            editorAction("crop", qsTr("Crop mode"));
-            editorAction("selectArea", qsTr("Select area"));
-            editorAction("nextLayer");
-            editorAction("instagram", App.editor.current.isInstagram === true
-                ? qsTr("Back to the photo") : qsTr("Instagram version"));
-            editorAction("duplicate");
-            editorAction("cover", App.editor.current.isCover === true ? qsTr("Unset cover") : qsTr("Set as cover"));
-            editorAction("deletePhoto");
+            if (editable) {
+                editorAction("auto", qsTr("Auto adjust"));
+                editorAction("reset");
+                editorAction("crop", qsTr("Crop mode"));
+                editorAction("selectArea", qsTr("Select area"));
+                editorAction("nextLayer");
+                editorAction("instagram", App.editor.current.isInstagram === true
+                    ? qsTr("Back to the photo") : qsTr("Instagram version"));
+                editorAction("duplicate");
+                editorAction("cover", App.editor.current.isCover === true ? qsTr("Unset cover") : qsTr("Set as cover"));
+                editorAction("archivePhoto");
+            } else {
+                editorAction("restorePhoto");
+            }
+            if (view !== "trash")
+                editorAction("deletePhoto");
+            if (view === "trash") {
+                editorAction("purgePhoto");
+                if (App.editor.trashCount > 0)
+                    editorAction("emptyTrash");
+            }
+            if (view !== "photos")
+                editorAction("showPhotos");
+            if (view !== "archived")
+                editorAction("showArchived");
+            if (view !== "trash")
+                editorAction("showTrash");
             add(qsTr("Undo"), "undo", "undo-2", () => App.editor.undo());
             add(qsTr("Redo"), "redo", "redo-2", () => App.editor.redo());
-            editorAction("rescan");
-            editorAction("merge", App.editor.picking ? qsTr("Exit merge selection") : "");
+            if (editable) {
+                editorAction("rescan");
+                editorAction("merge", App.editor.picking ? qsTr("Exit merge selection") : "");
+            }
             add(qsTr("Export"), "export", "upload", () => window.openExport());
             add(Keymap.action("publish").name, "publish", "instagram", () => window.openPublish());
-            for (const preset of App.editor.presets) {
+            for (const preset of (editable ? App.editor.presets : [])) {
                 const id = preset.id;
                 add(qsTr("Preset: %1").arg(Messages.presetName(id)), "", "palette", () => {
                     window.showEditor();

@@ -29,7 +29,7 @@ Rectangle {
         color: Theme.border
     }
 
-    // Esquerda: logo, versão e projeto.
+    // Esquerda: logo e projeto.
     RowLayout {
         id: left
         anchors.left: parent.left
@@ -49,11 +49,7 @@ Rectangle {
             smooth: true
         }
 
-        Text {
-            text: "v" + App.version
-            font.pixelSize: Theme.fontXs
-            color: Theme.mutedForeground
-        }
+        // A versão fica só no "Sobre" (trilho lateral): o cabeçalho é das ações.
 
         // Projeto aberto: o nome (clicar nele volta ao editor).
         Separator {
@@ -66,7 +62,9 @@ Rectangle {
         Text {
             id: projectName
             visible: App.hasProject
-            Layout.maximumWidth: Math.max(80, header.width * 0.5 - 220 - left.x - logo.width)
+            // Até a metade da janela menos meia busca (180) e folga: a busca,
+            // centrada, sempre cabe. ``x`` já conta o logo e o separador.
+            Layout.maximumWidth: Math.max(60, header.width / 2 - 196 - left.x - x)
             text: App.projectName
             font.pixelSize: Theme.fontBase
             font.weight: Font.Medium
