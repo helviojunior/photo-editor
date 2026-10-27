@@ -38,8 +38,15 @@ class AppController : public QObject
     /// "home" | "editor" | "merge" | "instagram"
     Q_PROPERTY(QString page READ page WRITE setPage NOTIFY pageChanged)
     Q_PROPERTY(bool hasProject READ hasProject NOTIFY projectChanged)
+    /// Nome de exibição do evento: o definido pela pessoa ou, vazio, o da pasta.
     Q_PROPERTY(QString projectName READ projectName NOTIFY projectChanged)
     Q_PROPERTY(QString projectPath READ projectPath NOTIFY projectChanged)
+    /// Nome da pasta do projeto (o padrão, usado como placeholder na edição).
+    Q_PROPERTY(QString projectFolderName READ projectFolderName NOTIFY projectChanged)
+    /// Nome de exibição GUARDADO (vazio = segue a pasta); o campo do formulário.
+    Q_PROPERTY(QString eventName READ eventName NOTIFY projectChanged)
+    Q_PROPERTY(QString eventChampionship READ eventChampionship NOTIFY projectChanged)
+    Q_PROPERTY(QString eventCategory READ eventCategory NOTIFY projectChanged)
     /// [{path, name, coverUrl, openedAt, exists, hasRaw, photoCount, sizeBytes, isCurrent}]
     Q_PROPERTY(QVariantList recentProjects READ recentProjects NOTIFY recentProjectsChanged)
     /// Mensagem do carregamento (abrindo projeto, copiando fotos...); '' = nada
@@ -71,6 +78,10 @@ public:
     bool hasProject() const { return m_project != nullptr; }
     QString projectName() const;
     QString projectPath() const;
+    QString projectFolderName() const;
+    QString eventName() const { return m_event.name; }
+    QString eventChampionship() const { return m_event.championship; }
+    QString eventCategory() const { return m_event.category; }
     QVariantList recentProjects() const { return m_recent; }
     QString loading() const { return m_loading; }
     QVariantMap loadingParams() const { return m_loadingParams; }
@@ -80,6 +91,9 @@ public:
     QString logsDir() const;
     QString dataDir() const;
     bool isExporting() const;
+
+    /// Grava os dados do evento e atualiza o nome exibido no app.
+    Q_INVOKABLE void saveEvent(const QString &name, const QString &championship, const QString &category);
 
     Q_INVOKABLE void setLanguage(const QString &code);
     Q_INVOKABLE void reloadRecent();
@@ -124,6 +138,7 @@ private:
 
     std::unique_ptr<pe::RecentProjects> m_recentDb;
     std::unique_ptr<pe::Project> m_project;
+    pe::EventMeta m_event;  ///< cache dos dados do evento do projeto aberto
     EditorController m_editor;
     MergeController m_merge;
     InstagramController m_instagram;

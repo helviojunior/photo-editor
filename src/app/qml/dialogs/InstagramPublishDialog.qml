@@ -24,7 +24,10 @@ Modal {
     id: dialog
 
     readonly property var ig: App.instagram
+    // Até maxPhotos por post (carrossel); acima disso vão vários posts.
     readonly property int maxPhotos: ig.maxPhotos || 10
+    readonly property int maxPosts: ig.maxPosts || 10
+    readonly property int maxTotal: maxPhotos * maxPosts
     readonly property int captionMax: ig.captionMax || 2200
     readonly property var candidates: ig.candidates || []
     readonly property var pub: ig.publish || ({})
@@ -44,6 +47,8 @@ Modal {
     // Marcadas e ainda publicáveis, na ordem da filmstrip (é a do carrossel).
     readonly property var picked: candidates.filter((c) => (selected || []).includes(c.id) && c.feedOk)
     readonly property var pickedIds: picked.map((c) => c.id)
+    // Quantos posts sairão (lotes de até maxPhotos).
+    readonly property int postCount: Math.max(1, Math.ceil(picked.length / maxPhotos))
     // O Instagram corta o carrossel inteiro na proporção da PRIMEIRA foto.
     readonly property bool mixedRatios: {
         const seen = {};
@@ -65,7 +70,7 @@ Modal {
         const cur = (selected || []).filter((id) => candidates.some((c) => c.id === id && c.feedOk));
         if (cur.includes(item.id))
             selected = cur.filter((id) => id !== item.id);
-        else if (cur.length < maxPhotos)
+        else if (cur.length < maxTotal)
             selected = cur.concat([item.id]);
     }
 
@@ -85,7 +90,7 @@ Modal {
             ig.resetPublish();
         _statusSeen = false;
         if (selected === null)
-            selected = candidates.filter((c) => c.feedOk).slice(0, maxPhotos).map((c) => c.id);
+            selected = candidates.filter((c) => c.feedOk).slice(0, maxTotal).map((c) => c.id);
         if (!_captionFilled && ig.connected)
             refill();
         ig.refresh();
@@ -144,20 +149,33 @@ Modal {
         }
         Text {
             Layout.fillWidth: true
-            text: qsTr("Published on Instagram.")
+            readonly property var urls: dialog.pub.urls || (dialog.pub.url ? [dialog.pub.url] : [])
+            text: urls.length > 1 ? qsTr("Published %n post(s) on Instagram.", "", urls.length)
+                                  : qsTr("Published on Instagram.")
             font.pixelSize: Theme.fontBase
             font.weight: Font.Medium
             color: Theme.foreground
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.Wrap
         }
-        LinkButton {
+        // Um link por post publicado.
+        Column {
             Layout.alignment: Qt.AlignHCenter
-            visible: !!dialog.pub.url
-            iconName: "external-link"
-            fontSize: Theme.fontBase
-            text: qsTr("Open the post")
-            onClicked: App.openUrl(dialog.pub.url)
+            spacing: 6
+            Repeater {
+                model: dialog.pub.urls || (dialog.pub.url ? [dialog.pub.url] : [])
+                LinkButton {
+                    required property int index
+                    required property var modelData
+                    anchors.horizontalCenter: parent ? parent.horizontalCenter : undefined
+                    iconName: "external-link"
+                    fontSize: Theme.fontBase
+                    text: (dialog.pub.urls && dialog.pub.urls.length > 1)
+                          ? qsTr("Open post %1").arg(index + 1)
+                          : qsTr("Open the post")
+                    onClicked: App.openUrl(modelData)
+                }
+            }
         }
     }
 
@@ -237,10 +255,35 @@ Modal {
                     color: Theme.foreground
                 }
                 Text {
-                    text: qsTr("%1 of %2").arg(dialog.picked.length).arg(dialog.maxPhotos)
+                    text: dialog.postCount > 1
+                          ? qsTr("%1 photos · %2 posts").arg(dialog.picked.length).arg(dialog.postCount)
+                          : qsTr("%1 of %2").arg(dialog.picked.length).arg(dialog.maxPhotos)
                     font.pixelSize: Theme.fontSm
                     font.features: { "tnum": 1 }
                     color: Theme.mutedForeground
+                }
+            }
+
+            // Mais de maxPhotos: Instagram só aceita 10 por post, então o envio
+            // vira vários posts (carrosséis de 10) com a legenda numerada.
+            RowLayout {
+                Layout.fillWidth: true
+                visible: dialog.postCount > 1
+                spacing: 6
+                Icon {
+                    Layout.alignment: Qt.AlignTop
+                    Layout.topMargin: 1
+                    name: "info"
+                    size: 12
+                    color: Theme.mutedForeground
+                }
+                Text {
+                    Layout.fillWidth: true
+                    text: qsTr("More than %1 photos: they go out as %2 separate posts (carousels of up to %1), each caption numbered “Part i/%2”.")
+                          .arg(dialog.maxPhotos).arg(dialog.postCount)
+                    font.pixelSize: Theme.fontXs
+                    color: Theme.mutedForeground
+                    wrapMode: Text.Wrap
                 }
             }
 
@@ -271,7 +314,7 @@ Modal {
                         readonly property bool checked: dialog.pickedIds.includes(modelData.id)
                         readonly property int order: dialog.pickedIds.indexOf(modelData.id)
                         readonly property bool outside: !modelData.feedOk
-                        readonly property bool full: !checked && (dialog.picked.length >= dialog.maxPhotos || outside)
+                        readonly property bool full: !checked && (dialog.picked.length >= dialog.maxTotal || outside)
                         readonly property bool blocked: full || dialog.running
 
                         width: grid.tile
@@ -484,9 +527,14 @@ Modal {
 
             Text {
                 Layout.fillWidth: true
-                text: dialog.pub.phase === "upload"
-                      ? qsTr("Sending to Instagram…")
-                      : qsTr("Preparing the photos… %1/%2").arg(dialog.pub.done || 0).arg(dialog.pub.total || 0)
+                text: {
+                    if (dialog.pub.phase !== "upload")
+                        return qsTr("Preparing the photos… %1/%2").arg(dialog.pub.done || 0).arg(dialog.pub.total || 0);
+                    const posts = dialog.pub.posts || 1;
+                    return posts > 1
+                           ? qsTr("Sending post %1 of %2 to Instagram…").arg(dialog.pub.post || 1).arg(posts)
+                           : qsTr("Sending to Instagram…");
+                }
                 font.pixelSize: Theme.fontSm
                 color: Theme.mutedForeground
                 Accessible.role: Accessible.StaticText
@@ -502,7 +550,8 @@ Modal {
                     radius: 4
                     color: Theme.brand500
                     width: parent.width * (dialog.pub.phase === "upload"
-                                           ? 1 : Math.round((dialog.pub.done || 0) / (dialog.pub.total || 1) * 90) / 100)
+                                           ? (dialog.pub.post || 1) / (dialog.pub.posts || 1)
+                                           : Math.round((dialog.pub.done || 0) / (dialog.pub.total || 1) * 90) / 100)
                     Behavior on width { NumberAnimation { duration: Theme.animationNormal; easing.type: Easing.OutCubic } }
                 }
             }
@@ -514,6 +563,16 @@ Modal {
                    ? [Messages.error(dialog.pub.error, dialog.pub.params || {}),
                       dialog.pub.detail || (dialog.pub.params || {}).detail || ""]
                    : []
+        }
+
+        // Falhou depois de já publicar alguns posts: diz quantos saíram.
+        Text {
+            Layout.fillWidth: true
+            visible: dialog.failed && (dialog.pub.doneCount || 0) > 0
+            text: qsTr("%n post(s) were published before the error.", "", dialog.pub.doneCount || 0)
+            font.pixelSize: Theme.fontXs
+            color: Theme.mutedForeground
+            wrapMode: Text.Wrap
         }
     }
 

@@ -382,6 +382,8 @@ ScrollPage {
             Repeater {
                 model: [
                     { field: "event", text: qsTr("event name (the project folder, without the date)") },
+                    { field: "championship", text: qsTr("event championship") },
+                    { field: "category", text: qsTr("event category") },
                     { field: "date", text: qsTr("day or period of the photos") },
                     { field: "photos", text: qsTr("number of photos of the event") },
                     { field: "hashtag", text: qsTr("event name as a hashtag") }

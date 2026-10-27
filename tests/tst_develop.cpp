@@ -142,6 +142,29 @@ private slots:
         }
     }
 
+    // Um quarto de volta (90°/270°) troca retrato/paisagem: num ratio fixo do
+    // Instagram o quadro invertido cabe MAIOR que a referência a 0°. A versão
+    // Python/JS travava em 1.0 e não deixava o quadro crescer — aqui não.
+    void cropMaxScaleQuarterTurnFillsImage()
+    {
+        // Foto retrato 4000x6000 (aspect 1.5), quadro 1.91:1 (ratio 0.5236).
+        const double aspect = 1.5, ratio = 0.5236;
+        // A 0° a trava era redundante: um dos termos já vale exatamente 1.0.
+        QVERIFY(qFuzzyCompare(cropMaxScale(0.0, aspect, ratio), 1.0));
+        // A -90° o 1,91:1 vira 1:1,91 e enche a altura: scale máximo ~1.5.
+        QVERIFY2(cropMaxScale(-90.0, aspect, ratio) > 1.4,
+                 qPrintable(QStringLiteral("got %1").arg(cropMaxScale(-90.0, aspect, ratio))));
+        // normalizeCrop deixa o quadro chegar a esse tamanho (antes travava em 1).
+        const Crop norm =
+            normalizeCrop(Crop{10.0, 0.5, 0.5, -90.0, ratio}, aspect, instagramRatioValues());
+        QVERIFY2(norm.scale > 1.4, qPrintable(QStringLiteral("got %1").arg(norm.scale)));
+        // E o recorte resultante enche a altura da foto (~6000 px, sem estourar).
+        cv::Mat img(6000, 4000, CV_8UC3, cv::Scalar(10, 20, 30));
+        const cv::Mat out = applyCrop(img, norm);
+        const int longSide = std::max(out.rows, out.cols);
+        QVERIFY2(longSide >= 5990 && longSide <= 6000, qPrintable(QStringLiteral("got %1").arg(longSide)));
+    }
+
     void cropPixelsMatchPython()
     {
         const cv::Mat img = loadRgb(QStringLiteral("input.png"));

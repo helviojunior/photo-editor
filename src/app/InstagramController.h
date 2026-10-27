@@ -13,8 +13,10 @@
 
 #include <QHash>
 #include <QJsonObject>
+#include <QList>
 #include <QObject>
 #include <QProcess>
+#include <QStringList>
 #include <QVariantMap>
 #include <QtQmlIntegration>
 
@@ -33,18 +35,23 @@ class InstagramController : public QObject
     Q_PROPERTY(QString captionTemplate READ captionTemplate NOTIFY statusChanged)
     Q_PROPERTY(QString defaultTemplate READ defaultTemplate NOTIFY statusChanged)
     Q_PROPERTY(int maxPhotos READ maxPhotos CONSTANT)
+    /// Quantos posts (carrosséis) um envio pode gerar de uma vez.
+    Q_PROPERTY(int maxPosts READ maxPosts CONSTANT)
     Q_PROPERTY(int captionMax READ captionMax CONSTANT)
     /// {state: ''|running|code|done|error|cancelled, kind: two_factor|challenge, error, detail}
     Q_PROPERTY(QVariantMap login READ login NOTIFY loginChanged)
-    /// {running, phase: export|upload, done, total, error, detail, params, url}
+    /// {running, phase: export|upload, done, total, post, posts, error, detail,
+    /// params, url, urls, doneCount}
     Q_PROPERTY(QVariantMap publish READ publish NOTIFY publishChanged)
     /// Versões Instagram da filmstrip: [{id, fileName, thumbUrl, feedOk, aspect, cropRatio}]
     Q_PROPERTY(QVariantList candidates READ candidates NOTIFY candidatesChanged)
-    /// {name, first, last, photos} — para preencher a legenda
+    /// {name, championship, category, first, last, photos} — para preencher a legenda
     Q_PROPERTY(QVariantMap eventInfo READ eventInfo NOTIFY candidatesChanged)
 
 public:
     static constexpr int kMaxPhotos = 10;
+    /// Instagram só aceita 10 imagens por post; acima disso, vários posts.
+    static constexpr int kMaxPosts = 10;
     static constexpr int kCaptionMax = 2200;
 
     explicit InstagramController(EditorController *editor, QObject *parent = nullptr);
@@ -56,6 +63,7 @@ public:
     QString captionTemplate() const;
     QString defaultTemplate() const;
     int maxPhotos() const { return kMaxPhotos; }
+    int maxPosts() const { return kMaxPosts; }
     int captionMax() const { return kCaptionMax; }
     QVariantMap login() const { return m_login; }
     QVariantMap publish() const { return m_publish; }
@@ -70,7 +78,9 @@ public:
     Q_INVOKABLE void logout();
     /// Vazio = volta ao modelo padrão.
     Q_INVOKABLE void saveCaptionTemplate(const QString &text);
-    /// Exporta as versões (na ordem) e envia como post (1) ou carrossel (2–10).
+    /// Exporta as versões (na ordem) e publica: um post (1 foto), um carrossel
+    /// (2–10) ou, acima de 10, vários posts seguidos (lotes de 10), cada um com
+    /// a legenda numerada ("Parte 1/N").
     Q_INVOKABLE void startPublish(const QStringList &photoIds, const QString &caption);
     Q_INVOKABLE void resetPublish();
 
@@ -92,6 +102,12 @@ private:
     void applyLogin(const QJsonObject &login);
     void setPublish(const QVariantMap &state);
     void uploadFiles(const QStringList &files, const QString &caption, const QStringList &ids);
+    /// Sobe o lote ``index`` (atualiza o andamento e manda os arquivos dele).
+    void publishBatch(int index);
+    /// Legenda do lote: a base, ou "Parte i/N" + base quando há vários posts.
+    QString captionForBatch(int index) const;
+    /// Grava no catálogo o post recém-publicado (lote atual).
+    void recordPost(const QJsonObject &message);
 
     static QString pythonExecutable();
     static QString helperScript();
@@ -106,6 +122,9 @@ private:
     int m_loginId = 0;
     QVariantMap m_publish;
     int m_publishId = 0;
-    QStringList m_publishIds;
-    QString m_publishCaption;
+    QList<QStringList> m_publishBatches;  ///< ids (normalizados) por post
+    QList<QStringList> m_publishFiles;    ///< arquivos a enviar por post
+    QString m_publishCaption;             ///< legenda base (sem o sufixo de parte)
+    int m_publishBatch = 0;               ///< lote em envio
+    QStringList m_publishUrls;            ///< urls dos posts já publicados
 };

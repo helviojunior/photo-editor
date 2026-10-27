@@ -122,6 +122,10 @@
 <context>
     <name>AppHeader</name>
     <message>
+        <source>Event details</source>
+        <translation>Dados do evento</translation>
+    </message>
+    <message>
         <source>Search actions…</source>
         <translation>Buscar ações…</translation>
     </message>
@@ -388,6 +392,10 @@
         <translation>Voltar à foto</translation>
     </message>
     <message>
+        <source>Remove Instagram version</source>
+        <translation>Remover versão Instagram</translation>
+    </message>
+    <message>
         <source>Delete permanently?</source>
         <translation>Excluir definitivamente?</translation>
     </message>
@@ -445,6 +453,18 @@
     <message>
         <source>Photos moved to the trash wait here until you restore them or delete them permanently.</source>
         <translation>As fotos enviadas para a lixeira ficam aqui até serem restauradas ou excluídas definitivamente.</translation>
+    </message>
+    <message>
+        <source>No Instagram versions</source>
+        <translation>Nenhuma versão Instagram</translation>
+    </message>
+    <message>
+        <source>Press %1 on a photo to create its Instagram version.</source>
+        <translation>Pressione %1 numa foto para criar a versão Instagram dela.</translation>
+    </message>
+    <message>
+        <source>Create a photo&apos;s Instagram version to prepare it for the feed.</source>
+        <translation>Crie a versão Instagram de uma foto para prepará-la para o feed.</translation>
     </message>
     <message>
         <source>In the trash</source>
@@ -868,6 +888,36 @@
 <context>
     <name>InstagramPublishDialog</name>
     <message>
+        <source>%1 photos · %2 posts</source>
+        <translation>%1 fotos · %2 posts</translation>
+    </message>
+    <message>
+        <source>More than %1 photos: they go out as %2 separate posts (carousels of up to %1), each caption numbered “Part i/%2”.</source>
+        <translation>Mais de %1 fotos: elas saem em %2 posts separados (carrosséis de até %1), cada legenda numerada “Parte i/%2”.</translation>
+    </message>
+    <message>
+        <source>Sending post %1 of %2 to Instagram…</source>
+        <translation>Enviando o post %1 de %2 para o Instagram…</translation>
+    </message>
+    <message numerus="yes">
+        <source>Published %n post(s) on Instagram.</source>
+        <translation>
+            <numerusform>Publicado %n post no Instagram.</numerusform>
+            <numerusform>Publicados %n posts no Instagram.</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Open post %1</source>
+        <translation>Abrir o post %1</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n post(s) were published before the error.</source>
+        <translation>
+            <numerusform>%n post foi publicado antes do erro.</numerusform>
+            <numerusform>%n posts foram publicados antes do erro.</numerusform>
+        </translation>
+    </message>
+    <message>
         <source>Publish on Instagram</source>
         <translation>Publicar no Instagram</translation>
     </message>
@@ -954,6 +1004,14 @@
 </context>
 <context>
     <name>InstagramSettingsPage</name>
+    <message>
+        <source>event championship</source>
+        <translation>campeonato do evento</translation>
+    </message>
+    <message>
+        <source>event category</source>
+        <translation>categoria do evento</translation>
+    </message>
     <message>
         <source>Back</source>
         <translation>Voltar</translation>
@@ -1094,6 +1152,10 @@
         <translation>Versão Instagram</translation>
     </message>
     <message>
+        <source>Remove Instagram version</source>
+        <translation>Remover versão Instagram</translation>
+    </message>
+    <message>
         <source>Rescan raw/</source>
         <translation>Reescanear raw/</translation>
     </message>
@@ -1220,6 +1282,10 @@
     <message>
         <source>Show photos</source>
         <translation>Mostrar fotos</translation>
+    </message>
+    <message>
+        <source>Show Instagram photos</source>
+        <translation>Mostrar fotos do Instagram</translation>
     </message>
     <message>
         <source>Show archived photos</source>
@@ -1370,6 +1436,10 @@
 </context>
 <context>
     <name>Main</name>
+    <message>
+        <source>Event details</source>
+        <translation>Dados do evento</translation>
+    </message>
     <message>
         <source>%1 — %2</source>
         <translation>%1 — %2</translation>
@@ -1671,6 +1741,14 @@
 <context>
     <name>Messages</name>
     <message>
+        <source>Too many photos at once: up to %1 can be published in one go.</source>
+        <translation>Fotos demais de uma vez: dá para publicar até %1 por envio.</translation>
+    </message>
+    <message>
+        <source>The event details could not be saved.</source>
+        <translation>Não foi possível salvar os dados do evento.</translation>
+    </message>
+    <message>
         <source>The folder “%1” no longer exists or cannot be read.</source>
         <translation>A pasta “%1” não existe mais ou não pode ser lida.</translation>
     </message>
@@ -1909,6 +1987,10 @@
     <message>
         <source>Instagram version created: %1.</source>
         <translation>Versão Instagram criada: %1.</translation>
+    </message>
+    <message>
+        <source>Instagram version moved to the trash: %1.</source>
+        <translation>Versão Instagram movida para a lixeira: %1.</translation>
     </message>
     <message>
         <source>Undone: %1.</source>
@@ -2293,6 +2375,10 @@
         <translation>Fotos</translation>
     </message>
     <message>
+        <source>Instagram</source>
+        <translation>Instagram</translation>
+    </message>
+    <message>
         <source>Archived</source>
         <translation>Arquivadas</translation>
     </message>
@@ -2307,6 +2393,56 @@
     <message>
         <source>%1 (%2)</source>
         <translation>%1 (%2)</translation>
+    </message>
+</context>
+<context>
+    <name>EventPage</name>
+    <message>
+        <source>Back</source>
+        <translation>Voltar</translation>
+    </message>
+    <message>
+        <source>Event</source>
+        <translation>Evento</translation>
+    </message>
+    <message>
+        <source>Event details</source>
+        <translation>Dados do evento</translation>
+    </message>
+    <message>
+        <source>The event name, championship and category. They name the project in the app and fill the Instagram caption.</source>
+        <translation>O nome do evento, o campeonato e a categoria. Eles nomeiam o projeto no app e preenchem a legenda do Instagram.</translation>
+    </message>
+    <message>
+        <source>Event name</source>
+        <translation>Nome do evento</translation>
+    </message>
+    <message>
+        <source>Leave empty to use the project folder name (%1).</source>
+        <translation>Deixe em branco para usar o nome da pasta do projeto (%1).</translation>
+    </message>
+    <message>
+        <source>Championship</source>
+        <translation>Campeonato</translation>
+    </message>
+    <message>
+        <source>Category</source>
+        <translation>Categoria</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>Salvar</translation>
+    </message>
+    <message>
+        <source>Saved</source>
+        <translation>Salvo</translation>
+    </message>
+</context>
+<context>
+    <name>InstagramController</name>
+    <message>
+        <source>Part %1/%2</source>
+        <translation>Parte %1/%2</translation>
     </message>
 </context>
 </TS>

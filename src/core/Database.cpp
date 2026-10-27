@@ -26,7 +26,7 @@ const char *const kDjangoMigrations[] = {
 
 // Passos do esquema (src/core/schema). Acrescente o próximo; nunca edite um
 // já publicado.
-constexpr int kSchemaSteps = 14;
+constexpr int kSchemaSteps = 15;
 
 QStringList splitStatements(const QString &script)
 {

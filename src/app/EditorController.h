@@ -43,6 +43,7 @@ class EditorController : public QObject
     Q_PROPERTY(QString view READ view WRITE setView NOTIFY viewChanged)
     Q_PROPERTY(int archivedCount READ archivedCount NOTIFY countsChanged)
     Q_PROPERTY(int trashCount READ trashCount NOTIFY countsChanged)
+    Q_PROPERTY(int instagramCount READ instagramCount NOTIFY countsChanged)
     Q_PROPERTY(PhotoListModel *photos READ photos CONSTANT)
     Q_PROPERTY(int currentIndex READ currentIndex WRITE setCurrentIndex NOTIFY currentChanged)
     /// {id, fileName, width, height, aspect, capturedAt, isCopy, isInstagram,
@@ -152,8 +153,13 @@ public:
     void setView(const QString &view);
     int archivedCount() const { return m_archivedCount; }
     int trashCount() const { return m_trashCount; }
-    /// Só na visualização "photos" a foto é editável.
+    int instagramCount() const { return m_instagramCount; }
+    /// Ações de gestão (arquivar, duplicar, capa, merge) e o layout da filmstrip
+    /// (as versões Instagram escondidas) valem só na visualização "photos".
     bool editable() const { return m_view == QLatin1String("photos"); }
+    /// Revelação (ajustes, crop, níveis, curvas, efeitos, seleção) também vale na
+    /// visualização "Instagram": a versão é editada no lugar, sem sair do filtro.
+    bool editing() const { return m_view == QLatin1String("photos") || m_view == QLatin1String("instagram"); }
     int currentIndex() const { return m_index; }
     void setCurrentIndex(int index);
     QVariantMap current() const;
@@ -302,6 +308,9 @@ public:
     Q_INVOKABLE void toggleCover();
     /// I: cria/abre a versão Instagram; dentro dela, volta à foto de origem.
     Q_INVOKABLE void toggleInstagram();
+    /// Desfaz a marcação: manda a versão Instagram da foto atual (ou da sua
+    /// origem) para a lixeira. Desfazível (restaurável da lixeira).
+    Q_INVOKABLE void removeInstagramVersion();
     Q_INVOKABLE void undo();
     /// Refaz a última ação desfeita (enquanto nenhuma ação nova a descartou).
     Q_INVOKABLE void redo();
@@ -363,6 +372,7 @@ private:
     QString m_view = QStringLiteral("photos");
     int m_archivedCount = 0;
     int m_trashCount = 0;
+    int m_instagramCount = 0;
     QString m_sortMode;
     QString m_status;
     QVariantMap m_statusParams;

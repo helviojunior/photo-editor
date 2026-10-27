@@ -44,6 +44,20 @@ inline const QString Curves = QStringLiteral("curves");
 inline const QString Effects = QStringLiteral("effects");
 } // namespace HistoryKind
 
+/// Dados editáveis do evento (tabela photoeditor_eventinfo, singleton). O nome
+/// vazio significa "use o nome da pasta do projeto".
+struct EventMeta
+{
+    QString name;
+    QString championship;
+    QString category;
+
+    bool operator==(const EventMeta &o) const
+    {
+        return name == o.name && championship == o.championship && category == o.category;
+    }
+};
+
 struct Photo
 {
     QString id;

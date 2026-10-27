@@ -127,7 +127,7 @@ Rectangle {
 
             // Arquivadas e lixeira: de volta para as fotos
             Button {
-                visible: !bar.editable
+                visible: bar.view === "archived" || bar.view === "trash"
                 size: "sm"
                 variant: "ghost"
                 iconName: "archive-restore"

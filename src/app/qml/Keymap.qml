@@ -44,16 +44,19 @@ QtObject {
     readonly property var actions: [
         { id: "nextPhoto", group: qsTr("Photos"), name: qsTr("Next photo (rotates the frame in crop)"), icon: "chevron-right", keys: ["Right"] },
         { id: "previousPhoto", group: qsTr("Photos"), name: qsTr("Previous photo (rotates the frame in crop)"), icon: "chevron-left", keys: ["Left"] },
-        // No Mac o ⌫ é o Backspace (arquivar) e o fn+⌫ é o Del (lixeira).
+        // No Mac o ⌫ é o Backspace (arquivar) e o fn+⌫ é o Del (lixeira);
+        // o ⌘⌫ (Meta+Backspace) manda para a lixeira, como o Finder.
         { id: "archivePhoto", group: qsTr("Photos"), name: qsTr("Archive photo"), icon: "archive", keys: ["Backspace"] },
-        { id: "deletePhoto", group: qsTr("Photos"), name: qsTr("Move to trash"), icon: "trash-2", keys: ["Del"] },
+        { id: "deletePhoto", group: qsTr("Photos"), name: qsTr("Move to trash"), icon: "trash-2", keys: _mac ? ["Del", "Meta+Backspace"] : ["Del"] },
         { id: "restorePhoto", group: qsTr("Photos"), name: qsTr("Restore photo"), icon: "archive-restore", keys: ["Ctrl+Shift+R"] },
         { id: "duplicate", group: qsTr("Photos"), name: qsTr("Duplicate photo"), icon: "copy", keys: ["Ctrl+D"] },
         { id: "cover", group: qsTr("Photos"), name: qsTr("Set or unset cover"), icon: "star", keys: [] },
         { id: "instagram", group: qsTr("Photos"), name: qsTr("Instagram version"), icon: "instagram", keys: ["I"] },
+        { id: "removeInstagram", group: qsTr("Photos"), name: qsTr("Remove Instagram version"), icon: "trash-2", keys: [] },
         { id: "rescan", group: qsTr("Photos"), name: qsTr("Rescan raw/"), icon: "refresh-cw", keys: [] },
         { id: "merge", group: qsTr("Photos"), name: qsTr("Select photos to merge"), icon: "combine", keys: [] },
         { id: "showPhotos", group: qsTr("Photos"), name: qsTr("Show photos"), icon: "image", keys: [] },
+        { id: "showInstagram", group: qsTr("Photos"), name: qsTr("Show Instagram photos"), icon: "instagram", keys: [] },
         { id: "showArchived", group: qsTr("Photos"), name: qsTr("Show archived photos"), icon: "archive", keys: [] },
         { id: "showTrash", group: qsTr("Photos"), name: qsTr("Show trash"), icon: "trash-2", keys: [] },
         { id: "purgePhoto", group: qsTr("Photos"), name: qsTr("Delete permanently"), icon: "trash-2", keys: [] },

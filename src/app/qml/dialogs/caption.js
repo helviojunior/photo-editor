@@ -6,10 +6,12 @@
 // O modelo vem de Configurações > Instagram (App.instagram.captionTemplate)
 // e aceita os campos:
 //
-//   {event}    nome do evento — a pasta do projeto, sem a data no começo
-//   {date}     dia (ou período) das fotos, por extenso no idioma da tela
-//   {photos}   quantas fotos o evento tem
-//   {hashtag}  o nome do evento como hashtag (#CasamentoAnaEJoao)
+//   {event}        nome do evento — a pasta do projeto, sem a data no começo
+//   {championship} campeonato do evento (campo editável do evento)
+//   {category}     categoria do evento (campo editável do evento)
+//   {date}         dia (ou período) das fotos, por extenso no idioma da tela
+//   {photos}       quantas fotos o evento tem
+//   {hashtag}      o nome do evento como hashtag (#CasamentoAnaEJoao)
 //
 //   import "caption.js" as Caption
 //   Caption.fillCaption(App.instagram.captionTemplate, App.instagram.eventInfo, App.language)
@@ -114,6 +116,8 @@ function fillCaption(template, event, lang) {
     var name = eventName(e.name);
     var values = {
         event: name,
+        championship: String(e.championship || "").trim(),
+        category: String(e.category || "").trim(),
         date: eventDate(e.first, e.last, lang),
         photos: e.photos ? String(e.photos) : "",
         hashtag: hashtag(name)

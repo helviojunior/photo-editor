@@ -247,10 +247,12 @@ void EditorController::reload(const QString &focusId)
     }
     std::vector<Photo> photos = m_view == QLatin1String("archived") ? m_project->archivedPhotos()
         : m_view == QLatin1String("trash")                         ? m_project->trashedPhotos()
+        : m_view == QLatin1String("instagram")                     ? m_project->instagramPhotos()
                                                                    : m_project->visiblePhotos();
     sortPhotos(photos, m_sortMode);
     m_archivedCount = m_project->countWithStatus(PhotoStatus::Archived);
     m_trashCount = m_project->countWithStatus(PhotoStatus::Deleted);
+    m_instagramCount = m_project->countInstagram();
     emit countsChanged();
     QSet<QString> bases, withInstagram;
     for (const auto &m : m_project->liveMerges())
@@ -336,7 +338,10 @@ void EditorController::previous()
 
 void EditorController::setView(const QString &view)
 {
-    const QString v = (view == QLatin1String("archived") || view == QLatin1String("trash")) ? view : QStringLiteral("photos");
+    const QString v = (view == QLatin1String("archived") || view == QLatin1String("trash")
+                       || view == QLatin1String("instagram"))
+        ? view
+        : QStringLiteral("photos");
     if (v == m_view)
         return;
     commit();
@@ -762,7 +767,7 @@ void EditorController::cycleLayer()
 void EditorController::setValue(const QString &name, double value)
 {
     const auto slider = imaging::sliderByName(name);
-    if (!slider || !currentPhoto() || !editable())
+    if (!slider || !currentPhoto() || !editing())
         return;
     draftValues()[*slider] = imaging::clampValue(*slider, value);
     emit stateChanged();
@@ -820,7 +825,7 @@ void EditorController::saveAs(const QString &kind)
 
 void EditorController::applyPreset(const QString &id)
 {
-    if (!currentPhoto() || !editable() || !imaging::isPreset(id))
+    if (!currentPhoto() || !editing() || !imaging::isPreset(id))
         return;
     commit();
     imaging::Values &v = draftValues();
@@ -832,7 +837,7 @@ void EditorController::applyPreset(const QString &id)
 void EditorController::pickWhite(double x, double y)
 {
     const Photo *p = currentPhoto();
-    if (!p || !m_project || !editable() || !std::isfinite(x) || !std::isfinite(y))
+    if (!p || !m_project || !editing() || !std::isfinite(x) || !std::isfinite(y))
         return;
     commit();
     // A etapa 1 do motor (balanço de branco) recebe o original: é nele que a
@@ -907,7 +912,7 @@ QVariantList EditorController::effectCatalog() const
 void EditorController::setLevels(const QString &channel, const QVariantMap &levels)
 {
     const auto ch = imaging::channelByName(channel);
-    if (!ch || !currentPhoto() || !editable())
+    if (!ch || !currentPhoto() || !editing())
         return;
     imaging::LevelsChannel &l = draftLook().levels[*ch];
     auto num = [&](const char *key, double current) {
@@ -930,7 +935,7 @@ void EditorController::autoLevels(const QString &channel)
 {
     const auto ch = imaging::channelByName(channel);
     const Photo *p = currentPhoto();
-    if (!ch || !p || !m_project || !editable())
+    if (!ch || !p || !m_project || !editing())
         return;
     commit();
     // Mede o que CHEGA aos níveis deste canal: a camada ativa sozinha, sem os
@@ -999,7 +1004,7 @@ void EditorController::autoLevels(const QString &channel)
 void EditorController::resetLevels(const QString &channel)
 {
     const auto ch = imaging::channelByName(channel);
-    if (!ch || !currentPhoto() || !editable())
+    if (!ch || !currentPhoto() || !editing())
         return;
     draftLook().levels[*ch] = imaging::kLevelsIdentity;
     saveDraft(false, true);
@@ -1008,7 +1013,7 @@ void EditorController::resetLevels(const QString &channel)
 void EditorController::setCurve(const QString &channel, const QVariantList &points)
 {
     const auto ch = imaging::channelByName(channel);
-    if (!ch || !currentPhoto() || !editable())
+    if (!ch || !currentPhoto() || !editing())
         return;
     imaging::Curve curve;
     for (const QVariant &v : points) {
@@ -1029,7 +1034,7 @@ void EditorController::setCurve(const QString &channel, const QVariantList &poin
 void EditorController::resetCurve(const QString &channel)
 {
     const auto ch = imaging::channelByName(channel);
-    if (!ch || !currentPhoto() || !editable())
+    if (!ch || !currentPhoto() || !editing())
         return;
     draftLook().curves[*ch].clear();
     saveDraft(false, true);
@@ -1037,7 +1042,7 @@ void EditorController::resetCurve(const QString &channel)
 
 void EditorController::setEffect(const QString &id, int amount)
 {
-    if (!imaging::isEffect(id) || !currentPhoto() || !editable())
+    if (!imaging::isEffect(id) || !currentPhoto() || !editing())
         return;
     imaging::Effects &effects = draftLook().effects;
     std::erase_if(effects, [&](const imaging::Effect &e) { return e.id == id; });
@@ -1049,7 +1054,7 @@ void EditorController::setEffect(const QString &id, int amount)
 
 void EditorController::toggleEffect(const QString &id)
 {
-    if (!imaging::isEffect(id) || !currentPhoto() || !editable())
+    if (!imaging::isEffect(id) || !currentPhoto() || !editing())
         return;
     imaging::Effects &effects = draftLook().effects;
     if (imaging::effectAmount(effects, id) > 0) {
@@ -1066,7 +1071,7 @@ void EditorController::toggleEffect(const QString &id)
 
 void EditorController::togglePreset(const QString &id)
 {
-    if (!currentPhoto() || !editable())
+    if (!currentPhoto() || !editing())
         return;
     QString &preset = draftPreset();
     preset = preset == id ? QString() : imaging::normalizePreset(id);
@@ -1076,7 +1081,7 @@ void EditorController::togglePreset(const QString &id)
 void EditorController::autoAdjust()
 {
     const Photo *p = currentPhoto();
-    if (!p || !editable())
+    if (!p || !editing())
         return;
     setBusy(true);
     guarded([&]() { m_project->runAuto(*p, m_activeLayer); });
@@ -1087,7 +1092,7 @@ void EditorController::autoAdjust()
 void EditorController::reset()
 {
     const Photo *p = currentPhoto();
-    if (!p || !editable())
+    if (!p || !editing())
         return;
     guarded([&]() { m_project->reset(*p); });
     m_activeLayer.clear();
@@ -1111,7 +1116,7 @@ double EditorController::cropMaxScaleFor(double angle) const
 void EditorController::setCrop(const QVariantMap &crop)
 {
     const Photo *p = currentPhoto();
-    if (!p || !editable())
+    if (!p || !editing())
         return;
     m_draft.crop = imaging::normalizeCrop(cropFrom(crop, m_draft.crop), p->aspect(), m_project->cropRatios(*p));
     emit stateChanged();
@@ -1181,7 +1186,7 @@ double EditorController::selectionCoverage() const
 void EditorController::beginSelection(const QString &layerId)
 {
     const Photo *p = currentPhoto();
-    if (!p || !m_project || !editable())
+    if (!p || !m_project || !editing())
         return;
     if (layerId.isEmpty() && static_cast<int>(m_draft.layers.size()) >= imaging::kMaxLayers)
         return;
@@ -1423,17 +1428,49 @@ void EditorController::toggleCover()
 void EditorController::toggleInstagram()
 {
     const Photo *p = currentPhoto();
-    if (!p || !editable())
+    if (!p)
         return;
+    // Já estou na versão: volto à foto de origem. Na visualização "Instagram"
+    // a origem não aparece, então saio dela para as fotos antes de selecionar.
     if (p->isInstagram()) {
-        selectPhoto(p->instagramOf);
+        const QString origin = p->instagramOf;
+        if (m_view != QLatin1String("photos"))
+            setView(QStringLiteral("photos"));
+        selectPhoto(origin);
         return;
     }
+    if (!editable())
+        return;
     guarded([&]() {
         const auto [version, created] = m_project->createInstagramVersion(*p);
         if (created)
             setStatus(QStringLiteral("status.instagramCreated"), {{QStringLiteral("name"), version.fileName}});
         reload(version.id);
+    });
+}
+
+void EditorController::removeInstagramVersion()
+{
+    const Photo *p = currentPhoto();
+    if (!p)
+        return;
+    guarded([&]() {
+        // A versão pode estar sendo vista (sou eu) ou pertencer à foto atual.
+        const QString originId = p->isInstagram() ? p->instagramOf : p->id;
+        const Photo origin = m_project->requirePhoto(originId);
+        const auto version = m_project->instagramVersionOf(origin);
+        if (!version)
+            return;
+        const QString name = version->fileName;
+        m_project->deletePhoto(*version);
+        setStatus(QStringLiteral("status.instagramRemoved"), {{QStringLiteral("name"), name}});
+        // A origem não aparece na visualização "Instagram": volto às fotos nela.
+        if (m_view == QLatin1String("instagram")) {
+            setView(QStringLiteral("photos"));
+            selectPhoto(originId);
+        } else {
+            reload(originId);
+        }
     });
 }
 

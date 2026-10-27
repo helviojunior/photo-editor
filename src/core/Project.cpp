@@ -251,9 +251,51 @@ std::vector<Photo> Project::trashedPhotos() const
     return queryPhotos(QStringLiteral("p.status = 'deleted'"));
 }
 
+std::vector<Photo> Project::instagramPhotos() const
+{
+    return queryPhotos(QStringLiteral("p.status = 'active' AND p.instagram_of_id IS NOT NULL"));
+}
+
 int Project::countWithStatus(const QString &status) const
 {
     return m_db.scalar(QStringLiteral("SELECT count(*) FROM photoeditor_photo WHERE status = ?"), {status}).toInt();
+}
+
+int Project::countInstagram() const
+{
+    return m_db
+        .scalar(QStringLiteral(
+            "SELECT count(*) FROM photoeditor_photo WHERE status = 'active' AND instagram_of_id IS NOT NULL"))
+        .toInt();
+}
+
+EventMeta Project::eventMeta() const
+{
+    EventMeta meta;
+    QSqlQuery q = m_db.exec(
+        QStringLiteral("SELECT name, championship, category FROM photoeditor_eventinfo ORDER BY created LIMIT 1"));
+    if (q.next()) {
+        meta.name = q.value(0).toString();
+        meta.championship = q.value(1).toString();
+        meta.category = q.value(2).toString();
+    }
+    return meta;
+}
+
+void Project::setEventMeta(const EventMeta &meta)
+{
+    const QString now = Database::timestamp();
+    const QVariant existing =
+        m_db.scalar(QStringLiteral("SELECT id FROM photoeditor_eventinfo ORDER BY created LIMIT 1"));
+    if (existing.isValid()) {
+        m_db.exec(QStringLiteral("UPDATE photoeditor_eventinfo SET name = ?, championship = ?, category = ?, "
+                                 "updated = ? WHERE id = ?"),
+                  {meta.name, meta.championship, meta.category, now, existing.toString()});
+    } else {
+        m_db.exec(QStringLiteral("INSERT INTO photoeditor_eventinfo (id, created, updated, enabled, name, "
+                                 "championship, category) VALUES (?, ?, ?, 1, ?, ?, ?)"),
+                  {Database::newId(), now, now, meta.name, meta.championship, meta.category});
+    }
 }
 
 // --------------------------------------------------------------------------- //

@@ -42,7 +42,12 @@ Item {
     readonly property bool selecting: App.editor.selecting
     readonly property bool mobile: width < 1024
     readonly property string view: App.editor.view
+    /// Gestão (arquivar, duplicar, capa, merge, rescan) e o layout da filmstrip:
+    /// só nas "Fotos".
     readonly property bool editable: view === "photos"
+    /// Revelação (ajustes, crop, níveis/curvas/efeitos, seleção): também na
+    /// visualização "Instagram", editando a versão no lugar, sem trocar de filtro.
+    readonly property bool editing: view === "photos" || view === "instagram"
     /// A visualização atual não tem foto nenhuma.
     readonly property bool listEmpty: App.editor.photos.count === 0
     /// O projeto não tem foto nenhuma, em lugar nenhum: a tela inteira vira o
@@ -74,7 +79,7 @@ Item {
             return;
         _photoId = id;
         whitePicking = false;
-        cropMode = hasCurrent && editable && current.isInstagram === true;
+        cropMode = hasCurrent && editing && current.isInstagram === true;
         if (cropMode)
             baseScale = App.editor.crop.scale;
         if (selecting)
@@ -82,7 +87,7 @@ Item {
     }
 
     function setCropMode(on) {
-        if (on && (!hasCurrent || selecting || !editable))
+        if (on && (!hasCurrent || selecting || !editing))
             return;
         cropMode = on;
         if (on) {
@@ -92,7 +97,7 @@ Item {
     }
 
     function setWhitePicking(on) {
-        if (on && (!hasCurrent || selecting || !editable))
+        if (on && (!hasCurrent || selecting || !editing))
             return;
         if (on)
             cropMode = false;
@@ -125,7 +130,7 @@ Item {
 
     /// Modo seleção: camada nova ('') ou a área de uma existente.
     function startSelect(layerId) {
-        if (!hasCurrent || !editable)
+        if (!hasCurrent || !editing)
             return;
         if (!layerId && App.editor.layers.length >= App.editor.maxLayers)
             return;
@@ -195,11 +200,13 @@ Item {
         case "purgePhoto": confirmPurge(); break;
         case "emptyTrash": confirmEmptyTrash(); break;
         case "showPhotos": App.editor.view = "photos"; break;
+        case "showInstagram": App.editor.view = "instagram"; break;
         case "showArchived": App.editor.view = "archived"; break;
         case "showTrash": App.editor.view = "trash"; break;
         case "duplicate": App.editor.duplicateCurrent(); break;
         case "cover": App.editor.toggleCover(); break;
         case "instagram": App.editor.toggleInstagram(); break;
+        case "removeInstagram": App.editor.removeInstagramVersion(); break;
         case "rescan": App.editor.rescan(); break;
         case "merge": App.editor.picking = !App.editor.picking; break;
         case "undo": App.editor.undo(); break;
@@ -276,8 +283,10 @@ Item {
     // As teclas vêm do Keymap (trocáveis no editor de atalhos); as condições
     // de cada uma ficam aqui.
     readonly property bool _photoKeys: keysActive && !selecting && !App.editor.picking && hasCurrent
-    /// Teclas que editam: só na visualização das fotos.
+    /// Teclas de GESTÃO (rescan, merge): só na visualização das fotos.
     readonly property bool _editKeys: keysActive && editable
+    /// Teclas de REVELAÇÃO (auto, crop, níveis, seleção…): também no Instagram.
+    readonly property bool _develKeys: keysActive && editing
     Shortcut {
         sequences: Keymap.keys("nextPhoto")
         enabled: page.keysActive && !page._arrowFocus && !page.selecting
@@ -328,6 +337,12 @@ Item {
         onActivated: page.run("showPhotos")
     }
     Shortcut {
+        sequences: Keymap.keys("showInstagram")
+        autoRepeat: false
+        enabled: page.keysActive && !page.selecting
+        onActivated: page.run("showInstagram")
+    }
+    Shortcut {
         sequences: Keymap.keys("showArchived")
         autoRepeat: false
         enabled: page.keysActive && !page.selecting
@@ -354,8 +369,14 @@ Item {
     Shortcut {
         sequences: Keymap.keys("instagram")
         autoRepeat: false
-        enabled: page._photoKeys && page.editable
+        enabled: page._photoKeys && (page.editable || page.view === "instagram")
         onActivated: page.run("instagram")
+    }
+    Shortcut {
+        sequences: Keymap.keys("removeInstagram")
+        autoRepeat: false
+        enabled: page._photoKeys && (page.editable || page.view === "instagram") && page.current.isInstagram === true
+        onActivated: page.run("removeInstagram")
     }
     Shortcut {
         sequences: Keymap.keys("rescan")
@@ -384,31 +405,31 @@ Item {
     Shortcut {
         sequences: Keymap.keys("auto")
         autoRepeat: false
-        enabled: page._editKeys && !page.selecting && page.hasCurrent
+        enabled: page._develKeys && !page.selecting && page.hasCurrent
         onActivated: page.run("auto")
     }
     Shortcut {
         sequences: Keymap.keys("reset")
         autoRepeat: false
-        enabled: page._editKeys && !page.selecting && page.hasCurrent
+        enabled: page._develKeys && !page.selecting && page.hasCurrent
         onActivated: page.run("reset")
     }
     Shortcut {
         sequences: Keymap.keys("crop")
         autoRepeat: false
-        enabled: page._editKeys && !page.selecting && page.hasCurrent
+        enabled: page._develKeys && !page.selecting && page.hasCurrent
         onActivated: page.run("crop")
     }
     Shortcut {
         sequences: Keymap.keys("nextLayer")
         autoRepeat: false
-        enabled: page._editKeys && !page.selecting && !page.cropMode
+        enabled: page._develKeys && !page.selecting && !page.cropMode
         onActivated: page.run("nextLayer")
     }
     Shortcut {
         sequences: Keymap.keys("whitePicker")
         autoRepeat: false
-        enabled: page._editKeys && !page.selecting && page.hasCurrent
+        enabled: page._develKeys && !page.selecting && page.hasCurrent
         onActivated: page.run("whitePicker")
     }
     // Abas do painel de edição (Alt+1..4).
@@ -420,7 +441,7 @@ Item {
             Shortcut {
                 sequences: Keymap.keys(tabKey.modelData)
                 autoRepeat: false
-                enabled: page._editKeys && !page.selecting && Keymap.keys(tabKey.modelData).length > 0
+                enabled: page._develKeys && !page.selecting && Keymap.keys(tabKey.modelData).length > 0
                 onActivated: page.run(tabKey.modelData)
             }
         }
@@ -428,7 +449,7 @@ Item {
     Shortcut {
         sequences: Keymap.keys("selectArea")
         autoRepeat: false
-        enabled: page._editKeys && page.hasCurrent
+        enabled: page._develKeys && page.hasCurrent
         onActivated: page.run("selectArea")
     }
     Shortcut {
@@ -518,6 +539,15 @@ Item {
                 title: qsTr("The trash is empty"),
                 hint: qsTr("Photos moved to the trash wait here until you restore them or delete them permanently.")
             };
+        if (view === "instagram") {
+            const key = Keymap.label("instagram");
+            return {
+                icon: "instagram",
+                title: qsTr("No Instagram versions"),
+                hint: key !== "" ? qsTr("Press %1 on a photo to create its Instagram version.").arg(key)
+                                 : qsTr("Create a photo's Instagram version to prepare it for the feed.")
+            };
+        }
         return {
             icon: "image-off",
             title: qsTr("No photos in the catalog"),
@@ -601,7 +631,7 @@ Item {
                     brush: brush
                     busy: page.selecting && App.editor.selectionBusy
                     maskUrl: page.selecting ? App.editor.selectionMaskUrl
-                           : page.editable ? App.editor.activeLayerMaskUrl : ""
+                           : page.editing ? App.editor.activeLayerMaskUrl : ""
                     faint: !page.selecting
                     picking: page.whitePicking
                     pickHint: qsTr("Click a white or neutral area of the photo")
@@ -746,12 +776,22 @@ Item {
                         Button {
                             Layout.fillWidth: true
                             Layout.topMargin: 4
-                            visible: page.editable && page.current.isInstagram === true
+                            visible: page.current.isInstagram === true && (page.editable || page.view === "instagram")
                             variant: "outline"
                             size: "sm"
                             iconName: "chevron-left"
                             text: qsTr("Back to the photo") + Keymap.hint("instagram")
                             onClicked: App.editor.toggleInstagram()
+                        }
+                        Button {
+                            Layout.fillWidth: true
+                            Layout.topMargin: 4
+                            visible: page.current.isInstagram === true && (page.editable || page.view === "instagram")
+                            variant: "outline"
+                            size: "sm"
+                            iconName: "trash-2"
+                            text: qsTr("Remove Instagram version")
+                            onClicked: App.editor.removeInstagramVersion()
                         }
 
                         // Arquivada ou na lixeira: onde ela está e o caminho de volta.
@@ -762,7 +802,7 @@ Item {
 
                             Layout.fillWidth: true
                             Layout.topMargin: 8
-                            visible: !page.editable
+                            visible: !page.editable && page.view !== "instagram"
                             implicitHeight: bannerColumn.implicitHeight + 24
                             radius: Theme.radiusMd
                             color: trash ? Theme.alpha(Theme.amber400, 0.12) : Theme.muted
@@ -842,7 +882,7 @@ Item {
                         id: editPanel
                         Layout.fillWidth: true
                         Layout.margins: 16
-                        visible: !page.selecting && page.editable
+                        visible: !page.selecting && page.editing
                         disabled: !page.hasCurrent
                         cropMode: page.cropMode
                         whitePicking: page.whitePicking
@@ -856,7 +896,7 @@ Item {
 
                     Separator {
                         Layout.fillWidth: true
-                        visible: page.editable
+                        visible: page.editing
                     }
                     PhotoHistory {
                         Layout.fillWidth: true

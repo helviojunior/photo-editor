@@ -302,6 +302,36 @@ private slots:
         QVERIFY(!project.state(p).isNeutral());
     }
 
+    void eventMetaRoundTrips()
+    {
+        // Dados do evento (passo 15): vazios no início, persistem ao reabrir.
+        QTemporaryDir dir;
+        const QString root = makeProject(dir, 1);
+        {
+            Project project(root);
+            const EventMeta empty = project.eventMeta();
+            QVERIFY(empty.name.isEmpty());
+            QVERIFY(empty.championship.isEmpty());
+            QVERIFY(empty.category.isEmpty());
+            EventMeta meta;
+            meta.name = QStringLiteral("Final da Copa");
+            meta.championship = QStringLiteral("Liga Regional");
+            meta.category = QStringLiteral("Sub-15");
+            project.setEventMeta(meta);
+            // Segunda gravação atualiza a mesma linha (singleton).
+            meta.category = QStringLiteral("Sub-17");
+            project.setEventMeta(meta);
+        }
+        {
+            Project project(root);
+            const EventMeta meta = project.eventMeta();
+            QCOMPARE(meta.name, QStringLiteral("Final da Copa"));
+            QCOMPARE(meta.championship, QStringLiteral("Liga Regional"));
+            QCOMPARE(meta.category, QStringLiteral("Sub-17"));
+            QCOMPARE(project.db().scalar(QStringLiteral("SELECT count(*) FROM photoeditor_eventinfo")).toInt(), 1);
+        }
+    }
+
     void migratesFromStep13()
     {
         QTemporaryDir dir;
@@ -325,12 +355,15 @@ private slots:
             for (const char *col : {"levels", "curves", "effects"})
                 QVERIFY2(q.exec(QStringLiteral("ALTER TABLE photoeditor_adjustment DROP COLUMN %1").arg(QLatin1String(col))),
                          qPrintable(q.lastError().text()));
+            // Volta mesmo ao passo 13: desfaz também a tabela do passo 15, para a
+            // migração recriá-la do zero.
+            QVERIFY2(q.exec(QStringLiteral("DROP TABLE photoeditor_eventinfo")), qPrintable(q.lastError().text()));
             QVERIFY(q.exec(QStringLiteral("PRAGMA user_version = 13")));
             raw.close();
         }
         QSqlDatabase::removeDatabase(QStringLiteral("step13"));
         Project project(root);
-        QCOMPARE(project.db().schemaVersion(), 14);
+        QCOMPARE(project.db().schemaVersion(), Database::latestSchemaVersion());
         const Photo p = project.requirePhoto(photoId);
         QCOMPARE(project.state(p).values[imaging::Contrast], 40.0);
         QVERIFY(project.state(p).look.isIdentity());

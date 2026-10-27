@@ -3,7 +3,7 @@ import QtQuick
 import QtQuick.Templates as T
 import PhotoEditor
 
-// O que a filmstrip mostra (App.editor.view): Fotos | Arquivadas | Lixeira.
+// O que a filmstrip mostra (App.editor.view): Fotos | Instagram | Arquivadas | Lixeira.
 // Controle segmentado compacto: uma moldura só, o segmento ativo no acento
 // da marca; a contagem de arquivadas e da lixeira vai ao lado do rótulo e
 // some quando é zero. ``compact`` (barra estreita) deixa só ícone e
@@ -15,6 +15,7 @@ Rectangle {
 
     readonly property var options: [
         { value: "photos", text: qsTr("Photos"), icon: "image", count: -1 },
+        { value: "instagram", text: qsTr("Instagram"), icon: "instagram", count: App.editor.instagramCount },
         { value: "archived", text: qsTr("Archived"), icon: "archive", count: App.editor.archivedCount },
         { value: "trash", text: qsTr("Trash"), icon: "trash-2", count: App.editor.trashCount }
     ]

@@ -200,34 +200,32 @@ void InstagramController::handle(const QJsonObject &message)
         QVariantMap p = m_publish;
         if (state == QLatin1String("running")) {
             p[QStringLiteral("phase")] = QStringLiteral("upload");
+            setPublish(p);
         } else if (state == QLatin1String("done")) {
-            p[QStringLiteral("running")] = false;
-            p[QStringLiteral("url")] = message.value(QStringLiteral("url")).toString();
-            // Grava o post no catálogo (photoeditor_instagrampost).
-            if (Project *project = m_editor->project()) {
-                QJsonArray ids;
-                for (const QString &id : m_publishIds)
-                    ids.append(Project::dashedId(id));
-                try {
-                    project->db().exec(
-                        QStringLiteral("INSERT INTO photoeditor_instagrampost (id, created, updated, enabled, username, "
-                                       "media_id, code, caption, photos) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)"),
-                        {Database::newId(), Database::timestamp(), Database::timestamp(),
-                         message.value(QStringLiteral("username")).toString(),
-                         message.value(QStringLiteral("media_id")).toVariant().toString(),
-                         message.value(QStringLiteral("code")).toString(), m_publishCaption,
-                         QString::fromUtf8(QJsonDocument(ids).toJson(QJsonDocument::Compact))});
-                } catch (const std::exception &e) {
-                    qCWarning(lcInstagram) << "Could not record the post:" << e.what();
-                }
+            // Grava este post e segue para o próximo lote, se houver.
+            recordPost(message);
+            m_publishUrls << message.value(QStringLiteral("url")).toString();
+            qCInfo(lcInstagram) << "Published post" << (m_publishBatch + 1) << "of" << m_publishBatches.size() << ":"
+                                << m_publishUrls.last();
+            if (m_publishBatch + 1 < m_publishBatches.size()) {
+                publishBatch(++m_publishBatch);
+            } else {
+                p[QStringLiteral("running")] = false;
+                p[QStringLiteral("url")] = m_publishUrls.value(0);
+                p[QStringLiteral("urls")] = m_publishUrls;
+                setPublish(p);
             }
-            qCInfo(lcInstagram) << "Published:" << p.value(QStringLiteral("url")).toString();
         } else if (state == QLatin1String("error")) {
             p[QStringLiteral("running")] = false;
             p[QStringLiteral("error")] = message.value(QStringLiteral("error")).toString();
             p[QStringLiteral("detail")] = message.value(QStringLiteral("detail")).toString();
+            // Posts já publicados deste envio ficam registrados; some em quantos parou.
+            if (!m_publishUrls.isEmpty()) {
+                p[QStringLiteral("urls")] = m_publishUrls;
+                p[QStringLiteral("doneCount")] = m_publishUrls.size();
+            }
+            setPublish(p);
         }
-        setPublish(p);
         return;
     }
     const int id = message.value(QStringLiteral("id")).toInt(-1);
@@ -344,7 +342,11 @@ QVariantMap InstagramController::eventInfo() const
         if (!last.isValid() || p.capturedAt > last)
             last = p.capturedAt;
     }
-    return {{QStringLiteral("name"), project->paths().name()},
+    const EventMeta meta = project->eventMeta();
+    const QString name = meta.name.isEmpty() ? project->paths().name() : meta.name;
+    return {{QStringLiteral("name"), name},
+            {QStringLiteral("championship"), meta.championship},
+            {QStringLiteral("category"), meta.category},
             {QStringLiteral("first"), first.isValid() ? QVariant(first.toLocalTime()) : QVariant()},
             {QStringLiteral("last"), last.isValid() ? QVariant(last.toLocalTime()) : QVariant()},
             {QStringLiteral("photos"), count}};
@@ -378,8 +380,10 @@ void InstagramController::startPublish(const QStringList &photoIds, const QStrin
     auto failWith = [this](const QString &key, const QVariantMap &params = {}) {
         setPublish({{QStringLiteral("running"), false}, {QStringLiteral("error"), key}, {QStringLiteral("params"), params}});
     };
-    if (ids.size() > kMaxPhotos)
-        return failWith(QStringLiteral("instagram.tooMany"), {{QStringLiteral("max"), kMaxPhotos}});
+    // Cada post é um carrossel de até kMaxPhotos; acima disso, vários posts.
+    const int postEstimate = (ids.size() + kMaxPhotos - 1) / kMaxPhotos;
+    if (postEstimate > kMaxPosts)
+        return failWith(QStringLiteral("instagram.tooManyPosts"), {{QStringLiteral("max"), kMaxPhotos * kMaxPosts}});
     std::vector<Photo> photos;
     QStringList outside;
     for (const QString &id : ids) {
@@ -396,23 +400,46 @@ void InstagramController::startPublish(const QStringList &photoIds, const QStrin
     if (!outside.isEmpty())
         return failWith(QStringLiteral("instagram.outOfFeed"), {{QStringLiteral("name"), outside.join(QStringLiteral(", "))}});
     const QString text = caption.trimmed();
-    if (text.size() > kCaptionMax)
-        return failWith(QStringLiteral("instagram.captionTooLong"), {{QStringLiteral("max"), kCaptionMax}});
+    // Com vários posts a legenda ganha o prefixo "Parte i/N": reservo o espaço
+    // dele para nenhum post estourar o limite.
+    const int reserve = photos.size() > kMaxPhotos ? tr("Part %1/%2").arg(99).arg(99).size() + 2 : 0;
+    if (text.size() + reserve > kCaptionMax)
+        return failWith(QStringLiteral("instagram.captionTooLong"), {{QStringLiteral("max"), kCaptionMax - reserve}});
     if (!connected())
         return failWith(QStringLiteral("instagram.notConnected"));
 
-    m_publishIds = ids;
+    // Monta os lotes (ids e arquivos) preservando a ordem escolhida.
+    m_publishBatches.clear();
+    m_publishFiles.clear();
+    m_publishUrls.clear();
     m_publishCaption = text;
+    m_publishBatch = 0;
+    const QString dir = project->paths().instagramDir();
+    QStringList batchIds, batchFiles;
+    for (const Photo &p : photos) {
+        batchIds << p.id;
+        batchFiles << QDir(dir).filePath(p.fileName);
+        if (batchIds.size() == kMaxPhotos) {
+            m_publishBatches << batchIds;
+            m_publishFiles << batchFiles;
+            batchIds.clear();
+            batchFiles.clear();
+        }
+    }
+    if (!batchIds.isEmpty()) {
+        m_publishBatches << batchIds;
+        m_publishFiles << batchFiles;
+    }
+
     setPublish({{QStringLiteral("running"), true},
                 {QStringLiteral("phase"), QStringLiteral("export")},
                 {QStringLiteral("done"), 0},
-                {QStringLiteral("total"), static_cast<int>(photos.size())}});
+                {QStringLiteral("total"), static_cast<int>(photos.size())},
+                {QStringLiteral("post"), 1},
+                {QStringLiteral("posts"), m_publishBatches.size()}});
 
     // Exporta as versões (o que já está em dia é pulado). Cada uma leva menos
     // de um segundo; a barra de progresso é atualizada entre elas.
-    QStringList files;
-    for (const Photo &p : photos)
-        files << QDir(project->paths().instagramDir()).filePath(p.fileName);
     for (const Photo &p : photos) {
         try {
             Exporter::writePhoto(*project, p);
@@ -425,7 +452,47 @@ void InstagramController::startPublish(const QStringList &photoIds, const QStrin
         setPublish(p2);
         QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
     }
-    uploadFiles(files, text, ids);
+    publishBatch(0);
+}
+
+void InstagramController::publishBatch(int index)
+{
+    QVariantMap p = m_publish;
+    p[QStringLiteral("phase")] = QStringLiteral("upload");
+    p[QStringLiteral("post")] = index + 1;
+    p[QStringLiteral("posts")] = m_publishBatches.size();
+    setPublish(p);
+    uploadFiles(m_publishFiles.value(index), captionForBatch(index), m_publishBatches.value(index));
+}
+
+QString InstagramController::captionForBatch(int index) const
+{
+    if (m_publishBatches.size() <= 1)
+        return m_publishCaption;
+    const QString part = tr("Part %1/%2").arg(index + 1).arg(m_publishBatches.size());
+    return m_publishCaption.isEmpty() ? part : part + QStringLiteral("\n\n") + m_publishCaption;
+}
+
+void InstagramController::recordPost(const QJsonObject &message)
+{
+    Project *project = m_editor->project();
+    if (!project)
+        return;
+    QJsonArray ids;
+    for (const QString &id : m_publishBatches.value(m_publishBatch))
+        ids.append(Project::dashedId(id));
+    try {
+        project->db().exec(
+            QStringLiteral("INSERT INTO photoeditor_instagrampost (id, created, updated, enabled, username, "
+                           "media_id, code, caption, photos) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)"),
+            {Database::newId(), Database::timestamp(), Database::timestamp(),
+             message.value(QStringLiteral("username")).toString(),
+             message.value(QStringLiteral("media_id")).toVariant().toString(),
+             message.value(QStringLiteral("code")).toString(), captionForBatch(m_publishBatch),
+             QString::fromUtf8(QJsonDocument(ids).toJson(QJsonDocument::Compact))});
+    } catch (const std::exception &e) {
+        qCWarning(lcInstagram) << "Could not record the post:" << e.what();
+    }
 }
 
 void InstagramController::uploadFiles(const QStringList &files, const QString &caption, const QStringList &ids)

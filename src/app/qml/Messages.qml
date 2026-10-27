@@ -121,8 +121,12 @@ QtObject {
             return qsTr("Outside the formats the feed accepts (a 1.91:1 frame turned past 45° becomes vertical 1:1.91): %1. Turn the frame back or choose another format.").arg(name);
         case "instagram.tooMany":
             return qsTr("An Instagram post takes at most %1 photos.").arg(p.max !== undefined ? p.max : 10);
+        case "instagram.tooManyPosts":
+            return qsTr("Too many photos at once: up to %1 can be published in one go.").arg(p.max !== undefined ? p.max : 100);
         case "instagram.captionTooLong":
             return qsTr("The caption is longer than the %1 characters Instagram accepts.").arg(p.max !== undefined ? p.max : 2200);
+        case "event.saveFailed":
+            return qsTr("The event details could not be saved.");
         }
         if (key)
             console.warn("No message for error key", key);
@@ -232,6 +236,8 @@ QtObject {
             return qsTr("%1 created: same file, its own adjustments.").arg(name);
         case "status.instagramCreated":
             return qsTr("Instagram version created: %1.").arg(name);
+        case "status.instagramRemoved":
+            return qsTr("Instagram version moved to the trash: %1.").arg(name);
         case "status.undone":
             return qsTr("Undone: %1.").arg(actionName(p.kind));
         case "status.nothingToUndo":

@@ -10,6 +10,7 @@ import PhotoEditor
 //   "editor"    pages/EditorPage.qml   (mantido carregado enquanto há projeto)
 //   "merge"     pages/MergePage.qml
 //   "instagram" pages/InstagramSettingsPage.qml
+//   "event"     pages/EventPage.qml
 //
 // À esquerda de toda tela, o trilho lateral (ActivityRail); no cabeçalho, a
 // busca de ações, desfazer/refazer e Exportar (AppHeader).
@@ -217,12 +218,16 @@ QQC.ApplicationWindow {
                 editorAction("tabEffects", qsTr("Edit panel: Effects"));
                 editorAction("instagram", App.editor.current.isInstagram === true
                     ? qsTr("Back to the photo") : qsTr("Instagram version"));
+                if (App.editor.current.isInstagram === true)
+                    editorAction("removeInstagram");
                 editorAction("duplicate");
                 editorAction("cover", App.editor.current.isCover === true ? qsTr("Unset cover") : qsTr("Set as cover"));
                 editorAction("archivePhoto");
-            } else {
+            } else if (view === "archived" || view === "trash") {
                 editorAction("restorePhoto");
             }
+            if (view === "instagram")
+                editorAction("removeInstagram");
             if (view !== "trash")
                 editorAction("deletePhoto");
             if (view === "trash") {
@@ -232,6 +237,8 @@ QQC.ApplicationWindow {
             }
             if (view !== "photos")
                 editorAction("showPhotos");
+            if (view !== "instagram")
+                editorAction("showInstagram");
             if (view !== "archived")
                 editorAction("showArchived");
             if (view !== "trash")
@@ -266,6 +273,7 @@ QQC.ApplicationWindow {
         add(qsTr("Open project…"), "openProject", "folder-open", () => projectFlows.openDialog());
         add(qsTr("New project…"), "newProject", "folder-plus", () => projectFlows.newProject());
         if (App.hasProject) {
+            add(qsTr("Event details"), "", "calendar", () => App.page = "event");
             add(qsTr("Close project"), "closeProject", "folder-x", () => App.closeProject());
             add(qsTr("Show project folder"), "", "folder-search", () => App.revealInFolder(App.projectPath));
         }
@@ -363,6 +371,15 @@ QQC.ApplicationWindow {
                         back = "editor";
                     App.page = back === "instagram" ? "home" : back;
                 }
+            }
+        }
+
+        Loader {
+            anchors.fill: parent
+            active: App.page === "event" && App.hasProject
+            visible: active
+            sourceComponent: EventPage {
+                onBackRequested: App.page = App.hasProject ? "editor" : "home"
             }
         }
     }

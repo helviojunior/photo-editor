@@ -546,6 +546,11 @@ class Publisher:
 
     def _run(self, publish_id, cl, username, paths, caption):
         base = {'publish_id': publish_id}
+        # O evento terminal (done/error) e emitido SO depois de liberar
+        # ``_running``: assim o cliente pode mandar o proximo post (varios posts
+        # de um envio de 10+ fotos) assim que recebe o 'done', sem corrida com o
+        # 'instagram.publishRunning'.
+        terminal = None
         try:
             emit('publish', **base, state='running', phase='upload', total=len(paths))
             log.info("Publishing %d photo(s) to @%s", len(paths), username)
@@ -558,8 +563,7 @@ class Publisher:
             media_id = str(getattr(media, 'pk', '') or '')
             url = f'https://www.instagram.com/p/{code}/' if code else ''
             log.info("Published to @%s: %s", username, url or media_id)
-            emit('publish', **base, state='done', media_id=media_id, code=code, url=url,
-                 username=username)
+            terminal = dict(state='done', media_id=media_id, code=code, url=url, username=username)
         except Exception as exc:
             key = error_key(exc)
             if key == 'instagram.failed':
@@ -567,10 +571,11 @@ class Publisher:
                 log.exception("Instagram publish failed")
             else:
                 log.warning("Instagram publish failed: %s: %s", type(exc).__name__, exc)
-            emit('publish', **base, state='error', error=key, detail=_detail(exc, key))
+            terminal = dict(state='error', error=key, detail=_detail(exc, key))
         finally:
             with self._lock:
                 self._running = False
+        emit('publish', **base, **terminal)
 
 
 # --------------------------------------------------------------------------- #

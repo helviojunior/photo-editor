@@ -65,4 +65,21 @@
         </translation>
     </message>
 </context>
+<context>
+    <name>InstagramPublishDialog</name>
+    <message numerus="yes">
+        <source>Published %n post(s) on Instagram.</source>
+        <translation>
+            <numerusform>Published %n post on Instagram.</numerusform>
+            <numerusform>Published %n posts on Instagram.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n post(s) were published before the error.</source>
+        <translation>
+            <numerusform>%n post was published before the error.</numerusform>
+            <numerusform>%n posts were published before the error.</numerusform>
+        </translation>
+    </message>
+</context>
 </TS>

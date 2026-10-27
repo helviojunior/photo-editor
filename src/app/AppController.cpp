@@ -136,12 +136,41 @@ void AppController::setPage(const QString &page)
 
 QString AppController::projectName() const
 {
+    if (!m_project)
+        return {};
+    return m_event.name.isEmpty() ? m_project->paths().name() : m_event.name;
+}
+
+QString AppController::projectFolderName() const
+{
     return m_project ? m_project->paths().name() : QString();
 }
 
 QString AppController::projectPath() const
 {
     return m_project ? QDir::toNativeSeparators(m_project->paths().root()) : QString();
+}
+
+void AppController::saveEvent(const QString &name, const QString &championship, const QString &category)
+{
+    if (!m_project)
+        return;
+    // O nome igual ao da pasta vira vazio: assim ele acompanha a pasta se ela
+    // for renomeada por fora.
+    pe::EventMeta meta;
+    meta.name = name.trimmed() == m_project->paths().name() ? QString() : name.trimmed();
+    meta.championship = championship.trimmed();
+    meta.category = category.trimmed();
+    try {
+        m_project->setEventMeta(meta);
+        m_event = meta;
+    } catch (const std::exception &e) {
+        qCWarning(lcApp) << "Could not save the event data:" << e.what();
+        emit failed(QStringLiteral("event.saveFailed"), {{QStringLiteral("detail"), QString::fromUtf8(e.what())}});
+        return;
+    }
+    // O nome exibido (cabeçalho, título, legenda) depende destes dados.
+    emit projectChanged();
 }
 
 QString AppController::logsDir() const
@@ -361,6 +390,7 @@ bool AppController::openProject(const QString &path)
     }
     if (m_recentDb)
         m_recentDb->touch(root);
+    m_event = m_project->eventMeta();
     m_editor.setProject(m_project.get());
     setLoading({});
     emit projectChanged();
@@ -378,6 +408,7 @@ void AppController::closeProject()
         m_merge.close();
     m_editor.setProject(nullptr);
     m_project.reset();
+    m_event = {};
     ImageRegistry::instance().clear();
     emit projectChanged();
     reloadRecent();

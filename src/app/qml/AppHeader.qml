@@ -86,6 +86,17 @@ Rectangle {
                 visible: nameMouse.containsMouse
             }
         }
+        // Editar os dados do evento (nome, campeonato, categoria).
+        IconButton {
+            visible: App.hasProject
+            diameter: 28
+            iconSize: 15
+            iconName: "pencil"
+            variant: "ghost"
+            active: App.page === "event"
+            tooltip: qsTr("Event details")
+            onClicked: App.page = "event"
+        }
     }
 
     // Busca de ações (paleta de comandos), centrada na janela; encolhe para

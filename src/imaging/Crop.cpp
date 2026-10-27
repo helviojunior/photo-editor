@@ -81,7 +81,12 @@ double cropMaxScale(double angle, double aspect, double ratio)
     const double c = std::abs(std::cos(radians(angle)));
     const double s = std::abs(std::sin(radians(angle)));
     const auto [bw, bh] = cropFrame(ratio, aspect);
-    return std::min({1.0, 1.0 / (bw * c + bh * aspect * s), 1.0 / (bw * s / aspect + bh * c)});
+    // Os dois termos SÃO os limites exatos do quadro girado inscrito na foto.
+    // (Diverge da versão Python/JS, que ainda travava em 1.0: a 0° um dos
+    // termos já vale 1.0, mas num quarto de volta — 90°/270°, que troca
+    // retrato/paisagem num ratio fixo do Instagram — o quadro invertido cabe
+    // MAIOR que a referência a 0°, e aquela trava o impedia de crescer.)
+    return std::min(1.0 / (bw * c + bh * aspect * s), 1.0 / (bw * s / aspect + bh * c));
 }
 
 double closestRatio(double target, const std::vector<double> &ratios)

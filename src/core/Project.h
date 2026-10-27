@@ -115,7 +115,16 @@ public:
     int emptyTrash();
     std::vector<Photo> archivedPhotos() const;
     std::vector<Photo> trashedPhotos() const;
+    /// As versões Instagram ativas (a visualização "Instagram" da filmstrip).
+    std::vector<Photo> instagramPhotos() const;
     int countWithStatus(const QString &status) const;
+    /// Quantas versões Instagram ativas existem (o selo da visualização).
+    int countInstagram() const;
+    /// Dados editáveis do evento (nome de exibição, campeonato, categoria). Se a
+    /// tabela ainda não tem linha, devolve campos vazios.
+    EventMeta eventMeta() const;
+    /// Grava os dados do evento (cria a linha singleton na primeira vez).
+    void setEventMeta(const EventMeta &meta);
     Photo duplicate(const Photo &p);
     Photo setCover(const Photo &p, bool on);
     std::optional<Photo> cover() const;
